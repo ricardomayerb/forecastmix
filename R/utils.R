@@ -1,4 +1,5 @@
 library(tibbletime)
+library(xts)
 library(readxl)
 library(timetk)
 library(dplyr)
@@ -8,6 +9,7 @@ library(purrr)
 library(lubridate)
 library(forecast)
 library(tictoc)
+
 
 
 comb_ndiffs <- function(this_series, return_4_seas = FALSE, 
@@ -66,6 +68,14 @@ comb_ndiffs <- function(this_series, return_4_seas = FALSE,
 
 drop_this_vars <- function(df, vars_to_drop) {
   new_df <- df[,!(names(df) %in% vars_to_drop)]
+}
+
+fcs_accu <- function(fc_mat, test_data_mat) {
+  
+  errors_mat <- test_data_mat - fc_mat
+  rmse_vec <- sqrt(colMeans(errors_mat^2))
+  mean_rmse <- mean(rmse_vec)
+  return(mean_rmse)
 }
 
 
@@ -325,6 +335,81 @@ get_reco_from_sta <- function(stdata, variable_name) {
   #   filter(recommendation == "diff_yoy")
   
   return(country_recos)
+}
+
+
+make_test_dates_list <- function(ts_data, type = "tscv", n = 8, h_max = 6,
+                                 timetk_idx = TRUE, training_length = 20,
+                                 external_idx = NULL) {
+  
+  data_length <- nrow(ts_data)
+
+  date_time_index <- as.yearqtr(time(ts_data))
+  
+  list_of_positions <- list_along(seq(1:n))
+  list_of_dates <- list_along(seq(1:n))
+  list_of_year_quarter <- list_along(seq(1:n))
+  
+  if (type == "tscv") {
+    
+    for (i in seq.int(1:n)) {
+      
+      from_the_right <-  i - 1
+      
+      end_test_pos <- data_length - from_the_right 
+      start_test_pos <- end_test_pos - h_max + 1
+      end_training_pos <- start_test_pos - 1
+      start_training_pos <- end_training_pos - training_length + 1
+      
+      
+      end_test_date <- date_time_index[end_test_pos]
+      start_test_date <- date_time_index[start_test_pos] 
+      end_training_date <- date_time_index[end_training_pos]
+      start_training_date <- date_time_index[start_training_pos]
+      
+      end_test_year <- year(end_test_date)
+      start_test_year <- year(start_test_date) 
+      end_training_year <- year(end_training_date) 
+      start_training_year <- year(start_training_date)
+      
+      end_test_quarter <- quarter(end_test_date)
+      start_test_quarter <- quarter(start_test_date) 
+      end_training_quarter <- quarter(end_training_date) 
+      start_training_quarter <- quarter(start_training_date)
+      
+      this_pos <- list(
+        tra_s = start_training_pos, 
+        tra_e = end_training_pos,
+        tes_s = start_test_pos, 
+        tes_e = end_test_pos)
+      
+      this_date <- list(
+        tra_s = start_training_date, 
+        tra_e = end_training_date,
+        tes_s = start_test_date, 
+        tes_e = end_test_date)
+      
+      this_yq <- list(
+        tra_s = c(start_training_year, start_training_quarter),
+        tra_e = c(end_training_year, end_training_quarter),
+        tes_s = c(start_test_year, start_test_quarter),
+        tes_e = c(end_test_year, end_test_quarter)
+      )
+      
+      list_of_positions[[i]] <- this_pos
+      list_of_dates[[i]] <- this_date
+      list_of_year_quarter[[i]] <- this_yq
+      
+    }
+    
+    return(list(
+      list_of_year_quarter = list_of_year_quarter,
+      list_of_dates = list_of_dates,
+      list_of_positions = list_of_positions)
+    )
+    
+  }
+  
 }
 
 

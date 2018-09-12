@@ -27,7 +27,7 @@ rgdp_rec <- reco_all_variables[reco_all_variables$variable == "rgdp", ][["kpss_0
 print(rgdp_rec)
 
 n_best <- 5
-number_of_cv <- 8
+number_of_cv <- 3
 fc_horizon <- 7
 # fc_horizon is set to 7 because 8 is too long for peru
 train_span <- 25
@@ -39,33 +39,70 @@ if (train_span+fc_horizon+number_of_cv > nrow(VAR_data_for_estimation)) {
   stop()
   
 }
-# one_time bt test, to get an intitial idea of the most important variables
 
 target_variable <- c("rgdp")
 
-# this_bt = 1.5 test. 21.63733 minutes
 
 # vec_a_priori_variables <- c("rpc")
 vec_a_priori_variables <- c("")
-
 ret_cv = TRUE
 
-tictoc::tic()
-var_res_1 <- search_var(vec_size = 2, 
-                                 vec_lags = c(1,2,3,4,5),
-                                 var_data = VAR_data_for_estimation,
-                                 rgdp_level_ts = rgdp_level_ts, 
-                                 target_v = target_variable,
-                                 pre_selected_v = c(""), 
-                                 is_cv = TRUE,
-                                 training_length = train_span,
-                                 h_max = fc_horizon, n_cv = number_of_cv,
-                                 bt_factor = 0, maxlag_ccm = 8,
-                                 return_cv = ret_cv,
-                                 rgdp_current_form = rgdp_rec)
+vec_lags_1 <- c(1,2,3)
 
-tictoc::toc()
+tic()
+var_res_1 <- search_var(vec_size = 2,
+                        vec_lags = vec_lags_1,
+                        var_data = VAR_data_for_estimation,
+                        rgdp_level_ts = rgdp_level_ts, 
+                        target_v = target_variable,
+                        pre_selected_v = c(""), 
+                        is_cv = TRUE,
+                        training_length = train_span,
+                        h_max = fc_horizon, 
+                        n_cv = number_of_cv,
+                        return_cv = ret_cv,
+                        rgdp_current_form = rgdp_rec,
+                        max_rank = 5, 
+                        check_residuals_cv = TRUE,
+                        check_residuals_full_sample = TRUE)
+
+toc()
 
 models_and_accu_1 <- var_res_1[["accu_rankings_models"]]
 cv_objects_1 <- var_res_1[["cv_objects"]]
+
+foo1 <- models_and_accu_1 %>% 
+  dplyr::select(variables, lags, rmse_1, rank_1, wn_cv, wn_fs) %>% 
+  arrange(rank_1)
+foo1
+
+foo2 <- models_and_accu_1 %>% 
+  dplyr::select(variables, lags, rmse_2, rank_2, wn_cv, wn_fs) %>% 
+  arrange(rank_2)
+foo2
+
+foo3 <- models_and_accu_1 %>% 
+  dplyr::select(variables, lags, rmse_3, rank_3, wn_cv, wn_fs) %>% 
+  arrange(rank_3)
+foo3
+
+foo4 <- models_and_accu_1 %>% 
+  dplyr::select(variables, lags, rmse_4, rank_4, wn_cv, wn_fs) %>% 
+  arrange(rank_4)
+foo4
+
+foo5 <- models_and_accu_1 %>% 
+  dplyr::select(variables, lags, rmse_5, rank_5, wn_cv, wn_fs) %>% 
+  arrange(rank_5)
+foo5
+
+foo6 <- models_and_accu_1 %>% 
+  dplyr::select(variables, lags, rmse_6, rank_6, wn_cv, wn_fs) %>% 
+  arrange(rank_6)
+foo6
+
+foo7 <- models_and_accu_1 %>% 
+  dplyr::select(variables, lags, rmse_7, rank_7, wn_cv, wn_fs) %>% 
+  arrange(rank_7)
+foo7
 
