@@ -1,4 +1,5 @@
 source(file = "./R/utils.R")
+library(MTS)
 library(vars)
 
 
@@ -34,16 +35,17 @@ get_rmses_h_rankings_h <- function(data = cv_objects, h_max = 6){
 check_resid_VAR <- function(fit_VAR, type = "PT.adjusted", lags.pt = 12,
                             pval_ref = 0.05) {
   
-  test_object <- serial.test(fit_VAR)
+  test_object <- try(serial.test(fit_VAR), silent = TRUE)
+  # print(class(test_object))
   
-  pval <- test_object[["serial"]][["p.value"]]
-  
-  pval <- unname(pval)
-  
-  # print("pval")
-  # print(pval)
-  
-  is_white_noise <- pval > pval_ref
+  if (class(test_object) == "try-error") {
+    # print("Running serial.test threw an error.")
+    is_white_noise <- NA
+  } else {
+    pval <- test_object[["serial"]][["p.value"]]
+    pval <- unname(pval)
+    is_white_noise <- pval > pval_ref
+  }
 
   return(is_white_noise)
 }
@@ -72,23 +74,30 @@ get_sets_of_variables <- function(df, this_size, all_variables, already_chosen){
 search_var <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v, 
                        vec_size = c(3,4,5), 
                        vec_lags = c(1,2,3,4), pre_selected_v = "",
-                       is_cv = FALSE, h_max = 5, n_cv = 8,
-                       training_length = 16,
+                       is_cv = FALSE, h_max = 5, 
+                       n_cv = 8,
+                       training_length = 20,
                        return_cv = TRUE,
                        max_rank = 30,
                        rgdp_current_form = "yoy",
                        check_residuals_full_sample = TRUE,
                        check_residuals_cv = TRUE,
                        white_noise_target_ratio = 1,
-                       keep_only_white_noise_fs = TRUE) {
+                       keep_only_white_noise_fs = TRUE,
+                       max_p_for_estimation = 7,
+                       restrict_by_signif = TRUE,
+                       t_tresh = 1.65) {
   
   # print("in try_sizes_vbls_lags, has_timetk_idx(var_data)")
   # print(has_timetk_idx(var_data))
   
   len_size <-  length(vec_size)
-  len_lag <- length(vec_lags)
-  
   all_names <- colnames(var_data)
+  
+  models_with_cv_excercises <- 1
+  models_with_eqn_dropping <- 0
+  
+  binding_max_p <- 0
   
   # i, outer most loop: var size (number of edogenous variables), e.g. 3, then 4, then 5 variables
   ## j, loop through the combination of variables of a fixed size, e.g. all sets of 5 variables
@@ -101,10 +110,9 @@ search_var <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v,
   results_all_models <- list_along(seq.int(1, len_size))
   fcs_var_all_sizes <- list_along(seq.int(1, len_size))
   
-  var_fixed_size_fixed_vset_all_lags <- list_along(seq.int(1, len_lag))
-  fcs_fixed_size_fixed_vset_all_lags <- list_along(seq.int(1, len_lag))
-  
   model_number <- 0
+  models_unstable <- 0
+  models_non_white_fs <- 0
   
   for (i in seq.int(1, len_size)) {
     this_size <- vec_size[i]
@@ -132,54 +140,114 @@ search_var <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v,
       sub_data = var_data[, vbls_for_var]
       sub_data_tk_index <- tk_index(var_data, timetk_idx = TRUE)
       
-      sel <- vars::VARselect(sub_data, type = "const")
       
-      sel_criteria <- sel$selection
+      if (is.numeric(vec_lags)) {
+        p_for_estimation <- unique(vec_lags)
+      }
       
-      print(sel_criteria)
+      if (is.character(vec_lags)) {
+        sel <- vars::VARselect(sub_data, type = "const")
+        sel_criteria <- sel$selection
+        # print("sel_criteria")
+        # print(sel_criteria)
+        cri_names <- c(aic = "AIC(n)", hq = "HQ(n)", sc = "SC(n)")
+        this_cri <- cri_names[vec_lags]
+        named_lags <- sel_criteria[this_cri]
+        # print("named_lags")
+        # print(named_lags)
+        p_for_estimation <- unique(unname(named_lags))
+        max_found_p <- max(p_for_estimation)
+        too_high_p <- p_for_estimation > max_p_for_estimation
+        # print(any(too_high_p))
+        p_for_estimation[too_high_p] <- max_p_for_estimation 
+        # print(p_for_estimation)
+        
+        if(any(too_high_p)) {
+          
+          # print(paste0("One or more lags found larger than max_p_for_estimation (",
+          #              max_p_for_estimation,"). Replace them with max instead"))
+          
+          binding_max_p <- binding_max_p + 1
+          
+        }
+        
+      }
+      
+      len_lag <- length(p_for_estimation)
+      var_fixed_size_fixed_vset_all_lags <- list_along(seq.int(1, len_lag))
+      fcs_fixed_size_fixed_vset_all_lags <- list_along(seq.int(1, len_lag))
+      
+      
+      # sel_mts <- MTS::VARorder(sub_data, output = FALSE, maxp = 10)
+      # print(c(aic = sel_mts$aicor, hq = sel_mts$hqor, bic = sel_mts$bicor))
+      
+      # isel_mts <- MTS::VARorderI(sub_data, output = FALSE, maxp = 10)
+      # print(c(iaic = isel_mts$aicor, ihq = isel_mts$hqor, ibic = isel_mts$bicor))
+      
       
       for (k in seq.int(1, len_lag)) {
         
-        model_number <- model_number + 1
-        
-        this_lag <- vec_lags[k]
+        this_lag <- p_for_estimation[k]
         
         full_sample_var <- vars::VAR(sub_data, type = "const", p = this_lag)
+        model_number <- model_number + 1
         
-        is_stable <- all(vars::roots(full_sample_var) < 1)
-        
-        if(!is_stable) {
-          print("Current VAR not stable. No CV analysis will be done")
-          }
-        
-        if (check_residuals_full_sample) {
-          
-          is_white_noise_fs <- check_resid_VAR(full_sample_var)
-
-          
-        } else {
-          is_white_noise_fs <- TRUE
+        if(restrict_by_signif){
+          full_sample_var <- try(vars::restrict(full_sample_var, method = "ser", 
+                                            thresh = t_tresh), silent = TRUE)
         }
         
-        if (is_white_noise_fs & is_stable) {
-          this_cv <- var_cv(var_data = sub_data, timetk_idx = FALSE,
-                            external_idx = sub_data_tk_index, this_p = this_lag,
-                            this_type = "const", h_max = h_max,
-                            n_cv = n_cv, training_length = training_length, 
-                            test_residuals = check_residuals_cv)
+        if (class(full_sample_var) == "try-error") {
+          print(paste("One or more equations in", paste(colnames(sub_data), collapse = " "),  
+                      ", have no coefficients passing t-treshold =", t_tresh))
+          some_eqn_drop <- TRUE
+          models_with_eqn_dropping <- models_with_eqn_dropping + 1
+          is_stable <- FALSE
+          is_white_noise_fs <- FALSE
           
-          cv_num_of_white_noises <- sum(this_cv[["cv_is_white_noise"]])
+        } 
+        
+        if (! class(full_sample_var) == "try-error") {
+          some_eqn_drop <- FALSE
+          this_root <- vars::roots(full_sample_var)
+          is_stable <- all(this_root < 1)
+          if(!is_stable) {
+              # print("Current VAR not stable. No CV analysis will be done")
+              # print(paste("Roots are", paste(this_root, collapse = ", ")))
+            models_unstable <- models_unstable + 1 
+            }
+          if (check_residuals_full_sample) {
+            is_white_noise_fs <- check_resid_VAR(full_sample_var)
+            if(!is_white_noise_fs) {
+              models_non_white_fs <- models_non_white_fs + 1
+              }
+            } else {
+                is_white_noise_fs <- TRUE
+              }
           
-          ratio_of_white_noises <- cv_num_of_white_noises/n_cv
           
-          overall_cv_white_noise <- ratio_of_white_noises >= white_noise_target_ratio
+          # print("1")
           
-          this_cv[["overall_cv_white_noise"]] <- overall_cv_white_noise
-          this_cv[["is_white_noise_fse"]] <- is_white_noise_fs
-          this_cv[["is_stable"]] <- TRUE
+          if (is_white_noise_fs & is_stable) {
+            models_with_cv_excercises <- models_with_cv_excercises + 1
+            this_cv <- var_cv(var_data = sub_data, timetk_idx = FALSE,
+                              external_idx = sub_data_tk_index, this_p = this_lag,
+                              this_type = "const", h_max = h_max,
+                              n_cv = n_cv, training_length = training_length, 
+                              test_residuals = check_residuals_cv)
+            cv_num_of_white_noises <- sum(this_cv[["cv_is_white_noise"]])
+            ratio_of_white_noises <- cv_num_of_white_noises/n_cv
+            overall_cv_white_noise <- ratio_of_white_noises >= white_noise_target_ratio
+            this_cv[["overall_cv_white_noise"]] <- overall_cv_white_noise
+            this_cv[["is_white_noise_fse"]] <- TRUE
+            this_cv[["is_stable"]] <- TRUE
+            }
         }
         
-        if ( (!is_white_noise_fs) | (!is_stable) ) {
+        # print("2")
+        
+        
+        if ( (!is_white_noise_fs) | (!is_stable) | some_eqn_drop) {
        
           this_cv <- list(cv_errors = list(NULL),
                           cv_test_data = list(NULL),
@@ -194,6 +262,8 @@ search_var <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v,
           this_cv[["is_stable"]] <- is_stable
           
         }
+        
+        this_cv[["some_eqn_drop"]] <- some_eqn_drop
         
         var_fixed_size_fixed_vset_all_lags[[k]] <- this_cv
         
@@ -287,10 +357,19 @@ search_var <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v,
     mutate(cv_vbl_names = map(cv_vbl_names, 1),
            cv_lag = map(cv_lag, 1))
   
-  print(paste("Tried", len_lag, "different choices of lags per each combination"))
   print(paste("Number of models analyzed:", model_number))
+  print(paste("Additionally, performed CV on", models_with_cv_excercises, "of them"))
   print(paste("CV repetitions:", number_of_cv))
-  print(paste("Total estimations and fcs:", number_of_cv*model_number))
+  print(paste("Total estimations (full sample + cv rounds):", 
+              number_of_cv*models_with_cv_excercises + model_number))
+  print(paste("Total times p exceeded max_p_for_e:", binding_max_p))
+  print(paste("Total models dropped after significance restrictions applied:", 
+              models_with_eqn_dropping))
+  print(paste("Total significant models unstable:", 
+              models_unstable))
+  print(paste("Total significant stable models, non-white residuals :", 
+              models_non_white_fs))
+  
   
   cv_objects <- results_all_models %>% dplyr::select(cv_vbl_names, cv_lag, cv_errors, cv_test_data,
                                                      cv_fcs) %>% 
@@ -363,6 +442,10 @@ var_cv <- function(var_data, this_p, this_type = "const", n_cv = 8, h_max = 6,
     
     if (test_residuals) {
       resid_result <- check_resid_VAR(this_var)
+      if(is.na(resid_result)) {
+        print(paste("Error in resid test. Lag is", this_p, ", variables are", 
+              paste(colnames(var_data), collapse = "_")))
+      }
       is_white_noise <- resid_result
     } else {
       is_white_noise <- TRUE

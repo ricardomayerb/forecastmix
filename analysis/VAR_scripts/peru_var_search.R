@@ -47,7 +47,8 @@ target_variable <- c("rgdp")
 vec_a_priori_variables <- c("")
 ret_cv = TRUE
 
-vec_lags_1 <- c(1,2,3)
+# vec_lags_1 <- c(1,2,3)
+vec_lags_1 <- c("hq", "sc")
 
 tic()
 var_res_1 <- search_var(vec_size = 2,
@@ -71,38 +72,89 @@ toc()
 models_and_accu_1 <- var_res_1[["accu_rankings_models"]]
 cv_objects_1 <- var_res_1[["cv_objects"]]
 
-foo1 <- models_and_accu_1 %>% 
-  dplyr::select(variables, lags, rmse_1, rank_1, wn_cv, wn_fs) %>% 
-  arrange(rank_1)
-foo1
 
-foo2 <- models_and_accu_1 %>% 
-  dplyr::select(variables, lags, rmse_2, rank_2, wn_cv, wn_fs) %>% 
-  arrange(rank_2)
-foo2
 
-foo3 <- models_and_accu_1 %>% 
-  dplyr::select(variables, lags, rmse_3, rank_3, wn_cv, wn_fs) %>% 
-  arrange(rank_3)
-foo3
 
-foo4 <- models_and_accu_1 %>% 
-  dplyr::select(variables, lags, rmse_4, rank_4, wn_cv, wn_fs) %>% 
-  arrange(rank_4)
-foo4
+vec_lags_2 <- c("sc")
+tic()
+var_res_2 <- search_var(vec_size = 3,
+                        vec_lags = vec_lags_2,
+                        var_data = VAR_data_for_estimation,
+                        rgdp_level_ts = rgdp_level_ts, 
+                        target_v = target_variable,
+                        pre_selected_v = c(""), 
+                        is_cv = TRUE,
+                        training_length = train_span,
+                        h_max = fc_horizon, 
+                        n_cv = number_of_cv,
+                        return_cv = ret_cv,
+                        rgdp_current_form = rgdp_rec,
+                        max_rank = 5, 
+                        check_residuals_cv = FALSE,
+                        check_residuals_full_sample = TRUE, 
+                        max_p_for_estimation = 6, 
+                        restrict_by_signif = FALSE,
+                        t_tresh = 1.65)
 
-foo5 <- models_and_accu_1 %>% 
-  dplyr::select(variables, lags, rmse_5, rank_5, wn_cv, wn_fs) %>% 
-  arrange(rank_5)
-foo5
+toc()
 
-foo6 <- models_and_accu_1 %>% 
-  dplyr::select(variables, lags, rmse_6, rank_6, wn_cv, wn_fs) %>% 
-  arrange(rank_6)
-foo6
+models_and_accu_2 <- var_res_2[["accu_rankings_models"]]
+cv_objects_2 <- var_res_2[["cv_objects"]]
 
-foo7 <- models_and_accu_1 %>% 
-  dplyr::select(variables, lags, rmse_7, rank_7, wn_cv, wn_fs) %>% 
-  arrange(rank_7)
-foo7
+
+
+
+vec_lags_3 <- c("sc")
+tic()
+var_res_3 <- search_var(vec_size = 4,
+                        vec_lags = vec_lags_3,
+                        var_data = VAR_data_for_estimation,
+                        rgdp_level_ts = rgdp_level_ts, 
+                        target_v = target_variable,
+                        pre_selected_v = c(""), 
+                        is_cv = TRUE,
+                        training_length = train_span,
+                        h_max = fc_horizon, 
+                        n_cv = number_of_cv,
+                        return_cv = ret_cv,
+                        rgdp_current_form = rgdp_rec,
+                        max_rank = 5, 
+                        check_residuals_cv = FALSE,
+                        check_residuals_full_sample = TRUE, 
+                        max_p_for_estimation = 7,
+                        restrict_by_signif = TRUE)
+
+toc()
+
+models_and_accu_3 <- var_res_3[["accu_rankings_models"]]
+cv_objects_3 <- var_res_3[["cv_objects"]]
+
+
+
+
+
+vec_lags_4 <- c("sc")
+tic()
+var_res_4 <- search_var(vec_size = 5,
+                        vec_lags = vec_lags_3,
+                        var_data = VAR_data_for_estimation,
+                        rgdp_level_ts = rgdp_level_ts, 
+                        target_v = target_variable,
+                        pre_selected_v = c(""), 
+                        is_cv = TRUE,
+                        training_length = train_span,
+                        h_max = fc_horizon, 
+                        n_cv = number_of_cv,
+                        return_cv = ret_cv,
+                        rgdp_current_form = rgdp_rec,
+                        max_rank = 5, 
+                        check_residuals_cv = FALSE,
+                        check_residuals_full_sample = TRUE, 
+                        max_p_for_estimation = 7, 
+                        restrict_by_signif = FALSE)
+
+toc()
+
+models_and_accu_4 <- var_res_4[["accu_rankings_models"]]
+cv_objects_4 <- var_res_4[["cv_objects"]]
 

@@ -291,33 +291,33 @@ get_reco_from_sta <- function(stdata, variable_name) {
     filter(deter_part == "level" ) %>% 
     mutate(unan_level = min(recommendation) == max(recommendation),
            unan_level = ifelse(unan_level, recommendation, NA)) %>% 
-    select(country, unan_level) %>% 
+    dplyr::select(country, unan_level) %>% 
     unique()
   
   unanim_05_deter_level <- stdata %>%
     filter(deter_part == "level", alpha == 0.05 ) %>% 
     mutate(unan_05_level = min(recommendation) == max(recommendation),
            unan_05_level = ifelse(unan_05_level, recommendation, NA)) %>% 
-    select(country, unan_05_level) %>% 
+    dplyr::select(country, unan_05_level) %>% 
     unique()
   
   unanim_kpss <- stdata %>% 
     filter(test == "kpss") %>% 
     mutate(unan_kpss = min(recommendation) == max(recommendation),
            unan_kpss = ifelse(unan_kpss, recommendation, NA)) %>% 
-    select(country, unan_kpss) %>% 
+    dplyr::select(country, unan_kpss) %>% 
     unique()
   
   unanim_kpss_level <- stdata %>% 
     filter(test == "kpss", deter_part == "level") %>% 
     mutate(unan_kpss_lev = min(recommendation) == max(recommendation),
            unan_kpss_lev = ifelse(unan_kpss_lev, recommendation, NA)) %>% 
-    select(country, unan_kpss_lev) %>% 
+    dplyr::select(country, unan_kpss_lev) %>% 
     unique()
   
   kpss_reco <- stdata %>% 
     filter(test == "kpss", deter_part == "level", alpha == 0.05) %>%
-    select(country, recommendation) %>% 
+    dplyr::select(country, recommendation) %>% 
     rename(kpss_05_level = recommendation)
   
   country_recos <- left_join(unanim, unanim_deter_level, by = "country") %>% 
