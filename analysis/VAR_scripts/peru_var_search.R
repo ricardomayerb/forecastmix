@@ -94,7 +94,7 @@ var_res_2 <- search_var(vec_size = 3,
                         max_rank = 5, 
                         check_residuals_cv = FALSE,
                         check_residuals_full_sample = TRUE, 
-                        max_p_for_estimation = 8, 
+                        max_p_for_estimation = 10, 
                         restrict_by_signif = TRUE,
                         t_tresh = 1.8)
 
