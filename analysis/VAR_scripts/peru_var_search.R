@@ -27,7 +27,7 @@ rgdp_rec <- reco_all_variables[reco_all_variables$variable == "rgdp", ][["kpss_0
 print(rgdp_rec)
 
 n_best <- 5
-number_of_cv <- 3
+number_of_cv <- 8
 fc_horizon <- 7
 # fc_horizon is set to 7 because 8 is too long for peru
 train_span <- 25
@@ -48,10 +48,10 @@ vec_a_priori_variables <- c("")
 ret_cv = TRUE
 
 # vec_lags_1 <- c(1,2,3)
-vec_lags_1 <- c("hq", "sc")
 
+vec_lags_1 <- c("hq", "sc")
 tic()
-var_res_1 <- search_var(vec_size = 2,
+var_res_1_sc_hq <- search_var(vec_size = 2,
                         vec_lags = vec_lags_1,
                         var_data = VAR_data_for_estimation,
                         rgdp_level_ts = rgdp_level_ts, 
@@ -65,7 +65,9 @@ var_res_1 <- search_var(vec_size = 2,
                         rgdp_current_form = rgdp_rec,
                         max_rank = 5, 
                         check_residuals_cv = TRUE,
-                        check_residuals_full_sample = TRUE)
+                        check_residuals_full_sample = TRUE, 
+                        restrict_by_signif = TRUE, 
+                        t_tresh = 1.8)
 
 toc()
 
@@ -92,9 +94,9 @@ var_res_2 <- search_var(vec_size = 3,
                         max_rank = 5, 
                         check_residuals_cv = FALSE,
                         check_residuals_full_sample = TRUE, 
-                        max_p_for_estimation = 6, 
-                        restrict_by_signif = FALSE,
-                        t_tresh = 1.65)
+                        max_p_for_estimation = 8, 
+                        restrict_by_signif = TRUE,
+                        t_tresh = 1.8)
 
 toc()
 
@@ -104,7 +106,7 @@ cv_objects_2 <- var_res_2[["cv_objects"]]
 
 
 
-vec_lags_3 <- c("sc")
+vec_lags_3 <- c(1, 2, 3, 4, 5, 6)
 tic()
 var_res_3 <- search_var(vec_size = 4,
                         vec_lags = vec_lags_3,
@@ -118,16 +120,79 @@ var_res_3 <- search_var(vec_size = 4,
                         n_cv = number_of_cv,
                         return_cv = ret_cv,
                         rgdp_current_form = rgdp_rec,
-                        max_rank = 5, 
+                        max_rank = 30, 
                         check_residuals_cv = FALSE,
                         check_residuals_full_sample = TRUE, 
-                        max_p_for_estimation = 7,
-                        restrict_by_signif = TRUE)
+                        max_p_for_estimation = 6,
+                        restrict_by_signif = TRUE, 
+                        t_tresh = 2)
 
 toc()
 
 models_and_accu_3 <- var_res_3[["accu_rankings_models"]]
 cv_objects_3 <- var_res_3[["cv_objects"]]
+
+# saveRDS(models_and_accu_4, "./analysis/VAR_output/Peru_vs_4.rds")
+# saveRDS(cv_objects_4, "./analysis/VAR_output/Peru_cv_obj_vs_4.rds")
+
+
+
+
+
+vec_lags_size_4_sc <- c("sc")
+tic()
+var_res_size_4_sc <- search_var(vec_size = 4,
+                        vec_lags = vec_lags_size_4_sc,
+                        var_data = VAR_data_for_estimation,
+                        rgdp_level_ts = rgdp_level_ts, 
+                        target_v = target_variable,
+                        pre_selected_v = c(""), 
+                        is_cv = TRUE,
+                        training_length = train_span,
+                        h_max = fc_horizon, 
+                        n_cv = number_of_cv,
+                        return_cv = ret_cv,
+                        rgdp_current_form = rgdp_rec,
+                        max_rank = 30, 
+                        check_residuals_cv = FALSE,
+                        check_residuals_full_sample = TRUE, 
+                        max_p_for_estimation = 10,
+                        restrict_by_signif = TRUE, 
+                        t_tresh = 2)
+
+toc()
+
+models_and_accu_size_4_sc <- var_res_size_4_sc[["accu_rankings_models"]]
+cv_objects_size_4_sc <- var_res_size_4_sc[["cv_objects"]]
+
+
+
+
+vec_lags_size_4_sc_hq <- c("sc", "hq")
+tic()
+var_res_size_4_sc_hq <- search_var(vec_size = 4,
+                                vec_lags = vec_lags_size_4_sc_hq,
+                                var_data = VAR_data_for_estimation,
+                                rgdp_level_ts = rgdp_level_ts, 
+                                target_v = target_variable,
+                                pre_selected_v = c(""), 
+                                is_cv = TRUE,
+                                training_length = train_span,
+                                h_max = fc_horizon, 
+                                n_cv = number_of_cv,
+                                return_cv = ret_cv,
+                                rgdp_current_form = rgdp_rec,
+                                max_rank = 30, 
+                                check_residuals_cv = FALSE,
+                                check_residuals_full_sample = TRUE, 
+                                max_p_for_estimation = 10,
+                                restrict_by_signif = TRUE, 
+                                t_tresh = 1.8)
+
+toc()
+
+models_and_accu_size_4_sc_hq <- var_res_size_4_sc_hq[["accu_rankings_models"]]
+cv_objects_size_4_sc_hq <- var_res_size_4_sc_hq[["cv_objects"]]
 
 
 
@@ -136,7 +201,7 @@ cv_objects_3 <- var_res_3[["cv_objects"]]
 vec_lags_4 <- c("sc")
 tic()
 var_res_4 <- search_var(vec_size = 5,
-                        vec_lags = vec_lags_3,
+                        vec_lags = vec_lags_4,
                         var_data = VAR_data_for_estimation,
                         rgdp_level_ts = rgdp_level_ts, 
                         target_v = target_variable,

@@ -7,6 +7,7 @@ get_rmses_h_rankings_h <- function(data = cv_objects, h_max = 6){
   cv_errors <- data[["cv_errors"]]
   
   all_rmses <- map(cv_errors, function(x) sqrt(colMeans( (reduce(x, rbind))^2))  )
+  print(is.null(all_rmses))
   all_rmses_tbl <- reduce(all_rmses, rbind)
   rmse_names <- paste0("rmse_", 1:h_max)
   colnames(all_rmses_tbl) <- rmse_names
@@ -40,7 +41,7 @@ check_resid_VAR <- function(fit_VAR, type = "PT.adjusted", lags.pt = 12,
   
   if (class(test_object) == "try-error") {
     # print("Running serial.test threw an error.")
-    is_white_noise <- NA
+    is_white_noise <- FALSE
   } else {
     pval <- test_object[["serial"]][["p.value"]]
     pval <- unname(pval)
@@ -94,7 +95,7 @@ search_var <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v,
   len_size <-  length(vec_size)
   all_names <- colnames(var_data)
   
-  models_with_cv_excercises <- 1
+  models_with_cv_excercises <- 0
   models_with_eqn_dropping <- 0
   
   binding_max_p <- 0
@@ -218,7 +219,10 @@ search_var <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v,
             }
           if (check_residuals_full_sample) {
             is_white_noise_fs <- check_resid_VAR(full_sample_var)
+            # print("is_white_noise_fs")
+            # print(is_white_noise_fs)
             if(!is_white_noise_fs) {
+              # print("foo")
               models_non_white_fs <- models_non_white_fs + 1
               }
             } else {
@@ -358,17 +362,17 @@ search_var <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v,
            cv_lag = map(cv_lag, 1))
   
   print(paste("Number of models analyzed:", model_number))
-  print(paste("Additionally, performed CV on", models_with_cv_excercises, "of them"))
-  print(paste("CV repetitions:", number_of_cv))
-  print(paste("Total estimations (full sample + cv rounds):", 
-              number_of_cv*models_with_cv_excercises + model_number))
-  print(paste("Total times p exceeded max_p_for_e:", binding_max_p))
   print(paste("Total models dropped after significance restrictions applied:", 
               models_with_eqn_dropping))
   print(paste("Total significant models unstable:", 
               models_unstable))
-  print(paste("Total significant stable models, non-white residuals :", 
+  print(paste("Total significant stable models, but with non-white residuals:", 
               models_non_white_fs))
+  print(paste("As a result,  performed CV on", models_with_cv_excercises, "of them"))
+  print(paste("CV repetitions:", number_of_cv))
+  print(paste("Total estimations (full sample + cv rounds):", 
+              number_of_cv*models_with_cv_excercises + model_number))
+  print(paste("Total times p exceeded max_p_for_e:", binding_max_p))
   
   
   cv_objects <- results_all_models %>% dplyr::select(cv_vbl_names, cv_lag, cv_errors, cv_test_data,
