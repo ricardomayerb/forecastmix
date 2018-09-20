@@ -200,8 +200,8 @@ search_var <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v,
         }
         
         if (class(full_sample_var) == "try-error") {
-          print(paste("One or more equations in", paste(colnames(sub_data), collapse = " "),  
-                      ",have no coefficients passing t-treshold =", t_tresh))
+          # print(paste("One or more equations in", paste(colnames(sub_data), collapse = " "),  
+          #             ",have no coefficients passing t-treshold =", t_tresh))
           some_eqn_drop <- TRUE
           models_with_eqn_dropping <- models_with_eqn_dropping + 1
           is_stable <- FALSE
