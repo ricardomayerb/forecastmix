@@ -26,7 +26,7 @@ saveRDS(VAR_data_for_estimation ,
 rgdp_rec <- reco_all_variables[reco_all_variables$variable == "rgdp", ][["kpss_05_level"]]
 print(rgdp_rec)
 
-n_best <- 5
+n_best <- 50
 number_of_cv <- 8
 fc_horizon <- 7
 # fc_horizon is set to 7 because 8 is too long for peru
