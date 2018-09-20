@@ -49,38 +49,126 @@ ret_cv = TRUE
 
 # vec_lags_1 <- c(1,2,3)
 
-vec_lags_1 <- c("hq", "sc")
+vec_lags_fpe <- c("fpe")
+vec_lags_hq_sc <- c("hq", "sc")
+vec_lags_sc <- c("sc")
+vec_lags_fpe_hq_sc <- c("fpe", "hq", "sc")
+vec_lags_aic_fpe_hq_sc <- c("aic", "fpe", "hq", "sc")
+vec_lags_12345 <- c(1,2,3,4,5)
+
+
+
 tic()
-var_res_1_sc_hq <- search_var(vec_size = 2,
-                        vec_lags = vec_lags_1,
-                        var_data = VAR_data_for_estimation,
-                        rgdp_level_ts = rgdp_level_ts, 
-                        target_v = target_variable,
-                        pre_selected_v = c(""), 
-                        is_cv = TRUE,
-                        training_length = train_span,
-                        h_max = fc_horizon, 
-                        n_cv = number_of_cv,
-                        return_cv = ret_cv,
-                        rgdp_current_form = rgdp_rec,
-                        max_rank = 5, 
-                        check_residuals_cv = TRUE,
-                        check_residuals_full_sample = TRUE, 
-                        restrict_by_signif = TRUE, 
-                        t_tresh = 1.8)
+var_res_s2_aic_fpe_hq_sc <- search_var(vec_size = 2,
+                               vec_lags = vec_lags_aic_fpe_hq_sc,
+                               var_data = VAR_data_for_estimation,
+                               rgdp_level_ts = rgdp_level_ts, 
+                               target_v = target_variable,
+                               pre_selected_v = c(""), 
+                               is_cv = TRUE,
+                               training_length = train_span,
+                               h_max = fc_horizon, 
+                               n_cv = number_of_cv,
+                               return_cv = ret_cv,
+                               rgdp_current_form = rgdp_rec,
+                               max_rank = 10, 
+                               check_residuals_cv = TRUE,
+                               check_residuals_full_sample = TRUE, 
+                               restrict_by_signif = TRUE, 
+                               t_tresh = 1.65 ,
+                               max_p_for_estimation = 12)
 
 toc()
-
-models_and_accu_1 <- var_res_1[["accu_rankings_models"]]
-cv_objects_1 <- var_res_1[["cv_objects"]]
-
+models_and_accu_s2_aic_fpe_hq_sc <- var_res_s2_aic_fpe_hq_sc[["accu_rankings_models"]]
+cv_objects_s2_aic_fpe_hq_sc <- var_res_s2_aic_fpe_hq_sc[["cv_objects"]]
 
 
-
-vec_lags_2 <- c("sc")
 tic()
-var_res_2 <- search_var(vec_size = 3,
-                        vec_lags = vec_lags_2,
+var_res_s2_12345 <- search_var(vec_size = 2,
+                               vec_lags = vec_lags_12345,
+                               var_data = VAR_data_for_estimation,
+                               rgdp_level_ts = rgdp_level_ts, 
+                               target_v = target_variable,
+                               pre_selected_v = c(""), 
+                               is_cv = TRUE,
+                               training_length = train_span,
+                               h_max = fc_horizon, 
+                               n_cv = number_of_cv,
+                               return_cv = ret_cv,
+                               rgdp_current_form = rgdp_rec,
+                               max_rank = 10, 
+                               check_residuals_cv = TRUE,
+                               check_residuals_full_sample = TRUE, 
+                               restrict_by_signif = TRUE, 
+                               t_tresh = 1.65,
+                               max_p_for_estimation = 12)
+
+toc()
+models_and_accu_s2_12345 <- var_res_s2_12345[["accu_rankings_models"]]
+cv_objects_s2_12345 <- var_res_s2_12345[["cv_objects"]]
+
+
+
+
+
+tic()
+var_res_s3_aic_fpe_hq_sc  <- search_var(vec_size = 3,
+                            vec_lags = vec_lags_aic_fpe_hq_sc ,
+                            var_data = VAR_data_for_estimation,
+                            rgdp_level_ts = rgdp_level_ts, 
+                            target_v = target_variable,
+                            pre_selected_v = c(""), 
+                            is_cv = TRUE,
+                            training_length = train_span,
+                            h_max = fc_horizon, 
+                            n_cv = number_of_cv,
+                            return_cv = ret_cv,
+                            rgdp_current_form = rgdp_rec,
+                            max_rank = 10, 
+                            check_residuals_cv = FALSE,
+                            check_residuals_full_sample = TRUE, 
+                            max_p_for_estimation = 12, 
+                            restrict_by_signif = TRUE,
+                            t_tresh = 1.65)
+
+toc()
+models_and_accu_s3_aic_fpe_hq_sc <- var_res_s3_aic_fpe_hq_sc [["accu_rankings_models"]]
+cv_objects_s3_aic_fpe_hq_sc <- var_res_s3_aic_fpe_hq_sc[["cv_objects"]]
+
+
+
+
+tic()
+var_res_s3_12345 <- search_var(vec_size = 3,
+                            vec_lags = vec_lags_12345,
+                            var_data = VAR_data_for_estimation,
+                            rgdp_level_ts = rgdp_level_ts, 
+                            target_v = target_variable,
+                            pre_selected_v = c(""), 
+                            is_cv = TRUE,
+                            training_length = train_span,
+                            h_max = fc_horizon, 
+                            n_cv = number_of_cv,
+                            return_cv = ret_cv,
+                            rgdp_current_form = rgdp_rec,
+                            max_rank = 5, 
+                            check_residuals_cv = FALSE,
+                            check_residuals_full_sample = TRUE, 
+                            max_p_for_estimation = 12, 
+                            restrict_by_signif = TRUE,
+                            t_tresh = 1.65)
+
+toc()
+models_and_accu_s3_12345 <- var_res_s3_12345[["accu_rankings_models"]]
+cv_objects_s3_12345 <- var_res_s3_12345[["cv_objects"]]
+
+
+
+
+
+tic()
+var_res_s4_aic_fpe_hq_sc <- search_var(vec_size = 4,
+                        vec_lags = vec_lags_aic_fpe_hq_sc,
                         var_data = VAR_data_for_estimation,
                         rgdp_level_ts = rgdp_level_ts, 
                         target_v = target_variable,
@@ -91,58 +179,25 @@ var_res_2 <- search_var(vec_size = 3,
                         n_cv = number_of_cv,
                         return_cv = ret_cv,
                         rgdp_current_form = rgdp_rec,
-                        max_rank = 5, 
+                        max_rank = 10, 
                         check_residuals_cv = FALSE,
                         check_residuals_full_sample = TRUE, 
-                        max_p_for_estimation = 10, 
-                        restrict_by_signif = TRUE,
-                        t_tresh = 1.8)
-
-toc()
-
-models_and_accu_2 <- var_res_2[["accu_rankings_models"]]
-cv_objects_2 <- var_res_2[["cv_objects"]]
-
-
-
-
-vec_lags_3 <- c(1, 2, 3, 4, 5, 6)
-tic()
-var_res_3 <- search_var(vec_size = 4,
-                        vec_lags = vec_lags_3,
-                        var_data = VAR_data_for_estimation,
-                        rgdp_level_ts = rgdp_level_ts, 
-                        target_v = target_variable,
-                        pre_selected_v = c(""), 
-                        is_cv = TRUE,
-                        training_length = train_span,
-                        h_max = fc_horizon, 
-                        n_cv = number_of_cv,
-                        return_cv = ret_cv,
-                        rgdp_current_form = rgdp_rec,
-                        max_rank = 30, 
-                        check_residuals_cv = FALSE,
-                        check_residuals_full_sample = TRUE, 
-                        max_p_for_estimation = 6,
+                        max_p_for_estimation = 12,
                         restrict_by_signif = TRUE, 
-                        t_tresh = 2)
+                        t_tresh = 1.65)
 
 toc()
 
-models_and_accu_3 <- var_res_3[["accu_rankings_models"]]
-cv_objects_3 <- var_res_3[["cv_objects"]]
+models_and_accu_s4_aic_fpe_hq_sc <- var_res_s4_aic_fpe_hq_sc[["accu_rankings_models"]]
+cv_objects_s4_aic_fpe_hq_sc <- var_res_s4_aic_fpe_hq_sc[["cv_objects"]]
 
 # saveRDS(models_and_accu_4, "./analysis/VAR_output/Peru_vs_4.rds")
 # saveRDS(cv_objects_4, "./analysis/VAR_output/Peru_cv_obj_vs_4.rds")
 
 
-
-
-
-vec_lags_size_4_sc <- c("sc")
 tic()
-var_res_size_4_sc <- search_var(vec_size = 4,
-                        vec_lags = vec_lags_size_4_sc,
+var_res_s4_12345 <- search_var(vec_size = 4,
+                        vec_lags = vec_lags_12345,
                         var_data = VAR_data_for_estimation,
                         rgdp_level_ts = rgdp_level_ts, 
                         target_v = target_variable,
@@ -153,73 +208,17 @@ var_res_size_4_sc <- search_var(vec_size = 4,
                         n_cv = number_of_cv,
                         return_cv = ret_cv,
                         rgdp_current_form = rgdp_rec,
-                        max_rank = 30, 
+                        max_rank = 10, 
                         check_residuals_cv = FALSE,
                         check_residuals_full_sample = TRUE, 
-                        max_p_for_estimation = 10,
+                        max_p_for_estimation = 12,
                         restrict_by_signif = TRUE, 
-                        t_tresh = 2)
+                        t_tresh = 1.65)
 
 toc()
 
-models_and_accu_size_4_sc <- var_res_size_4_sc[["accu_rankings_models"]]
-cv_objects_size_4_sc <- var_res_size_4_sc[["cv_objects"]]
+models_and_accu_s4_12345 <- var_res_s4_12345[["accu_rankings_models"]]
+cv_objects_s4_12345 <- var_res_s4_12345[["cv_objects"]]
 
 
-
-
-vec_lags_size_4_sc_hq <- c("sc", "hq")
-tic()
-var_res_size_4_sc_hq <- search_var(vec_size = 4,
-                                vec_lags = vec_lags_size_4_sc_hq,
-                                var_data = VAR_data_for_estimation,
-                                rgdp_level_ts = rgdp_level_ts, 
-                                target_v = target_variable,
-                                pre_selected_v = c(""), 
-                                is_cv = TRUE,
-                                training_length = train_span,
-                                h_max = fc_horizon, 
-                                n_cv = number_of_cv,
-                                return_cv = ret_cv,
-                                rgdp_current_form = rgdp_rec,
-                                max_rank = 30, 
-                                check_residuals_cv = FALSE,
-                                check_residuals_full_sample = TRUE, 
-                                max_p_for_estimation = 10,
-                                restrict_by_signif = TRUE, 
-                                t_tresh = 1.8)
-
-toc()
-
-models_and_accu_size_4_sc_hq <- var_res_size_4_sc_hq[["accu_rankings_models"]]
-cv_objects_size_4_sc_hq <- var_res_size_4_sc_hq[["cv_objects"]]
-
-
-
-
-
-vec_lags_4 <- c("sc")
-tic()
-var_res_4 <- search_var(vec_size = 5,
-                        vec_lags = vec_lags_4,
-                        var_data = VAR_data_for_estimation,
-                        rgdp_level_ts = rgdp_level_ts, 
-                        target_v = target_variable,
-                        pre_selected_v = c(""), 
-                        is_cv = TRUE,
-                        training_length = train_span,
-                        h_max = fc_horizon, 
-                        n_cv = number_of_cv,
-                        return_cv = ret_cv,
-                        rgdp_current_form = rgdp_rec,
-                        max_rank = 5, 
-                        check_residuals_cv = FALSE,
-                        check_residuals_full_sample = TRUE, 
-                        max_p_for_estimation = 7, 
-                        restrict_by_signif = FALSE)
-
-toc()
-
-models_and_accu_4 <- var_res_4[["accu_rankings_models"]]
-cv_objects_4 <- var_res_4[["cv_objects"]]
 

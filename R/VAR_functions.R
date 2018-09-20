@@ -147,11 +147,12 @@ search_var <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v,
       }
       
       if (is.character(vec_lags)) {
-        sel <- vars::VARselect(sub_data, type = "const")
+        sel <- vars::VARselect(sub_data, type = "const", lag.max = 16)
         sel_criteria <- sel$selection
         # print("sel_criteria")
         # print(sel_criteria)
-        cri_names <- c(aic = "AIC(n)", hq = "HQ(n)", sc = "SC(n)")
+        cri_names <- c(aic = "AIC(n)", hq = "HQ(n)", sc = "SC(n)",
+                       fpe = "FPE(n)")
         this_cri <- cri_names[vec_lags]
         named_lags <- sel_criteria[this_cri]
         # print("named_lags")
@@ -200,7 +201,7 @@ search_var <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v,
         
         if (class(full_sample_var) == "try-error") {
           print(paste("One or more equations in", paste(colnames(sub_data), collapse = " "),  
-                      ", have no coefficients passing t-treshold =", t_tresh))
+                      ",have no coefficients passing t-treshold =", t_tresh))
           some_eqn_drop <- TRUE
           models_with_eqn_dropping <- models_with_eqn_dropping + 1
           is_stable <- FALSE
@@ -216,8 +217,9 @@ search_var <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v,
               # print("Current VAR not stable. No CV analysis will be done")
               # print(paste("Roots are", paste(this_root, collapse = ", ")))
             models_unstable <- models_unstable + 1 
+            # print(paste("Unstable models so far:", models_unstable))
             }
-          if (check_residuals_full_sample) {
+          if (is_stable & check_residuals_full_sample) {
             is_white_noise_fs <- check_resid_VAR(full_sample_var)
             # print("is_white_noise_fs")
             # print(is_white_noise_fs)
@@ -228,10 +230,7 @@ search_var <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v,
             } else {
                 is_white_noise_fs <- TRUE
               }
-          
-          
-          # print("1")
-          
+
           if (is_white_noise_fs & is_stable) {
             models_with_cv_excercises <- models_with_cv_excercises + 1
             this_cv <- var_cv(var_data = sub_data, timetk_idx = FALSE,
@@ -247,10 +246,7 @@ search_var <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v,
             this_cv[["is_stable"]] <- TRUE
             }
         }
-        
-        # print("2")
-        
-        
+
         if ( (!is_white_noise_fs) | (!is_stable) | some_eqn_drop) {
        
           this_cv <- list(cv_errors = list(NULL),
@@ -353,47 +349,64 @@ search_var <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v,
 
   }
   
-  results_all_models <- get_rmses_h_rankings_h(data = results_all_models,
-                                              h_max = h_max)
   
-  results_all_models <- results_all_models %>% 
-    filter_at( vars(starts_with("rank")), any_vars(. <= max_rank)) %>% 
-    mutate(cv_vbl_names = map(cv_vbl_names, 1),
-           cv_lag = map(cv_lag, 1))
   
   print(paste("Number of models analyzed:", model_number))
   print(paste("Total models dropped after significance restrictions applied:", 
-              models_with_eqn_dropping))
+              models_with_eqn_dropping, "out of", model_number))
   print(paste("Total significant models unstable:", 
-              models_unstable))
+              models_unstable, "out of", model_number - models_with_eqn_dropping))
   print(paste("Total significant stable models, but with non-white residuals:", 
-              models_non_white_fs))
+              models_non_white_fs, "out of", model_number -
+                models_with_eqn_dropping - models_unstable ))
   print(paste("As a result,  performed CV on", models_with_cv_excercises, "of them"))
   print(paste("CV repetitions:", number_of_cv))
   print(paste("Total estimations (full sample + cv rounds):", 
               number_of_cv*models_with_cv_excercises + model_number))
   print(paste("Total times p exceeded max_p_for_e:", binding_max_p))
   
+  # print("results_all_models")
+  # print(results_all_models)
+  # print("length(results_all_models)")
+  # print(length(results_all_models))
+  # print("nrow(results_all_models)")
+  # print(nrow(results_all_models))
   
-  cv_objects <- results_all_models %>% dplyr::select(cv_vbl_names, cv_lag, cv_errors, cv_test_data,
-                                                     cv_fcs) %>% 
-    rename(variables = cv_vbl_names, lags = cv_lag)
-
-  accu_rankings_models <- results_all_models %>% 
-    dplyr::select(cv_vbl_names, cv_lag, 
-                  starts_with("rmse"), starts_with("rank"), 
-                  overall_cv_white_noise, is_white_noise_fse) %>% 
-    rename(variables = cv_vbl_names, lags = cv_lag, 
-           wn_cv = overall_cv_white_noise, wn_fs = is_white_noise_fse)
-
+  if(nrow(results_all_models) > 0) {
+    results_all_models <- get_rmses_h_rankings_h(data = results_all_models,
+                                                 h_max = h_max)
+    
+    results_all_models <- results_all_models %>% 
+      filter_at( vars(starts_with("rank")), any_vars(. <= max_rank)) %>% 
+      mutate(cv_vbl_names = map(cv_vbl_names, 1),
+             cv_lag = map(cv_lag, 1))
+    
+    cv_objects <- results_all_models %>% dplyr::select(cv_vbl_names, cv_lag, 
+                                                       cv_errors, cv_test_data,
+                                                       cv_fcs) %>% 
+      rename(variables = cv_vbl_names, lags = cv_lag)
+    
+    accu_rankings_models <- results_all_models %>% 
+      dplyr::select(cv_vbl_names, cv_lag, 
+                    starts_with("rmse"), starts_with("rank"), 
+                    overall_cv_white_noise, is_white_noise_fse) %>% 
+      rename(variables = cv_vbl_names, lags = cv_lag, 
+             wn_cv = overall_cv_white_noise, wn_fs = is_white_noise_fse)
+  }
+  
+  if(nrow(results_all_models) == 0){
+    print("No models passed all criteria. Will return an empty list or lists.")
+    results_all_models <- list()
+    accu_rankings_models <- list()
+    cv_objects <- list()
+  }
+    
   if (return_cv) {
     return(list(accu_rankings_models = accu_rankings_models,
                 cv_objects = cv_objects))
   } else {
     return(list(accu_rankings_models = accu_rankings_models))
-    
   }
-  
 }
 
 
