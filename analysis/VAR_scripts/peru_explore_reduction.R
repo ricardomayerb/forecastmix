@@ -118,4 +118,5 @@ saveRDS(cv_objects_s3_12345_t2,
         paste0("./analysis/VAR_output/",country_name,"_cvobj_s3_12345_t2.rds"))
 
 
+models_and_accu_s3_12345_t2 %>% arrange(rmse_1)
 
