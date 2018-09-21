@@ -442,6 +442,11 @@ var_cv <- function(var_data, this_p, this_type = "const",
   cv_lag <- list_along(1:n_cv)
   cv_is_white_noise <- vector(mode = "logical", length = n_cv)
   
+  print("VAR data before cv")
+  print(var_data)
+  
+  total_obs <- nrow(var_data)
+  
   for (i in seq_along(1:n_cv)) {
     
     this_tra_s <- train_test_dates[[i]]$tra_s
@@ -460,14 +465,28 @@ var_cv <- function(var_data, this_p, this_type = "const",
                      start = this_tes_s,
                      end = this_tes_e)
     
-    print(paste("nrow(training_y):", nrow(training_y), ", this lag:", this_p, 
-                ". Start:", paste(start(training_y), collapse = "_")))
-
     test_rgdp <- test_y[ , "rgdp"]
 
     this_var <- vars::VAR(y = training_y, p = this_p, type = this_type) 
     this_var <- vars::restrict(this_var, method = "manual", 
                                resmat = full_sample_resmat)
+    this_effective_lag <- max_effective_lag(this_var)
+    
+    if (total_obs < (training_length + h_max + n_cv + this_effective_lag)) {
+      print(paste("Warning: test+train+fc+e_lag exceeds var_obs by", 
+            (training_length + h_max + n_cv + this_effective_lag) - total_obs))
+    }
+    
+    print(paste("nrow(training_y):", nrow(training_y), ", nom lag:", this_p, 
+                ", eff lag:", this_effective_lag ,
+                ". Start:", paste(start(training_y), collapse = "_"),
+                ". End:", paste(end(training_y), collapse = "_")))
+    
+    print(paste("nrow(test_y):", nrow(test_y),
+                ". Start:", paste(start(test_y), collapse = "_"),
+                ". End:", paste(end(test_y), collapse = "_")))
+    
+    
     # print(this_var)
     
     

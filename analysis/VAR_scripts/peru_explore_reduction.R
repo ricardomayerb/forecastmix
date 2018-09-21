@@ -170,7 +170,16 @@ max(moo2_num)
 
 
 max_effective_lag <- function(var_obj) {
+  
   vres <- var_obj$restrictions
+  
+  if (is.null(vres)) {
+    # print("VAR does nor have restriction matrix")
+    nominal_lag <- var_obj$p
+    return(nominal_lag)
+  }
+  
+  
   csum <- colSums(vres[,1:ncol(vres)])
   names_unrest <- names(csum[csum > 0])
   names_unrest_num <-  as.numeric(map_chr(str_extract_all(names_unrest, "\\d"),
@@ -180,6 +189,7 @@ max_effective_lag <- function(var_obj) {
 }
 
 max_effective_lag(var1r)
+max_effective_lag(var1)
 
 tic()
 var_res_s3_aic_fpe_hq_sc_t2  <- search_var(vec_size = 3,
