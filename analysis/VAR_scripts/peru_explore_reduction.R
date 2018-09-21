@@ -15,9 +15,13 @@ reco_all_variables <- find_statio_diffs(country_data_level_ts, country_name)
 country_transformed_data <- follow_rec(country_data_level_ts, 
                                        reco_all_variables)
 
-VAR_data_for_estimation  <- na.omit(country_transformed_data)
+# VAR_data_for_estimation  <- na.omit(country_transformed_data)
+VAR_data_for_estimation  <- country_transformed_data
+
+
 variable_names <- colnames(VAR_data_for_estimation)
 ncolumns <- ncol(VAR_data_for_estimation)
+nobs_rgdp <- length(na.omit(VAR_data_for_estimation[, "rgdp"]))
 
 
 saveRDS(VAR_data_for_estimation , 
@@ -31,10 +35,16 @@ number_of_cv <- 8
 fc_horizon <- 7
 # fc_horizon is set to 7 because 8 is too long for peru
 train_span <- 20
+obs_used_in_cv <-  train_span + number_of_cv + fc_horizon
+max_lag_rgdp <- nobs_rgdp - obs_used_in_cv
 
-if (train_span+fc_horizon+number_of_cv > nrow(VAR_data_for_estimation)) {
+print(paste("Obs. used in cv:", obs_used_in_cv))
+print(paste("(transformed) rgdp series has", nobs_rgdp, "observations"))
+print(paste("Max lag on any VAR with rgdp:", max_lag_rgdp, ", unless train_length is shortened"))
+
+if (train_span+fc_horizon+number_of_cv > nrow(na.omit(VAR_data_for_estimation))) {
   
-  print("not enough obs")
+  print("not enough obs for at least some combination")
   
   stop()
   
@@ -118,18 +128,58 @@ saveRDS(cv_objects_s3_12345_t2,
 
 
 v2 <- c("rgdp", "tcr")
-p <- 5
-var1 <- vars::VAR(VAR_data_for_estimation[,v2], p = p, type = "const")
-var1r <- vars::restrict(var1, method = "ser", thresh = 1.65)
+p <- 8
+var1 <- vars::VAR(na.omit(VAR_data_for_estimation[,v2]), p = p, type = "const")
+var1
+var1r <- vars::restrict(var1, method = "ser", thresh = 2)
 var1r
 
-var1cv <- vars::VAR(VAR_data_for_estimation[2:28,v2], p = p, type = "const")
+var1cv <- vars::VAR(na.omit(VAR_data_for_estimation[,v2]), p = p, type = "const")
 var1rr <- vars::restrict(var1cv, method = "manual", resmat = var1r$restrictions)
 var1rr
 
+foo <- names(var1r$varresult$rgdp$model)
+str_detect(foo, ".l")
+moo <- foo[ str_detect(foo, ".l")]
+doo <- c("rgdp.l1", "rgdp.l43", "rgdp.l5", "tcr.l7") 
+moo_num <-  as.numeric(map_chr(str_extract_all(moo, "\\d"), ~ paste(.x, collapse = "")))
+doo_num <-  as.numeric(map_chr(str_extract_all(doo, "\\d"), ~ paste(.x, collapse = "")))
+
+moo_num
+doo_num
+
+max(moo_num)
+max(doo_num)
+
+vres <- var1r$restrictions
+vres
+vres[,1:(ncol(vres)-1)]
+colSums(vres[,1:(ncol(vres)-1)])
+hoo <- colSums(vres[,1:ncol(vres)])
+yoo <- names(hoo[hoo > 0])
+yoo_num <-  as.numeric(map_chr(str_extract_all(yoo, "\\d"), ~ paste(.x, collapse = "")))
+yoo_num
+max(yoo_num, na.rm = TRUE)
+
+foo2 <- names(var1r$varresult$tcr$model)
+moo2 <- foo2[ str_detect(foo2, ".l")]
+moo2
+moo2_num <-  as.numeric(map_chr(str_extract_all(moo2, "\\d"), ~ paste(.x, collapse = "")))
+moo2_num
+max(moo2_num)
 
 
+max_effective_lag <- function(var_obj) {
+  vres <- var_obj$restrictions
+  csum <- colSums(vres[,1:ncol(vres)])
+  names_unrest <- names(csum[csum > 0])
+  names_unrest_num <-  as.numeric(map_chr(str_extract_all(names_unrest, "\\d"),
+                                 ~ paste(.x, collapse = "")))
+  max_lag_unrest <- max(names_unrest_num, na.rm = TRUE)
+  return(max_lag_unrest)
+}
 
+max_effective_lag(var1r)
 
 tic()
 var_res_s3_aic_fpe_hq_sc_t2  <- search_var(vec_size = 3,

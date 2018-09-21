@@ -139,6 +139,7 @@ search_var <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v,
       vbls_for_var <- c(already_chosen, vec_of_other_vbls)
       
       sub_data = var_data[, vbls_for_var]
+      sub_data = na.omit(sub_data)
       sub_data_tk_index <- tk_index(var_data, timetk_idx = TRUE)
       
       
@@ -459,6 +460,9 @@ var_cv <- function(var_data, this_p, this_type = "const",
                      start = this_tes_s,
                      end = this_tes_e)
     
+    print(paste("nrow(training_y):", nrow(training_y), ", this lag:", this_p, 
+                ". Start:", paste(start(training_y), collapse = "_")))
+
     test_rgdp <- test_y[ , "rgdp"]
 
     this_var <- vars::VAR(y = training_y, p = this_p, type = this_type) 
