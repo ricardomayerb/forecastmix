@@ -209,11 +209,12 @@ search_var <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v,
           
         } 
         
-        if (! class(full_sample_var) == "try-error") {
+        if (!class(full_sample_var) == "try-error") {
+          var_restrictions <- full_sample_var$restrictions
           some_eqn_drop <- FALSE
           this_root <- vars::roots(full_sample_var)
           is_stable <- all(this_root < 1)
-          if(!is_stable) {
+          if (!is_stable) {
               # print("Current VAR not stable. No CV analysis will be done")
               # print(paste("Roots are", paste(this_root, collapse = ", ")))
             models_unstable <- models_unstable + 1 
@@ -223,7 +224,7 @@ search_var <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v,
             is_white_noise_fs <- check_resid_VAR(full_sample_var)
             # print("is_white_noise_fs")
             # print(is_white_noise_fs)
-            if(!is_white_noise_fs) {
+            if (!is_white_noise_fs) {
               # print("foo")
               models_non_white_fs <- models_non_white_fs + 1
               }
@@ -233,11 +234,14 @@ search_var <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v,
 
           if (is_white_noise_fs & is_stable) {
             models_with_cv_excercises <- models_with_cv_excercises + 1
+            # print("var_restrictions")
+            # print(var_restrictions)
             this_cv <- var_cv(var_data = sub_data, timetk_idx = FALSE,
                               external_idx = sub_data_tk_index, this_p = this_lag,
                               this_type = "const", h_max = h_max,
                               n_cv = n_cv, training_length = training_length, 
-                              test_residuals = check_residuals_cv)
+                              test_residuals = check_residuals_cv,
+                              full_sample_resmat = var_restrictions)
             cv_num_of_white_noises <- sum(this_cv[["cv_is_white_noise"]])
             ratio_of_white_noises <- cv_num_of_white_noises/n_cv
             overall_cv_white_noise <- ratio_of_white_noises >= white_noise_target_ratio
@@ -411,10 +415,12 @@ search_var <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v,
 
 
 
-var_cv <- function(var_data, this_p, this_type = "const", n_cv = 8, h_max = 6, 
+var_cv <- function(var_data, this_p, this_type = "const", 
+                   n_cv = 8, h_max = 6, 
                    train_test_marks = NULL,
                    training_length = 20, timetk_idx = TRUE,
-                   external_idx = NULL, test_residuals = TRUE) {
+                   external_idx = NULL, test_residuals = TRUE,
+                   full_sample_resmat = NULL) {
   
   if (is.null(train_test_marks)) {
     train_test_dates <- make_test_dates_list(ts_data = var_data, 
@@ -456,10 +462,14 @@ var_cv <- function(var_data, this_p, this_type = "const", n_cv = 8, h_max = 6,
     test_rgdp <- test_y[ , "rgdp"]
 
     this_var <- vars::VAR(y = training_y, p = this_p, type = this_type) 
+    this_var <- vars::restrict(this_var, method = "manual", 
+                               resmat = full_sample_resmat)
+    # print(this_var)
+    
     
     if (test_residuals) {
       resid_result <- check_resid_VAR(this_var)
-      if(is.na(resid_result)) {
+      if (is.na(resid_result)) {
         print(paste("Error in resid test. Lag is", this_p, ", variables are", 
               paste(colnames(var_data), collapse = "_")))
       }
@@ -495,6 +505,7 @@ var_cv <- function(var_data, this_p, this_type = "const", n_cv = 8, h_max = 6,
   dimnames(cv_fcs_mat) <- NULL
   
   mean_cv_rmse <- fcs_accu(cv_fcs_mat, cv_test_data_mat)
+  # if(is.na(mean_cv_rmse)) {mean_cv_rmse <- Inf}
   
   return(list(cv_errors = cv_errors,
               cv_test_data = cv_test_data,
