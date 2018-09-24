@@ -21,8 +21,14 @@ VAR_data_for_estimation  <- country_transformed_data
 
 variable_names <- colnames(VAR_data_for_estimation)
 ncolumns <- ncol(VAR_data_for_estimation)
-nobs_rgdp <- length(na.omit(VAR_data_for_estimation[, "rgdp"]))
-
+clean_rgdp <- na.omit(VAR_data_for_estimation[, "rgdp"])
+start_rgdp <- start(clean_rgdp) 
+end_rgdp <- end(clean_rgdp)
+nobs_rgdp <- length(clean_rgdp)
+VAR_data_rgdp_period <- window(VAR_data_for_estimation, start = start_rgdp,
+                               end = end_rgdp)
+first_half_row <-  floor(nrow(VAR_data_rgdp_period)/2)
+second_half <- nrow(VAR_data_rgdp_period) - first_half_row
 
 saveRDS(VAR_data_for_estimation , 
         paste0("./analysis/VAR_output/VAR_data_",country_name,".rds"))
@@ -34,15 +40,17 @@ n_best <- 50
 number_of_cv <- 8
 fc_horizon <- 7
 # fc_horizon is set to 7 because 8 is too long for peru
-train_span <- 20
+train_span <- 24
 obs_used_in_cv <-  train_span + number_of_cv + fc_horizon
-max_lag_rgdp <- nobs_rgdp - obs_used_in_cv
+obs_to_spare <- nobs_rgdp - obs_used_in_cv
 
 print(paste("Obs. used in cv:", obs_used_in_cv))
 print(paste("(transformed) rgdp series has", nobs_rgdp, "observations"))
-print(paste("Max lag on any VAR with rgdp:", max_lag_rgdp, ", unless train_length is shortened"))
+print(paste("Extra rgdp observations available:", obs_to_spare))
+print(paste("Or, equiv., using any variable together with rgdp that forces us to loose more than", obs_to_spare,"observations, will result in an error when using fixed-length training window"))
+print(paste("Worst case (shortest) n-combination --with rgdp-- reduce observations to", nrow(na.omit(VAR_data_for_estimation))))
 
-if (train_span+fc_horizon+number_of_cv > nrow(na.omit(VAR_data_for_estimation))) {
+if (train_span + fc_horizon + number_of_cv > nrow(na.omit(VAR_data_for_estimation))) {
   
   print("not enough obs for at least some combination")
   
@@ -169,25 +177,6 @@ moo2_num
 max(moo2_num)
 
 
-max_effective_lag <- function(var_obj) {
-  
-  vres <- var_obj$restrictions
-  
-  if (is.null(vres)) {
-    # print("VAR does nor have restriction matrix")
-    nominal_lag <- var_obj$p
-    return(nominal_lag)
-  }
-  
-  
-  csum <- colSums(vres[,1:ncol(vres)])
-  names_unrest <- names(csum[csum > 0])
-  names_unrest_num <-  as.numeric(map_chr(str_extract_all(names_unrest, "\\d"),
-                                 ~ paste(.x, collapse = "")))
-  max_lag_unrest <- max(names_unrest_num, na.rm = TRUE)
-  return(max_lag_unrest)
-}
-
 max_effective_lag(var1r)
 max_effective_lag(var1)
 
@@ -218,6 +207,7 @@ saveRDS(models_and_accu_s3_aic_fpe_hq_sc_t2,
         paste0("./analysis/VAR_output/",country_name,"_s3_aic_fpe_hq_sc_t2.rds"))
 saveRDS(cv_objects_s3_aic_fpe_hq_sc_t2,
         paste0("./analysis/VAR_output/",country_name,"_cvobj_s3_aic_fpe_hq_sc_t2.rds"))
+
 # 
 # 
 # 

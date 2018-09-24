@@ -71,6 +71,27 @@ get_sets_of_variables <- function(df, this_size, all_variables, already_chosen){
 }
 
 
+
+max_effective_lag <- function(var_obj) {
+  
+  vres <- var_obj$restrictions
+  
+  if (is.null(vres)) {
+    # print("VAR does nor have restriction matrix")
+    nominal_lag <- var_obj$p
+    return(nominal_lag)
+  }
+  
+  
+  csum <- colSums(vres[,1:ncol(vres)])
+  names_unrest <- names(csum[csum > 0])
+  names_unrest_num <-  as.numeric(map_chr(str_extract_all(names_unrest, "\\d"),
+                                          ~ paste(.x, collapse = "")))
+  max_lag_unrest <- max(names_unrest_num, na.rm = TRUE)
+  return(max_lag_unrest)
+}
+
+
 # search var formerly known as try_sizes_vbls_lags
 search_var <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v, 
                        vec_size = c(3,4,5), 
