@@ -106,7 +106,36 @@ saveRDS(cv_objects_s2_aic_fpe_hq_sc_t2,
 
 
 tic()
-var_res_s3_12345_t2 <- search_var(vec_size = 2,
+var_res_s2_12345_t2 <- search_var(vec_size = 2,
+                                  vec_lags = vec_lags_12345,
+                                  var_data = VAR_data_for_estimation,
+                                  rgdp_level_ts = rgdp_level_ts, 
+                                  target_v = target_variable,
+                                  pre_selected_v = c(""), 
+                                  is_cv = TRUE,
+                                  training_length = train_span,
+                                  h_max = fc_horizon, 
+                                  n_cv = number_of_cv,
+                                  return_cv = ret_cv,
+                                  rgdp_current_form = rgdp_rec,
+                                  max_rank = 10, 
+                                  check_residuals_cv = FALSE,
+                                  check_residuals_full_sample = TRUE, 
+                                  max_p_for_estimation = 12, 
+                                  restrict_by_signif = TRUE,
+                                  t_tresh = 2)
+
+toc()
+models_and_accu_s2_12345_t2 <- var_res_s2_12345_t2[["accu_rankings_models"]]
+cv_objects_s2_12345_t2 <- var_res_s2_12345_t2[["cv_objects"]]
+saveRDS(models_and_accu_s2_12345_t2, 
+        paste0("./analysis/VAR_output/",country_name,"_s2_12345_t2.rds"))
+saveRDS(cv_objects_s2_12345_t2, 
+        paste0("./analysis/VAR_output/",country_name,"_cvobj_s2_12345_t2.rds"))
+
+
+tic()
+var_res_s3_12345_t2 <- search_var(vec_size = 3,
                                   vec_lags = vec_lags_12345,
                                   var_data = VAR_data_for_estimation,
                                   rgdp_level_ts = rgdp_level_ts, 
@@ -199,7 +228,6 @@ var_res_s3_aic_fpe_hq_sc_t2  <- search_var(vec_size = 3,
                                         max_p_for_estimation = 12,
                                         restrict_by_signif = TRUE,
                                         t_tresh = 2)
-
 toc()
 models_and_accu_s3_aic_fpe_hq_sc_t2 <- var_res_s3_aic_fpe_hq_sc_t2[["accu_rankings_models"]]
 cv_objects_s3_aic_fpe_hq_sc_t2 <- var_res_s3_aic_fpe_hq_sc_t2[["cv_objects"]]
@@ -208,37 +236,127 @@ saveRDS(models_and_accu_s3_aic_fpe_hq_sc_t2,
 saveRDS(cv_objects_s3_aic_fpe_hq_sc_t2,
         paste0("./analysis/VAR_output/",country_name,"_cvobj_s3_aic_fpe_hq_sc_t2.rds"))
 
-# 
-# 
-# 
-# tic()
-# var_res_s3_12345_t2 <- search_var(vec_size = 3,
-#                                vec_lags = vec_lags_12345,
-#                                var_data = VAR_data_for_estimation,
-#                                rgdp_level_ts = rgdp_level_ts, 
-#                                target_v = target_variable,
-#                                pre_selected_v = c(""), 
-#                                is_cv = TRUE,
-#                                training_length = train_span,
-#                                h_max = fc_horizon, 
-#                                n_cv = number_of_cv,
-#                                return_cv = ret_cv,
-#                                rgdp_current_form = rgdp_rec,
-#                                max_rank = 10, 
-#                                check_residuals_cv = FALSE,
-#                                check_residuals_full_sample = TRUE, 
-#                                max_p_for_estimation = 12, 
-#                                restrict_by_signif = TRUE,
-#                                t_tresh = 2)
-# 
-# toc()
-# models_and_accu_s3_12345_t2 <- var_res_s3_12345_t2[["accu_rankings_models"]]
-# cv_objects_s3_12345_t2 <- var_res_s3_12345_t2[["cv_objects"]]
-# saveRDS(models_and_accu_s3_12345_t2, 
-#         paste0("./analysis/VAR_output/",country_name,"_s3_12345_t2.rds"))
-# saveRDS(cv_objects_s3_12345_t2, 
-#         paste0("./analysis/VAR_output/",country_name,"_cvobj_s3_12345_t2.rds"))
 
 
-models_and_accu_s3_12345_t2 %>% arrange(rmse_1)
+
+
+
+tic()
+var_res_s3_aic_fpe_hq_sc_t2  <- search_var(vec_size = 3,
+                                           vec_lags = vec_lags_aic_fpe_hq_sc ,
+                                           var_data = VAR_data_for_estimation,
+                                           rgdp_level_ts = rgdp_level_ts,
+                                           target_v = target_variable,
+                                           pre_selected_v = c(""),
+                                           is_cv = TRUE,
+                                           training_length = train_span,
+                                           h_max = fc_horizon,
+                                           n_cv = number_of_cv,
+                                           return_cv = ret_cv,
+                                           rgdp_current_form = rgdp_rec,
+                                           max_rank = 50,
+                                           check_residuals_cv = FALSE,
+                                           check_residuals_full_sample = TRUE,
+                                           max_p_for_estimation = 12,
+                                           restrict_by_signif = TRUE,
+                                           t_tresh = 2)
+toc()
+models_and_accu_s3_aic_fpe_hq_sc_t2 <- var_res_s3_aic_fpe_hq_sc_t2[["accu_rankings_models"]]
+cv_objects_s3_aic_fpe_hq_sc_t2 <- var_res_s3_aic_fpe_hq_sc_t2[["cv_objects"]]
+saveRDS(models_and_accu_s3_aic_fpe_hq_sc_t2,
+        paste0("./analysis/VAR_output/",country_name,"_s3_aic_fpe_hq_sc_t2.rds"))
+saveRDS(cv_objects_s3_aic_fpe_hq_sc_t2,
+        paste0("./analysis/VAR_output/",country_name,"_cvobj_s3_aic_fpe_hq_sc_t2.rds"))
+
+
+
+
+tic()
+var_res_s4_aic_fpe_hq_sc_t2  <- search_var(vec_size = 4,
+                                           vec_lags = vec_lags_aic_fpe_hq_sc ,
+                                           var_data = VAR_data_for_estimation,
+                                           rgdp_level_ts = rgdp_level_ts,
+                                           target_v = target_variable,
+                                           pre_selected_v = c(""),
+                                           is_cv = TRUE,
+                                           training_length = train_span,
+                                           h_max = fc_horizon,
+                                           n_cv = number_of_cv,
+                                           return_cv = ret_cv,
+                                           rgdp_current_form = rgdp_rec,
+                                           max_rank = 50,
+                                           check_residuals_cv = FALSE,
+                                           check_residuals_full_sample = TRUE,
+                                           max_p_for_estimation = 12,
+                                           restrict_by_signif = TRUE,
+                                           t_tresh = 2)
+toc()
+models_and_accu_s4_aic_fpe_hq_sc_t2 <- var_res_s4_aic_fpe_hq_sc_t2[["accu_rankings_models"]]
+cv_objects_s4_aic_fpe_hq_sc_t2 <- var_res_s4_aic_fpe_hq_sc_t2[["cv_objects"]]
+saveRDS(models_and_accu_s4_aic_fpe_hq_sc_t2,
+        paste0("./analysis/VAR_output/",country_name,"_s4_aic_fpe_hq_sc_t2.rds"))
+saveRDS(cv_objects_s4_aic_fpe_hq_sc_t2,
+        paste0("./analysis/VAR_output/",country_name,"_cvobj_s4_aic_fpe_hq_sc_t2.rds"))
+
+
+tic()
+var_res_s4_12345_t2  <- search_var(vec_size = 4,
+                                           vec_lags = vec_lags_12345 ,
+                                           var_data = VAR_data_for_estimation,
+                                           rgdp_level_ts = rgdp_level_ts,
+                                           target_v = target_variable,
+                                           pre_selected_v = c(""),
+                                           is_cv = TRUE,
+                                           training_length = train_span,
+                                           h_max = fc_horizon,
+                                           n_cv = number_of_cv,
+                                           return_cv = ret_cv,
+                                           rgdp_current_form = rgdp_rec,
+                                           max_rank = 50,
+                                           check_residuals_cv = FALSE,
+                                           check_residuals_full_sample = TRUE,
+                                           max_p_for_estimation = 12,
+                                           restrict_by_signif = TRUE,
+                                           t_tresh = 2)
+toc()
+models_and_accu_s4_12345_t2 <- var_res_s4_12345_t2[["accu_rankings_models"]]
+cv_objects_s4_12345_t2 <- var_res_s4_12345_t2[["cv_objects"]]
+saveRDS(models_and_accu_s4_12345_t2,
+        paste0("./analysis/VAR_output/",country_name,"_s4_12345_t2.rds"))
+saveRDS(cv_objects_s4_12345_t2,
+        paste0("./analysis/VAR_output/",country_name,"_cvobj_s4_12345_t2.rds"))
+
+
+
+tic()
+var_res_s4_6_t2  <- search_var(vec_size = 4,
+                                   vec_lags = c(6),
+                                   var_data = VAR_data_for_estimation,
+                                   rgdp_level_ts = rgdp_level_ts,
+                                   target_v = target_variable,
+                                   pre_selected_v = c(""),
+                                   is_cv = TRUE,
+                                   training_length = train_span,
+                                   h_max = fc_horizon,
+                                   n_cv = number_of_cv,
+                                   return_cv = ret_cv,
+                                   rgdp_current_form = rgdp_rec,
+                                   max_rank = 50,
+                                   check_residuals_cv = FALSE,
+                                   check_residuals_full_sample = TRUE,
+                                   max_p_for_estimation = 12,
+                                   restrict_by_signif = TRUE,
+                                   t_tresh = 2)
+toc()
+models_and_accu_s4_6_t2 <- var_res_s4_6_t2[["accu_rankings_models"]]
+cv_objects_s4_6_t2 <- var_res_s4_6_t2[["cv_objects"]]
+saveRDS(models_and_accu_s4_6_t2,
+        paste0("./analysis/VAR_output/",country_name,"_s4_6_t2.rds"))
+saveRDS(cv_objects_s4_6_t2,
+        paste0("./analysis/VAR_output/",country_name,"_cvobj_s4_6_t2.rds"))
+
+
+
+
+
 

@@ -463,10 +463,21 @@ var_cv <- function(var_data, this_p, this_type = "const",
   cv_lag <- list_along(1:n_cv)
   cv_is_white_noise <- vector(mode = "logical", length = n_cv)
   
-  print("VAR data before cv")
-  print(var_data)
+  # print("VAR data before cv")
+  # print(var_data)
   
   total_obs <- nrow(var_data)
+  cv_obs_used <- n_cv + training_length + h_max
+  
+  if (total_obs < cv_obs_used) {
+    print(paste("Warning: For selected variables, balanced sample has only", 
+                total_obs, "obs. Fixed-length cv needs", cv_obs_used, " obs."))
+    
+    print(paste0("Forecast length: ", h_max, ". Training length: ", 
+                 training_length, ". CV rounds: ", n_cv, ". Total: ", 
+                 n_cv + training_length + h_max))
+  }
+  
   
   for (i in seq_along(1:n_cv)) {
     
@@ -493,19 +504,14 @@ var_cv <- function(var_data, this_p, this_type = "const",
                                resmat = full_sample_resmat)
     this_effective_lag <- max_effective_lag(this_var)
     
-    if (total_obs < (training_length + h_max + n_cv + this_effective_lag)) {
-      print(paste("Warning: test+train+fc+e_lag exceeds var_obs by", 
-            (training_length + h_max + n_cv + this_effective_lag) - total_obs))
-    }
-    
-    print(paste("nrow(training_y):", nrow(training_y), ", nom lag:", this_p, 
-                ", eff lag:", this_effective_lag ,
-                ". Start:", paste(start(training_y), collapse = "_"),
-                ". End:", paste(end(training_y), collapse = "_")))
-    
-    print(paste("nrow(test_y):", nrow(test_y),
-                ". Start:", paste(start(test_y), collapse = "_"),
-                ". End:", paste(end(test_y), collapse = "_")))
+    # print(paste("nrow(training_y):", nrow(training_y), ", nom lag:", this_p, 
+    #             ", eff lag:", this_effective_lag ,
+    #             ". Start:", paste(start(training_y), collapse = "_"),
+    #             ". End:", paste(end(training_y), collapse = "_")))
+    # 
+    # print(paste("nrow(test_y):", nrow(test_y),
+    #             ". Start:", paste(start(test_y), collapse = "_"),
+    #             ". End:", paste(end(test_y), collapse = "_")))
     
     
     # print(this_var)
