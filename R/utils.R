@@ -9,6 +9,7 @@ library(purrr)
 library(lubridate)
 library(forecast)
 library(tictoc)
+library(tidyselect)
 
 
 
@@ -338,12 +339,73 @@ get_reco_from_sta <- function(stdata, variable_name) {
 }
 
 
+
+make_model_name <- function(variables, lags, model_function = NULL, 
+                            base_variable = "rgdp", remove_base = FALSE) {
+  
+  variables <- sort(variables)
+  
+  colap_variables <- paste(variables, collapse = "_")
+  # print(colap_variables)
+  
+  if (remove_base) {
+    if (is.null(model_function)) {
+      short_name <- paste(colap_variables, lags, sep = "_")
+      model_name <- short_name
+    } else {
+      long_name <- paste(model_function, colap_variables, lags, sep = "_")
+      model_name <- long_name
+    }
+  } else {
+    if (is.null(model_function)) {
+      short_name <- paste(colap_variables, lags, sep = "_")
+      short_name <- str_remove(short_name, "rgdp_")
+      model_name <- short_name
+    } else {
+      long_name <- paste(model_function, colap_variables, lags, sep = "_")
+      long_name <- str_remove(long_name, "rgdp_")
+      model_name <- long_name
+    }
+  }
+  
+  return(model_name)
+}
+
+
+make_recommendation <- function(seas, sta, sta_after_seas) {
+  
+  if (seas == 1 & sta_after_seas == 0) {
+    recommendation <- "yoy"
+  } 
+  
+  if (seas == 0 & sta_after_seas == 0) {
+    recommendation <- "level"
+  } 
+  if (seas == 1 & sta_after_seas == 1) {
+    recommendation <- "diff_yoy"
+  } 
+  if (seas == 0 & sta_after_seas == 1) {
+    recommendation <- "diff"
+  } 
+  if (seas == 0 & sta_after_seas == 2) {
+    recommendation <- "diff_diff"
+  } 
+  if (seas == 1 & sta_after_seas == 2) {
+    recommendation <- "diff_diff_yoy"
+  } 
+  
+  return(recommendation)
+  
+}
+
+
+
 make_test_dates_list <- function(ts_data, type = "tscv", n = 8, h_max = 6,
                                  timetk_idx = TRUE, training_length = 20,
                                  external_idx = NULL) {
   
   data_length <- nrow(ts_data)
-
+  
   date_time_index <- as.yearqtr(time(ts_data))
   
   list_of_positions <- list_along(seq(1:n))
@@ -412,32 +474,6 @@ make_test_dates_list <- function(ts_data, type = "tscv", n = 8, h_max = 6,
   
 }
 
-
-make_recommendation <- function(seas, sta, sta_after_seas) {
-  
-  if (seas == 1 & sta_after_seas == 0) {
-    recommendation <- "yoy"
-  } 
-  
-  if (seas == 0 & sta_after_seas == 0) {
-    recommendation <- "level"
-  } 
-  if (seas == 1 & sta_after_seas == 1) {
-    recommendation <- "diff_yoy"
-  } 
-  if (seas == 0 & sta_after_seas == 1) {
-    recommendation <- "diff"
-  } 
-  if (seas == 0 & sta_after_seas == 2) {
-    recommendation <- "diff_diff"
-  } 
-  if (seas == 1 & sta_after_seas == 2) {
-    recommendation <- "diff_diff_yoy"
-  } 
-  
-  return(recommendation)
-  
-}
 
 
 make_yoy_ts <- function(df_ts, freq = 4, is_log = FALSE) {
