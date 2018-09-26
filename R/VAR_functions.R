@@ -3,6 +3,28 @@ library(MTS)
 library(vars)
 
 
+add_rmse_rankings <- function(tbl_with_rmses) {
+  rmse_names <- names(tbl_with_rmses)
+  rmse_names <- vars_select(names(tbl_with_rmses), starts_with("rmse"))
+  rmse_names <- unname(rmse_names)
+  
+  rankings_as_list <- list_along(rmse_names)
+  
+  for (i in seq_along(rmse_names)) {
+    this_rmse <- paste0("rmse_", i)
+    this_rmse_data <- as.matrix(tbl_with_rmses[, this_rmse])
+    this_rank <- rank(this_rmse_data)
+    rankings_as_list[[i]] <- this_rank
+  }
+  
+  rankings <- as_tibble(reduce(rankings_as_list, cbind))
+  names(rankings) <- paste0("rank_", seq_along(rmse_names))
+  new_tbl <- as_tibble(cbind(tbl_with_rmses, rankings))
+  return(new_tbl)
+}
+
+
+
 get_rmses_h_rankings_h <- function(data = cv_objects, h_max = 6){
   cv_errors <- data[["cv_errors"]]
   
@@ -50,45 +72,6 @@ check_resid_VAR <- function(fit_VAR, type = "PT.adjusted", lags.pt = 12,
 
   return(is_white_noise)
 }
-
-
-variable_freq_by_n <- function(tbl_of_models, h_max = 8, max_rank = 10, n_freq = 4) {
-  
-  vec_of_rmse_h <- sort(unique(tbl_of_models$rmse_h))
-  print(vec_of_rmse_h)
-  
-  list_best <- map(vec_of_rmse_h, 
-                   ~ tbl_of_models %>% 
-                     filter(rmse_h == .x, rank_h < max_rank +1 ) %>% 
-                     dplyr::select("variables") %>% 
-                     unlist() %>% 
-                     table() %>% 
-                     as_tibble() %>% 
-                     arrange(desc(n)) %>% 
-                     rename(., vbl = .)
-  ) 
-  
-  tbl_best <- reduce(list_best, left_join, by = c("vbl"))
-  names(tbl_best) <- c("vbl", paste("h", seq(h_max), sep = "_"))
-  
-  tbl_best <- tbl_best %>% 
-    mutate(total_n = rowSums(.[2:(h_max+1)], na.rm = TRUE))
-  
-  by_h1_20 <- tbl_best %>% 
-    arrange(desc(total_n)) %>% 
-    dplyr::select(vbl) %>% 
-    dplyr::filter(row_number() <= n_freq)
-  
-  by_total_20 <- tbl_best %>% 
-    arrange(desc(h_1)) %>% 
-    dplyr::select(vbl) %>% 
-    dplyr::filter(row_number() <= n_freq)
-  
-  both <- unique(c(by_h1_20$vbl, by_total_20$vbl))
-  
-  return( list(freqs_by_h = tbl_best, top_h1_total = both))
-}
-
 
 
 
@@ -1345,3 +1328,63 @@ var_cv <- function(var_data, this_p, this_type = "const",
               cv_lag = cv_lag,
               cv_is_white_noise = cv_is_white_noise))
 }
+
+
+
+
+variable_freq_by_n <- function(tbl_of_models, h_max = 8, max_rank = 10, 
+                               n_freq = 4, is_wide = FALSE) {
+  
+  rmse_names <- paste("rmse", seq(h_max), sep = "_")
+  
+  if ("full_sample_varest" %in% names(tbl_of_models)) {
+    tbl_of_models <-  tbl_of_models %>% 
+      dplyr::select(-full_sample_varest)
+  }
+
+  if (is_wide) {
+    tbl_of_models <- tbl_of_models %>% 
+      gather(key = "rmse_h", value = "rmse", rmse_names) %>% 
+      dplyr::select(vars_select(names(.), -starts_with("rank"))) %>% 
+      group_by(rmse_h) %>% 
+      arrange(rmse_h, rmse) %>% 
+      mutate(rank_h = rank(rmse)) %>% 
+      ungroup()
+  }
+  
+  vec_of_rmse_h <- sort(unique(tbl_of_models$rmse_h))
+  
+  list_best <- map(vec_of_rmse_h, 
+                   ~ tbl_of_models %>% 
+                     filter(rmse_h == .x, rank_h < max_rank +1 ) %>% 
+                     dplyr::select("variables") %>% 
+                     unlist() %>% 
+                     table() %>% 
+                     as_tibble() %>% 
+                     arrange(desc(n)) %>% 
+                     rename(., vbl = .)
+  ) 
+  
+  tbl_best <- reduce(list_best, left_join, by = c("vbl"))
+  names(tbl_best) <- c("vbl", paste("h", seq(h_max), sep = "_"))
+  
+  tbl_best <- tbl_best %>% 
+    mutate(total_n = rowSums(.[2:(h_max+1)], na.rm = TRUE))
+  
+  by_h1_20 <- tbl_best %>% 
+    arrange(desc(total_n)) %>% 
+    dplyr::select(vbl) %>% 
+    dplyr::filter(row_number() <= n_freq)
+  
+  by_total_20 <- tbl_best %>% 
+    arrange(desc(h_1)) %>% 
+    dplyr::select(vbl) %>% 
+    dplyr::filter(row_number() <= n_freq)
+  
+  both <- unique(c(by_h1_20$vbl, by_total_20$vbl))
+  
+  return( list(freqs_by_h = tbl_best, top_h1_total = both))
+}
+
+
+

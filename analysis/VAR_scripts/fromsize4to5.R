@@ -34,27 +34,6 @@ all_models <- all_models %>% dplyr::distinct(short_name, .keep_all = TRUE)
 
 format(object.size(all_models), units = "auto")
 
-add_rmse_rankings <- function(tbl_with_rmses) {
-  rmse_names <- names(tbl_with_rmses)
-  rmse_names <- vars_select(names(tbl_with_rmses), starts_with("rmse"))
-  rmse_names <- unname(rmse_names)
-
-  rankings_as_list <- list_along(rmse_names)
-  
-  for (i in seq_along(rmse_names)) {
-    this_rmse <- paste0("rmse_", i)
-    this_rmse_data <- as.matrix(tbl_with_rmses[, this_rmse])
-    this_rank <- rank(this_rmse_data)
-    rankings_as_list[[i]] <- this_rank
-  }
-  
-  rankings <- as_tibble(reduce(rankings_as_list, cbind))
-  names(rankings) <- paste0("rank_", seq_along(rmse_names))
-  new_tbl <- as_tibble(cbind(tbl_with_rmses, rankings))
-  return(new_tbl)
-
-}
-
 all_models_ranked <- add_rmse_rankings(all_models)
 
 all_models_ranked  <- all_models_ranked %>% 
@@ -75,14 +54,20 @@ all_models_ranked_long  <- all_models_ranked %>%
   mutate(rank_h = rank(rmse)) %>% 
   ungroup()
 
-rm(all_models)
-rm(all_models_ranked)
+# rm(all_models)
+# rm(all_models_ranked)
 
 format(object.size(all_models_ranked_long), units = "auto")
 
 
+
+
+
 foo <- variable_freq_by_n(all_models_ranked_long, h_max = 7, max_rank = 20, n_freq = 4)
-# foo
+foo
+
+wfoo <- variable_freq_by_n(all_models_ranked, h_max = 7, max_rank = 20, n_freq = 4, is_wide = TRUE)
+wfoo
 
 foo10 <- variable_freq_by_n(all_models_ranked_long, h_max = 7, max_rank = 10, n_freq = 4)
 # foo10
