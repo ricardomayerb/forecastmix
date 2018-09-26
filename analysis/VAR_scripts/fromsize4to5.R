@@ -61,19 +61,107 @@ format(object.size(all_models_ranked_long), units = "auto")
 
 
 
+variable_freq_by_n <- function(tbl_of_models, h_max = 8, max_rank = 10, 
+                               n_freq = 4, is_wide = FALSE) {
+  
+  rmse_names <- paste("rmse", seq(h_max), sep = "_")
+  
+  if ("full_sample_varest" %in% names(tbl_of_models)) {
+    tbl_of_models <-  tbl_of_models %>% 
+      dplyr::select(-full_sample_varest)
+  }
+  
+  if (is_wide) {
+    tbl_of_models <- tbl_of_models %>% 
+      gather(key = "rmse_h", value = "rmse", rmse_names) %>% 
+      dplyr::select(vars_select(names(.), -starts_with("rank"))) %>% 
+      group_by(rmse_h) %>% 
+      arrange(rmse_h, rmse) %>% 
+      mutate(rank_h = rank(rmse)) %>% 
+      ungroup()
+  }
+  
+  vec_of_rmse_h <- sort(unique(tbl_of_models$rmse_h))
+  
+  list_best <- map(vec_of_rmse_h, 
+                   ~ tbl_of_models %>% 
+                     filter(rmse_h == .x, rank_h < max_rank +1 ) %>% 
+                     dplyr::select("variables") %>% 
+                     unlist() %>% 
+                     table() %>% 
+                     as_tibble() %>% 
+                     arrange(desc(n)) %>% 
+                     rename(., vbl = .)
+                   ) 
+  
+  
+  tbl_best <- reduce(list_best, left_join, by = c("vbl"))
+  names(tbl_best) <- c("vbl", paste("h", seq(h_max), sep = "_"))
+  
+  tbl_best <- tbl_best %>% 
+    mutate(total_n = rowSums(.[2:(h_max+1)], na.rm = TRUE))
+  
+  by_h1 <- tbl_best %>% 
+    arrange(desc(total_n)) %>% 
+    dplyr::select(vbl) %>% 
+    dplyr::filter(row_number() <= n_freq)
+  
+  by_total <- tbl_best %>% 
+    arrange(desc(h_1)) %>% 
+    dplyr::select(vbl) %>% 
+    dplyr::filter(row_number() <= n_freq)
+  
+  both <- unique(c(by_h1_20$vbl, by_total_20$vbl))
+  
+  list_best_lags <- map(vec_of_rmse_h, 
+                   ~ tbl_of_models %>% 
+                     filter(rmse_h == .x, rank_h < max_rank +1 ) %>% 
+                     dplyr::select("lags") %>% 
+                     unlist() %>% 
+                     table() %>% 
+                     as_tibble() %>% 
+                     arrange(desc(n)) %>% 
+                     rename(., max_lag = .)
+  ) 
+  
+  
+  tbl_best_lags <- reduce(list_best_lags, left_join, by = c("max_lag"))
+  names(tbl_best_lags) <- c("max_lag", paste("h", seq(h_max), sep = "_"))
+  
+  tbl_best_lags <- tbl_best_lags %>% 
+    mutate(total_n = rowSums(.[2:(h_max+1)], na.rm = TRUE))
+  
+  by_h1_lags <- tbl_best_lags %>% 
+    arrange(desc(total_n)) %>% 
+    dplyr::select(max_lag) %>% 
+    dplyr::filter(row_number() <= n_freq)
+  
+  by_total_lags <- tbl_best_lags %>% 
+    arrange(desc(h_1)) %>% 
+    dplyr::select(max_lag) %>% 
+    dplyr::filter(row_number() <= n_freq)
+  
+  both_lags <- unique(c(by_h1_lags$max_lag, by_total_lags$max_lag))
+  
+  return( list(freqs_by_h = tbl_best, top_h1_total = both,
+               freqs_by_h_lags = tbl_best_lags, top_h1_total_lags = both_lags))
+}
+
+
+
+# wfoo <- variable_freq_by_n(all_models_ranked, h_max = 7, max_rank = 20, n_freq = 4, is_wide = TRUE)
+# wfoo
 
 
 foo <- variable_freq_by_n(all_models_ranked_long, h_max = 7, max_rank = 20, n_freq = 4)
 foo
 
-wfoo <- variable_freq_by_n(all_models_ranked, h_max = 7, max_rank = 20, n_freq = 4, is_wide = TRUE)
-wfoo
 
 foo10 <- variable_freq_by_n(all_models_ranked_long, h_max = 7, max_rank = 10, n_freq = 4)
-# foo10
+foo10
 
 foo5 <- variable_freq_by_n(all_models_ranked_long, h_max = 7, max_rank = 5, n_freq = 4)
-# foo5
+foo5
 
 foo$top_h1_total
 foo10$top_h1_total
