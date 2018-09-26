@@ -81,44 +81,6 @@ rm(all_models_ranked)
 format(object.size(all_models_ranked_long), units = "auto")
 
 
-variable_freq_by_n <- function(tbl_of_models, h_max = 8, max_rank = 10, n_freq = 4) {
-  
-  vec_of_rmse_h <- sort(unique(tbl_of_models$rmse_h))
-  print(vec_of_rmse_h)
-
-  list_best <- map(vec_of_rmse_h, 
-                   ~ tbl_of_models %>% 
-                     filter(rmse_h == .x, rank_h < max_rank +1 ) %>% 
-                     dplyr::select("variables") %>% 
-                     unlist() %>% 
-                     table() %>% 
-                     as_tibble() %>% 
-                     arrange(desc(n)) %>% 
-                     rename(., vbl = .)
-  ) 
-  
-  tbl_best <- reduce(list_best, left_join, by = c("vbl"))
-  names(tbl_best) <- c("vbl", paste("h", seq(h_max), sep = "_"))
-  
-  tbl_best <- tbl_best %>% 
-    mutate(total_n = rowSums(.[2:(h_max+1)], na.rm = TRUE))
-  
-  by_h1_20 <- tbl_best %>% 
-    arrange(desc(total_n)) %>% 
-    dplyr::select(vbl) %>% 
-    dplyr::filter(row_number() <= n_freq)
-  
-  by_total_20 <- tbl_best %>% 
-    arrange(desc(h_1)) %>% 
-    dplyr::select(vbl) %>% 
-    dplyr::filter(row_number() <= n_freq)
-  
-  both <- unique(c(by_h1_20$vbl, by_total_20$vbl))
-  
-  return( list(freqs_by_h = tbl_best, top_h1_total = both))
-}
-
-
 foo <- variable_freq_by_n(all_models_ranked_long, h_max = 7, max_rank = 20, n_freq = 4)
 # foo
 

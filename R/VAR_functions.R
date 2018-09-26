@@ -52,6 +52,46 @@ check_resid_VAR <- function(fit_VAR, type = "PT.adjusted", lags.pt = 12,
 }
 
 
+variable_freq_by_n <- function(tbl_of_models, h_max = 8, max_rank = 10, n_freq = 4) {
+  
+  vec_of_rmse_h <- sort(unique(tbl_of_models$rmse_h))
+  print(vec_of_rmse_h)
+  
+  list_best <- map(vec_of_rmse_h, 
+                   ~ tbl_of_models %>% 
+                     filter(rmse_h == .x, rank_h < max_rank +1 ) %>% 
+                     dplyr::select("variables") %>% 
+                     unlist() %>% 
+                     table() %>% 
+                     as_tibble() %>% 
+                     arrange(desc(n)) %>% 
+                     rename(., vbl = .)
+  ) 
+  
+  tbl_best <- reduce(list_best, left_join, by = c("vbl"))
+  names(tbl_best) <- c("vbl", paste("h", seq(h_max), sep = "_"))
+  
+  tbl_best <- tbl_best %>% 
+    mutate(total_n = rowSums(.[2:(h_max+1)], na.rm = TRUE))
+  
+  by_h1_20 <- tbl_best %>% 
+    arrange(desc(total_n)) %>% 
+    dplyr::select(vbl) %>% 
+    dplyr::filter(row_number() <= n_freq)
+  
+  by_total_20 <- tbl_best %>% 
+    arrange(desc(h_1)) %>% 
+    dplyr::select(vbl) %>% 
+    dplyr::filter(row_number() <= n_freq)
+  
+  both <- unique(c(by_h1_20$vbl, by_total_20$vbl))
+  
+  return( list(freqs_by_h = tbl_best, top_h1_total = both))
+}
+
+
+
+
 get_sets_of_variables <- function(df, this_size, all_variables, already_chosen){
   
   len_already_chosen <- length(already_chosen)
