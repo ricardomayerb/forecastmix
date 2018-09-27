@@ -784,8 +784,8 @@ search_var <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v,
   
   if(nrow(results_all_models) > 0) {
     
-    print("names(results_all_models)")
-    print(names(results_all_models))
+    # print("names(results_all_models)")
+    # print(names(results_all_models))
     
     results_all_models <- get_rmses_h_rankings_h(data = results_all_models,
                                                  h_max = h_max)
@@ -795,8 +795,8 @@ search_var <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v,
       mutate(cv_vbl_names = map(cv_vbl_names, 1),
              cv_lag = map(cv_lag, 1))
     
-    print("names(results_all_models)")
-    print(names(results_all_models))
+    # print("names(results_all_models)")
+    # print(names(results_all_models))
     
     cv_objects <- results_all_models %>% dplyr::select(cv_vbl_names, cv_lag, 
                                                        cv_errors, cv_test_data,
