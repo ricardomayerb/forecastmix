@@ -165,7 +165,8 @@ follow_rec <- function(data_tbl_ts, table_of_recommendations) {
 }
 
 
-get_raw_data_ts <- function(country = NULL, data_path = "./data/excel/"){
+get_raw_data_ts <- function(country = NULL, data_path = "./data/excel/",
+                            read_external = TRUE){
   
   file_names <- list.files(path = data_path, recursive = T, pattern = '*.xlsx')
   file_paths <- paste0(data_path, file_names)
@@ -209,7 +210,13 @@ get_raw_data_ts <- function(country = NULL, data_path = "./data/excel/"){
   countries_merged_q_m <- list_along(country_names)
   countries_merged_q_m_ts <- list_along(country_names)
   
-  
+  external_m <- read_excel(file_paths[i], sheet = "monthly")
+  external_m <- as_tbl_time(external_m, index = date)
+  external_m_q <- external_m  %>%
+    collapse_by(period = "quarterly") %>%
+    group_by(date) %>% transmute_all(mean) %>%
+    distinct(date, .keep_all = TRUE) %>% 
+    ungroup() 
   
   for (i in seq_along(country_names)) {
     
@@ -241,6 +248,7 @@ get_raw_data_ts <- function(country = NULL, data_path = "./data/excel/"){
     all_files_m_q[[i]] <- this_m_q
     
     m_and_q <- left_join(this_q, this_m_q, by = "date")
+    m_and_q <- left_join(m_and_q, external_m_q, by = "date")
     
     # this_vars_to_drop <- variables_to_drop[[i]]
     m_and_q <- drop_this_vars(m_and_q, this_variables_to_drop)
