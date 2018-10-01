@@ -165,15 +165,10 @@ follow_rec <- function(data_tbl_ts, table_of_recommendations) {
 }
 
 
-get_raw_data_ts <- function(country = NULL, data_path = "./data/excel/",
-                            read_external = TRUE){
+get_raw_data_ts <- function(country, data_path = "./data/excel/"){
   
-  file_names <- list.files(path = data_path, recursive = T, pattern = '*.xlsx')
-  file_paths <- paste0(data_path, file_names)
-  country_names <- str_extract(file_names, "\\w+(?=\\.xlsx?)")  
-  names(file_paths) <- country_names
-  names(file_names) <- country_names
-  
+  this_file_path <- paste0(data_path, country, ".xlsx")
+
   general_variables_to_drop <- list(c("year", "quarter", "hlookup", "rgdp_sa", "trim", 
                                       "month", "conf_emp", "conf_ibre", "ip_ine", 
                                       "vta_auto", "exist"))
@@ -192,100 +187,72 @@ get_raw_data_ts <- function(country = NULL, data_path = "./data/excel/",
   
   variables_to_drop <- map2(extra_vars_to_drop, general_variables_to_drop, c)
   
-  if (!is.null(country)) {
-    file_paths <- file_paths[country]
-    file_names <- file_names[country]
-    country_names <- country
+  this_variables_to_drop <- variables_to_drop[[country]]
+  
+  this_q <- read_excel(this_file_path, sheet = "quarterly", na = c("", "NaN"))
+  this_q <- as_tbl_time(this_q, index = date)
+  this_q <- dplyr::select(this_q, -c(year, hlookup))
+  
+  
+  if(country == "Uruguay") {
+    this_q[, "rm"] <- - this_q[, "rm"]
   }
   
-  if (length(country == 1)) {
-    is_single_country <- TRUE
-  } else {
-    is_single_country <- FALSE
-  }
+  this_m <- read_excel(this_file_path, sheet = "monthly", na = c("", "NaN"))
+  # this_m <- replace_na(data = this_m, replace = "NaN")
+  this_m <- as_tbl_time(this_m, index = date)
   
-  all_files_q <- list_along(country_names)
-  all_files_m <- list_along(country_names)
-  all_files_m_q <- list_along(country_names)
-  countries_merged_q_m <- list_along(country_names)
-  countries_merged_q_m_ts <- list_along(country_names)
-  
-  external_m <- read_excel(file_paths[i], sheet = "monthly")
-  external_m <- as_tbl_time(external_m, index = date)
-  external_m_q <- external_m  %>%
+  print(this_m)
+
+  this_m_q <- this_m  %>%
     collapse_by(period = "quarterly") %>%
-    group_by(date) %>% transmute_all(mean) %>%
+    group_by(date) %>% transmute_all(mean, na.rm = TRUE) %>%
     distinct(date, .keep_all = TRUE) %>% 
     ungroup() 
   
-  for (i in seq_along(country_names)) {
-    
-    this_q <- read_excel(file_paths[i], sheet = "quarterly")
-    this_q <- as_tbl_time(this_q, index = date)
-    this_q <- dplyr::select(this_q, -c(year, hlookup))
-    
-    this_country <- country_names[i]
-    this_variables_to_drop <- variables_to_drop[[this_country]]
-    
-    
-    if(country_names[i] == "Uruguay") {
-      this_q[, "rm"] <- - this_q[, "rm"]
-    }
-    
-    
-    all_files_q[[i]] <- this_q
-    
-    this_m <- read_excel(file_paths[i], sheet = "monthly")
-    this_m <- as_tbl_time(this_m, index = date)
-    all_files_m[[i]] <- this_m
-    
-    this_m_q <- this_m  %>%
-      collapse_by(period = "quarterly") %>%
-      group_by(date) %>% transmute_all(mean) %>%
-      distinct(date, .keep_all = TRUE) %>% 
-      ungroup() 
-    
-    all_files_m_q[[i]] <- this_m_q
-    
-    m_and_q <- left_join(this_q, this_m_q, by = "date")
-    m_and_q <- left_join(m_and_q, external_m_q, by = "date")
-    
-    # this_vars_to_drop <- variables_to_drop[[i]]
-    m_and_q <- drop_this_vars(m_and_q, this_variables_to_drop)
-    
-    # m_and_q$year <- NULL
-    # m_and_q$quarter <- NULL
-    # m_and_q$month <- NULL
-    # m_and_q$hlookup <- NULL
-    # m_and_q$trim <- NULL
-    
-    
-    maq_start <- first(tk_index(m_and_q))
-    m_and_q_ts <- suppressWarnings(tk_ts(m_and_q, frequency = 4, 
-                                         start = c(year(maq_start), quarter(maq_start))))
-    
-    countries_merged_q_m[[i]] <- m_and_q
-    countries_merged_q_m_ts[[i]] <- m_and_q_ts
-    
-  }
+  this_q <- drop_this_vars(this_q, this_variables_to_drop)
+  this_m_q <- drop_this_vars(this_m_q, this_variables_to_drop)
   
-  names(all_files_q) <- country_names
-  names(all_files_m) <- country_names
-  names(all_files_m_q) <- country_names
-  names(countries_merged_q_m) <- country_names
-  names(countries_merged_q_m_ts) <- country_names
+  # print("this_q")
+  # print(this_q, n = 120)
+  # print("this_m_q")
+  # print(this_m_q, n = 120)
+ 
+  m_and_q <- left_join(this_q, this_m_q, by = "date")
+
+  maq_start <- first(tk_index(m_and_q))
+  m_and_q_ts <- suppressWarnings(tk_ts(m_and_q, frequency = 4, 
+                                       start = c(year(maq_start), quarter(maq_start))))
   
-  # countries_merged_q_m <- countries_merged_q_m %>% 
-  #   dplyr::select(-c(year, quarter, month, hlookup))
-  
-  if (is_single_country) {
-    return(countries_merged_q_m_ts[[1]])
-  } else {
-    return(countries_merged_q_m_ts)
-  }
-  
-  
+  return(m_and_q_ts)
 }
+
+
+get_raw_external_data_ts <- function(data_path = "./data/excel/"){
+  
+  external_path <- paste0(data_path,  "external.xlsx")
+  
+  variables_to_drop <- c("year", "month", "hlookup")
+  
+  external_m <- read_excel(external_path, sheet = "monthly", na = c("", "NaN"))
+  
+  external_m <- as_tbl_time(external_m, index = date)
+  external_m_q <- external_m  %>%
+    collapse_by(period = "quarterly") %>%
+    group_by(date) %>% transmute_all(mean, na.rm = TRUE) %>%
+    distinct(date, .keep_all = TRUE) %>% 
+    ungroup() 
+  
+  external_m_q <- external_m_q %>% dplyr::select(- variables_to_drop)
+
+  external_start <- first(tk_index(external_m_q))
+  external_m_q_ts <- suppressWarnings(tk_ts(external_m_q, frequency = 4,
+                                            start = c(year(external_start), 
+                                                      quarter(external_start))))
+  
+  return(external_m_q_ts)
+}
+
 
 
 get_reco_from_sta <- function(stdata, variable_name) {

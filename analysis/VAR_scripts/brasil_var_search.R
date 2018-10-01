@@ -3,22 +3,36 @@ source('./R/VAR_functions.R')
 
 country_name <- "Brasil"
 forecast_exercise_year <- 2018
-forecast_exercise_number <- 1
+forecast_exercise_number <- 2
 
 excel_data_path <- paste0("./data/edd_exercises/", forecast_exercise_year, 
                           "_exercise_", forecast_exercise_number, "/")
 
-country_data_level_ts <- get_raw_data_ts(country_name, excel_data_path)
+country_data_ts <- get_raw_data_ts(country_name, excel_data_path)
+# colnames(country_data_ts)
+country_data_ts[is.nan(country_data_ts)] <- NA
+country_data_ts[, "ibc"]
 
-reco_all_variables <- find_statio_diffs(country_data_level_ts, country_name)
 
-country_transformed_data <- follow_rec(country_data_level_ts, 
-                                       reco_all_variables)
+external_data_ts <- get_raw_external_data_ts(excel_data_path)
+# colnames(external_data_ts)
+
+data_ts <- country_data_ts
+# data_ts <- ts.union(country_data_ts, external_data_ts)
+# colnames(data_ts) <- c(colnames(country_data_ts), colnames(external_data_ts))
+
+colnames(data_ts)
+
+reco_all_variables <- find_statio_diffs(data_ts, country_name)
+
+country_transformed_data <- follow_rec(data_ts, reco_all_variables)
 
 VAR_data_for_estimation  <- country_transformed_data
 variable_names <- colnames(VAR_data_for_estimation)
 ncolumns <- ncol(VAR_data_for_estimation)
 
+foo <- na.omit(VAR_data_for_estimation)
+foo[, "ibc"]
 
 saveRDS(VAR_data_for_estimation , 
         paste0("./analysis/VAR_output/VAR_data_",country_name,".rds"))
@@ -61,10 +75,8 @@ max_rank_some_h <- 50
 
 
 
-
-
 tic()
-var_res_s2_aic_fpe_hq_sc_t2 <- search_var(vec_size = 2,
+var_res_s2_aic_fpe_hq_sc_t2 <- search_var_one_size(var_size = 2,
                                        vec_lags = vec_lags_aic_fpe_hq_sc,
                                        var_data = VAR_data_for_estimation,
                                        rgdp_level_ts = rgdp_level_ts, 
