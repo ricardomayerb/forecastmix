@@ -8,19 +8,19 @@ forecast_exercise_number <- 2
 excel_data_path <- paste0("./data/edd_exercises/", forecast_exercise_year, 
                           "_exercise_", forecast_exercise_number, "/")
 
-country_data_ts <- get_raw_data_ts(country_name, excel_data_path)
-# colnames(country_data_ts)
-country_data_ts[is.nan(country_data_ts)] <- NA
-country_data_ts[, "ibc"]
+output_path <- paste0("./analysis/VAR_output/edd_exercises/",
+                      forecast_exercise_year, 
+                      "_exercise_", forecast_exercise_number, "/")
 
+country_data_ts <- get_raw_data_ts(country_name, excel_data_path)
 
 external_data_ts <- get_raw_external_data_ts(excel_data_path)
 # colnames(external_data_ts)
 
 data_ts <- country_data_ts
+
 # data_ts <- ts.union(country_data_ts, external_data_ts)
 # colnames(data_ts) <- c(colnames(country_data_ts), colnames(external_data_ts))
-
 colnames(data_ts)
 
 reco_all_variables <- find_statio_diffs(data_ts, country_name)
@@ -31,11 +31,8 @@ VAR_data_for_estimation  <- country_transformed_data
 variable_names <- colnames(VAR_data_for_estimation)
 ncolumns <- ncol(VAR_data_for_estimation)
 
-foo <- na.omit(VAR_data_for_estimation)
-foo[, "ibc"]
-
-saveRDS(VAR_data_for_estimation , 
-        paste0("./analysis/VAR_output/VAR_data_",country_name,".rds"))
+saveRDS(VAR_data_for_estimation, 
+        paste0(output_path, "VAR_data_",country_name,".rds"))
 
 rgdp_rec <- reco_all_variables[reco_all_variables$variable == "rgdp", ][["kpss_05_level"]]
 print(rgdp_rec)
@@ -96,16 +93,26 @@ var_res_s2_aic_fpe_hq_sc_t2 <- search_var_one_size(var_size = 2,
                                        max_p_for_estimation = 12)
 
 toc()
+
 models_and_accu_s2_aic_fpe_hq_sc_t2 <- var_res_s2_aic_fpe_hq_sc_t2[["accu_rankings_models"]]
+
 cv_objects_s2_aic_fpe_hq_sc_t2 <- var_res_s2_aic_fpe_hq_sc_t2[["cv_objects"]]
+
 saveRDS(models_and_accu_s2_aic_fpe_hq_sc_t2, 
-        paste0("./analysis/VAR_output/",country_name,"_s2_aic_fpe_hq_sc_t2.rds"))
+        paste0(output_path, country_name, "_s2_aic_fpe_hq_sc_t2.rds"))
+
 saveRDS(cv_objects_s2_aic_fpe_hq_sc_t2, 
-        paste0("./analysis/VAR_output/",country_name,"_cvobj_s2_aic_fpe_hq_sc_t2.rds"))
+        paste0(output_path, country_name, "_cvobj_s2_aic_fpe_hq_sc_t2.rds"))
+
+f_s2_aic_fpe_hq_sc_t2 <- variable_freq_by_n(models_and_accu_s2_aic_fpe_hq_sc_t2,
+                                            h_max = 7, max_rank = 20, n_freq = 4, is_wide = TRUE)
+f_s2_aic_fpe_hq_sc_t2$vbl_top_h1_total
+f_s2_aic_fpe_hq_sc_t2$lags_top_h1_total
+
 
 
 tic()
-var_res_s2_123456_t2 <- search_var(vec_size = 2,
+var_res_s2_123456_t2 <- search_var_one_size(var_size = 2,
                                vec_lags = vec_lags_123456,
                                var_data = VAR_data_for_estimation,
                                rgdp_level_ts = rgdp_level_ts, 
@@ -126,12 +133,31 @@ var_res_s2_123456_t2 <- search_var(vec_size = 2,
 
 toc()
 models_and_accu_s2_123456_t2 <- var_res_s2_123456_t2[["accu_rankings_models"]]
-cv_objects_s2_123456_t2 <- var_res_s2_123456_t2[["cv_objects"]]
-saveRDS(models_and_accu_s2_123456_t2, 
-        paste0("./analysis/VAR_output/",country_name,"_s2_123456_t2.rds"))
-saveRDS(cv_objects_s2_123456_t2, 
-        paste0("./analysis/VAR_output/",country_name,"_cvobj_s2_123456_t2.rds"))
 
+cv_objects_s2_123456_t2 <- var_res_s2_123456_t2[["cv_objects"]]
+
+saveRDS(models_and_accu_s2_123456_t2, 
+        paste0(output_path, country_name,"_s2_123456_t2.rds"))
+
+saveRDS(cv_objects_s2_123456_t2, 
+        paste0(output_path, country_name,"_cvobj_s2_123456_t2.rds"))
+
+f_s2_123456_t2 <- variable_freq_by_n(models_and_accu_s2_123456_t2,
+                                     h_max = 7, max_rank = 20, n_freq = 4,
+                                     is_wide = TRUE)
+f_s2_123456_t2$vbl_top_h1_total
+f_s2_123456_t2$lags_top_h1_total
+
+
+
+
+models_and_accu_s2_t2 <- stack_models(list(models_and_accu_s2_aic_fpe_hq_sc_t2,
+                                           models_and_accu_s2_123456_t2))
+
+f_s2_t2 <- variable_freq_by_n(models_and_accu_s2_t2, h_max = 7, max_rank = 20,
+                              n_freq = 4, is_wide = TRUE)
+f_s2_t2$vbl_top_h1_total
+f_s2_t2$lags_top_h1_total
 
 
 
@@ -320,93 +346,6 @@ all_models_ranked  <- all_models_ranked %>%
 wfoo <- variable_freq_by_n(all_models_ranked, h_max = 7, max_rank = 20, n_freq = 4, is_wide = TRUE)
 
 wfoo
-
-
-variable_freq_by_n <- function(tbl_of_models, h_max = 8, max_rank = 10, 
-                               n_freq = 4, is_wide = FALSE) {
-  
-  rmse_names <- paste("rmse", seq(h_max), sep = "_")
-  
-  if ("full_sample_varest" %in% names(tbl_of_models)) {
-    tbl_of_models <-  tbl_of_models %>% 
-      dplyr::select(-full_sample_varest)
-  }
-  
-  if (is_wide) {
-    tbl_of_models <- tbl_of_models %>% 
-      gather(key = "rmse_h", value = "rmse", rmse_names) %>% 
-      dplyr::select(vars_select(names(.), -starts_with("rank"))) %>% 
-      group_by(rmse_h) %>% 
-      arrange(rmse_h, rmse) %>% 
-      mutate(rank_h = rank(rmse)) %>% 
-      ungroup()
-  }
-  
-  vec_of_rmse_h <- sort(unique(tbl_of_models$rmse_h))
-  
-  list_best <- map(vec_of_rmse_h, 
-                   ~ tbl_of_models %>% 
-                     filter(rmse_h == .x, rank_h < max_rank +1 ) %>% 
-                     dplyr::select("variables") %>% 
-                     unlist() %>% 
-                     table() %>% 
-                     as_tibble() %>% 
-                     arrange(desc(n)) %>% 
-                     rename(., vbl = .)
-  ) 
-  
-  
-  tbl_best <- reduce(list_best, left_join, by = c("vbl"))
-  names(tbl_best) <- c("vbl", paste("h", seq(h_max), sep = "_"))
-  
-  tbl_best <- tbl_best %>% 
-    mutate(total_n = rowSums(.[2:(h_max+1)], na.rm = TRUE))
-  
-  by_h1 <- tbl_best %>% 
-    arrange(desc(total_n)) %>% 
-    dplyr::select(vbl) %>% 
-    dplyr::filter(row_number() <= n_freq)
-  
-  by_total <- tbl_best %>% 
-    arrange(desc(h_1)) %>% 
-    dplyr::select(vbl) %>% 
-    dplyr::filter(row_number() <= n_freq)
-  
-  both <- unique(c(by_h1$vbl, by_total$vbl))
-  
-  list_best_lags <- map(vec_of_rmse_h, 
-                        ~ tbl_of_models %>% 
-                          filter(rmse_h == .x, rank_h < max_rank +1 ) %>% 
-                          dplyr::select("lags") %>% 
-                          unlist() %>% 
-                          table() %>% 
-                          as_tibble() %>% 
-                          arrange(desc(n)) %>% 
-                          rename(., max_lag = .)
-  ) 
-  
-  
-  tbl_best_lags <- reduce(list_best_lags, left_join, by = c("max_lag"))
-  names(tbl_best_lags) <- c("max_lag", paste("h", seq(h_max), sep = "_"))
-  
-  tbl_best_lags <- tbl_best_lags %>% 
-    mutate(total_n = rowSums(.[2:(h_max+1)], na.rm = TRUE))
-  
-  by_h1_lags <- tbl_best_lags %>% 
-    arrange(desc(total_n)) %>% 
-    dplyr::select(max_lag) %>% 
-    dplyr::filter(row_number() <= n_freq)
-  
-  by_total_lags <- tbl_best_lags %>% 
-    arrange(desc(h_1)) %>% 
-    dplyr::select(max_lag) %>% 
-    dplyr::filter(row_number() <= n_freq)
-  
-  both_lags <- unique(c(by_h1_lags$max_lag, by_total_lags$max_lag))
-  
-  return( list(freqs_by_h = tbl_best, top_h1_total = both,
-               freqs_by_h_lags = tbl_best_lags, top_h1_total_lags = both_lags))
-}
 
 
 

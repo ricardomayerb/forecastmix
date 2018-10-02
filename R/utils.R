@@ -192,6 +192,7 @@ get_raw_data_ts <- function(country, data_path = "./data/excel/"){
   this_q <- read_excel(this_file_path, sheet = "quarterly", na = c("", "NaN"))
   this_q <- as_tbl_time(this_q, index = date)
   this_q <- dplyr::select(this_q, -c(year, hlookup))
+  this_q[is.nan(as.matrix(this_q))] <- NA
   
   
   if(country == "Uruguay") {
@@ -200,15 +201,19 @@ get_raw_data_ts <- function(country, data_path = "./data/excel/"){
   
   this_m <- read_excel(this_file_path, sheet = "monthly", na = c("", "NaN"))
   # this_m <- replace_na(data = this_m, replace = "NaN")
+  this_m[is.nan(as.matrix(this_m))] <- NA
+  # print(this_m, n = 320)
   this_m <- as_tbl_time(this_m, index = date)
   
-  print(this_m)
-
   this_m_q <- this_m  %>%
     collapse_by(period = "quarterly") %>%
     group_by(date) %>% transmute_all(mean, na.rm = TRUE) %>%
     distinct(date, .keep_all = TRUE) %>% 
     ungroup() 
+  
+  # this_m_q[is.nan(as.matrix(as_tibble(this_m_q)))] <- NA
+  
+  # print(this_m_q, n = 320)
   
   this_q <- drop_this_vars(this_q, this_variables_to_drop)
   this_m_q <- drop_this_vars(this_m_q, this_variables_to_drop)
@@ -221,8 +226,12 @@ get_raw_data_ts <- function(country, data_path = "./data/excel/"){
   m_and_q <- left_join(this_q, this_m_q, by = "date")
 
   maq_start <- first(tk_index(m_and_q))
-  m_and_q_ts <- suppressWarnings(tk_ts(m_and_q, frequency = 4, 
-                                       start = c(year(maq_start), quarter(maq_start))))
+  m_and_q_ts <- suppressWarnings(
+    tk_ts(m_and_q, frequency = 4, start = c(year(maq_start),
+                                            quarter(maq_start)))
+    )
+  
+  m_and_q_ts[is.nan(m_and_q_ts)] <- NA
   
   return(m_and_q_ts)
 }
@@ -235,6 +244,7 @@ get_raw_external_data_ts <- function(data_path = "./data/excel/"){
   variables_to_drop <- c("year", "month", "hlookup")
   
   external_m <- read_excel(external_path, sheet = "monthly", na = c("", "NaN"))
+  external_m[is.nan(as.matrix(external_m))] <- NA
   
   external_m <- as_tbl_time(external_m, index = date)
   external_m_q <- external_m  %>%
@@ -249,6 +259,8 @@ get_raw_external_data_ts <- function(data_path = "./data/excel/"){
   external_m_q_ts <- suppressWarnings(tk_ts(external_m_q, frequency = 4,
                                             start = c(year(external_start), 
                                                       quarter(external_start))))
+  
+  external_m_q_ts[is.nan(external_m_q_ts)] <- NA
   
   return(external_m_q_ts)
 }
