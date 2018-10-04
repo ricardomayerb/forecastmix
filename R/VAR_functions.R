@@ -140,6 +140,7 @@ search_var_one_size <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v,
   models_with_cv_excercises <- 0
   models_with_eqn_dropping <- 0
   binding_max_p <- 0
+ 
   
   if (!restrict_by_signif) {
     t_tresh <- NA
@@ -217,7 +218,7 @@ search_var_one_size <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v,
       fcs_fixed_vset_all_lags <- list_along(seq(len_lag))
 
       for (k in seq.int(1, len_lag)) {
-        
+        this_cv <- list()
         this_lag <- p_for_estimation[k]
         
         full_sample_var <- vars::VAR(sub_data, type = "const", p = this_lag)

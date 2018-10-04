@@ -332,24 +332,24 @@ make_model_name <- function(variables, lags, model_function = NULL,
   
   variables <- sort(variables)
   
-  colap_variables <- paste(variables, collapse = "_")
+  colap_variables <- paste(variables, collapse = " ")
   # print(colap_variables)
   
   if (remove_base) {
     if (is.null(model_function)) {
-      short_name <- paste(colap_variables, lags, sep = "_")
+      short_name <- paste(colap_variables, lags, sep = "__")
       model_name <- short_name
     } else {
-      long_name <- paste(model_function, colap_variables, lags, sep = "_")
+      long_name <- paste(model_function, colap_variables, lags, sep = "__")
       model_name <- long_name
     }
   } else {
     if (is.null(model_function)) {
-      short_name <- paste(colap_variables, lags, sep = "_")
+      short_name <- paste(colap_variables, lags, sep = "__")
       short_name <- str_remove(short_name, "rgdp_")
       model_name <- short_name
     } else {
-      long_name <- paste(model_function, colap_variables, lags, sep = "_")
+      long_name <- paste(model_function, colap_variables, lags, sep = "__")
       long_name <- str_remove(long_name, "rgdp_")
       model_name <- long_name
     }

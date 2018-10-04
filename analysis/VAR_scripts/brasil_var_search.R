@@ -347,19 +347,19 @@ models_and_accu_s4_t2 <- stack_models(list(models_and_accu_s4_6_t2,
                                            models_and_accu_s4_12345_t2))
 
 saveRDS(models_and_accu_s4_6_t2,
-        paste0("./analysis/VAR_output/",country_name,"_s4_6_t2.rds"))
+        paste0(output_path, country_name,"_s4_6_t2.rds"))
 saveRDS(cv_objects_s4_6_t2,
-        paste0("./analysis/VAR_output/",country_name,"_cvobj_s4_6_t2.rds"))
+        paste0(output_path, country_name,"_cvobj_s4_6_t2.rds"))
 saveRDS(models_and_accu_s4_aic_fpe_hq_sc_t2,
-        paste0("./analysis/VAR_output/",country_name,"_s4_aic_fpe_hq_sc_t2.rds"))
+        paste0(output_path, country_name,"_s4_aic_fpe_hq_sc_t2.rds"))
 saveRDS(cv_objects_s4_aic_fpe_hq_sc_t2,
-        paste0("./analysis/VAR_output/",country_name,"_cvobj_s4_aic_fpe_hq_sc_t2.rds"))
+        paste0(output_path, country_name,"_cvobj_s4_aic_fpe_hq_sc_t2.rds"))
 saveRDS(models_and_accu_s4_12345_t2,
-        paste0("./analysis/VAR_output/",country_name,"_s4_12345_t2.rds"))
+        paste0(output_path, country_name,"_s4_12345_t2.rds"))
 saveRDS(cv_objects_s4_12345_t2,
-        paste0("./analysis/VAR_output/",country_name,"_cvobj_s4_12345_t2.rds"))
+        paste0(output_path, country_name,"_cvobj_s4_12345_t2.rds"))
 saveRDS(models_and_accu_s4_t2,
-        paste0("./analysis/VAR_output/",country_name,"_s4_t2.rds"))
+        paste0(output_path, country_name,"_s4_t2.rds"))
 
 
 f_s4_6_t2 <- variable_freq_by_n(models_and_accu_s4_6_t2, h_max = 7,
@@ -392,6 +392,9 @@ rm(models_and_accu_s3_6_t2, models_and_accu_s4_aic_fpe_hq_sc_t2,
 models_and_accu_s1234_t2 <- stack_models(list(models_and_accu_s2_t2,
                                               models_and_accu_s3_t2,
                                               models_and_accu_s4_t2))
+
+saveRDS(models_and_accu_s1234_t2,
+        paste0(output_path, country_name,"_s1234_t2.rds"))
 
 format(object.size(models_and_accu_s4_t2), units = "auto")
 
