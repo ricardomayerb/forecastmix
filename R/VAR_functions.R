@@ -364,7 +364,10 @@ search_var_one_size <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v,
   
   names(results_all_models) <- column_names
   
-  # print("7")
+  print("7")
+  print(rgdp_current_form)
+  print(head(results_all_models))
+  print(8)
   
   
   if (rgdp_current_form != "yoy") {
@@ -372,11 +375,46 @@ search_var_one_size <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v,
       
       auxiliary_ts <-  rgdp_yoy_ts
       
+      print("results_all_models[[cv_errors]][[1]]")
+      print(results_all_models[["cv_errors"]][[1]])
+      
+      print("results_all_models[[cv_test_data]][[1]]")
+      print(results_all_models[["cv_test_data"]][[1]])
+      
+      print("results_all_models[[cv_fcs]][[1]]")
+      print(results_all_models[["cv_fcs"]][[1]])
+      
+      print("results_all_models[[cv_vbl_names]][[1]]")
+      print(results_all_models[["cv_vbl_names"]][[1]])
+      
+      print("results_all_models[[cv_lag]][[1]]")
+      print(results_all_models[["cv_lag"]][[1]])
+      
+      print("results_all_models[[cv_is_white_noise]][[1]]")
+      print(results_all_models[["cv_is_white_noise"]][[1]])
+      
+      print("results_all_models[[is_stable]][[1]]")
+      print(results_all_models[["is_stable"]][[1]])
+      
+      print("results_all_models[[t_treshold]][[1]]")
+      print(results_all_models[["t_treshold"]][[1]])
+      
+      print("results_all_models[[lag_sel_method]][[1]]")
+      print(results_all_models[["lag_sel_method"]][[1]])
+      
+      print("results_all_models[[some_eqn_drop]][[1]]")
+      print(results_all_models[["some_eqn_drop"]][[1]])
+
+      print("results_all_models[[cv_test_data]][[2]]")
+      print(results_all_models[["cv_test_data"]][[2]])
+      print("results_all_models[[cv_test_data]][[3]]")
+      print(results_all_models[["cv_test_data"]][[3]])
+      
       results_all_models <- results_all_models %>% 
         rename(cv_test_data_diff_yoy = cv_test_data,
                cv_fcs_diff_yoy = cv_fcs)
       
-      # print(cv_objects[["cv_test_data_diff_yoy"]])
+      
       
       results_all_models <- results_all_models %>% 
         mutate(cv_test_data = map(

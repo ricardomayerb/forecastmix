@@ -486,3 +486,49 @@ my_diff <- function(series, lag = 1, differences = 1) {
 
 
 
+transform_cv <- function(list_series, series_name, current_form,
+                         auxiliary_ts) {
+  
+  
+  current_form <- current_form
+  
+  series_name <- series_name
+  
+  if (current_form == "diff_yoy") {
+    len_initial_cond <- 1
+  }
+  
+  new_series_list <- list_along(1:number_of_cv)
+  
+  
+  for (td in seq_along(1:number_of_cv)) {
+    
+    this_test_data <- list_series[[td]]
+    test_time <- time(this_test_data)
+    start_test <- min(test_time)
+    end_initial_cond <- start_test - 0.25
+    start_initial_cond <- start_test - 0.25*len_initial_cond
+    end_initial_cond_y_q <- c(year(as.yearqtr(end_initial_cond)),
+                              quarter(as.yearqtr(end_initial_cond))
+    )
+    start_initial_cond_y_q <- c(year(as.yearqtr(start_initial_cond)),
+                                quarter(as.yearqtr(start_initial_cond))
+    )
+    initial_cond_ts <- window(auxiliary_ts, start = start_initial_cond_y_q,
+                              end = end_initial_cond_y_q)
+    
+    if (current_form == "diff_yoy") {
+      new_test_data <- un_diff_ts(initial_cond_ts, this_test_data)
+    }
+    
+    
+    new_series_list[[td]] <- new_test_data
+    
+  }
+  
+  return(new_series_list)
+  
+}
+
+
+

@@ -1,6 +1,7 @@
 source('./R/VAR_functions.R')
 
 country_name <- "Brasil"
+print(country_name)
 forecast_exercise_year <- 2018
 forecast_exercise_number <- 2
 
@@ -17,6 +18,13 @@ external_data_ts <- get_raw_external_data_ts(excel_data_path)
 # colnames(external_data_ts)
 
 data_ts <- country_data_ts
+rgdp_level_ts <- data_ts[, "rgdp"]
+rgdp_level_ts <- na.omit(rgdp_level_ts)
+
+rgdp_yoy_ts <- make_yoy_ts(rgdp_level_ts)
+# rgdp_yoy_ts
+# rgdp_yoy_ts <- make_yoy_ts(data_ts[, "rgdp"])
+
 
 # data_ts <- ts.union(country_data_ts, external_data_ts)
 # colnames(data_ts) <- c(colnames(country_data_ts), colnames(external_data_ts))
@@ -76,6 +84,7 @@ var_res_s2_aic_fpe_hq_sc_t2 <- search_var_one_size(var_size = 2,
                                        vec_lags = vec_lags_aic_fpe_hq_sc,
                                        var_data = VAR_data_for_estimation,
                                        rgdp_level_ts = rgdp_level_ts,
+                                       rgdp_yoy_ts = rgdp_yoy_ts,
                                        target_v = target_variable,
                                        pre_selected_v = c(""),
                                        is_cv = TRUE,
@@ -386,8 +395,8 @@ f_s4_t2$vbl_top_h1_total
 f_s4_t2$lags_top_h1_total
 
 format(object.size(models_and_accu_s4_t2), units = "auto")
-rm(models_and_accu_s3_6_t2, models_and_accu_s4_aic_fpe_hq_sc_t2,
-   models_and_accu_s3_12345_t2)
+rm(models_and_accu_s4_6_t2, models_and_accu_s4_aic_fpe_hq_sc_t2,
+   models_and_accu_s4_12345_t2)
 
 models_and_accu_s1234_t2 <- stack_models(list(models_and_accu_s2_t2,
                                               models_and_accu_s3_t2,
