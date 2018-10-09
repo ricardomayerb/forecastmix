@@ -487,62 +487,19 @@ my_diff <- function(series, lag = 1, differences = 1) {
 
 
 transform_cv <- function(list_series, series_name, current_form,
-                         auxiliary_ts) {
-  
-  
-  current_form <- current_form
-  
-  series_name <- series_name
-  
-  if (current_form == "diff_yoy") {
-    len_initial_cond <- 1
-  }
-  
-  new_series_list <- list_along(1:number_of_cv)
-  
-  
-  for (td in seq_along(1:number_of_cv)) {
-    
-    this_test_data <- list_series[[td]]
-    test_time <- time(this_test_data)
-    start_test <- min(test_time)
-    end_initial_cond <- start_test - 0.25
-    start_initial_cond <- start_test - 0.25*len_initial_cond
-    end_initial_cond_y_q <- c(year(as.yearqtr(end_initial_cond)),
-                              quarter(as.yearqtr(end_initial_cond))
-    )
-    start_initial_cond_y_q <- c(year(as.yearqtr(start_initial_cond)),
-                                quarter(as.yearqtr(start_initial_cond))
-    )
-    initial_cond_ts <- window(auxiliary_ts, start = start_initial_cond_y_q,
-                              end = end_initial_cond_y_q)
-    
-    if (current_form == "diff_yoy") {
-      new_test_data <- un_diff_ts(initial_cond_ts, this_test_data)
-    }
-    
-    
-    new_series_list[[td]] <- new_test_data
-    
-  }
-  
-  return(new_series_list)
-  
-}
-
-
-
-transform_cv_new <- function(list_series, series_name, current_form,
                              auxiliary_ts) {
   
-  # print("in transform_cv_new")
-  # current_form <- current_form
-  # print("in transform_cv, current form")
-  # print(current_form)
-  # print("auxiliary_ts")
-  # print(auxiliary_ts)
   # print("list_series")
   # print(list_series)
+  # print("unlist(list_series)")
+  # print(unlist(list_series))
+  # print("is.null(unlist(list_series))")
+  # print(is.null(unlist(list_series)))
+  
+  if (is.null(unlist(list_series))) {
+    new_series_list <- list_series
+    return(new_series_list)
+  }
   
   
   series_name <- series_name
@@ -616,3 +573,13 @@ transform_cv_new <- function(list_series, series_name, current_form,
 }
 
 
+un_diff_ts <- function(last_undiffed, diffed_ts) {
+  undiffed <- as.numeric(last_undiffed) + cumsum(diffed_ts)
+  
+  this_year <- as.integer(floor(time(diffed_ts)))
+  this_quarter <- as.integer(4 * (time(diffed_ts) - this_year + 0.25))
+  undiffed_ts <- ts(undiffed, start = c(first(this_year), first(this_quarter)),
+                    end = c(last(this_year), last(this_quarter)), frequency = 4)
+  
+  return(undiffed_ts)
+}

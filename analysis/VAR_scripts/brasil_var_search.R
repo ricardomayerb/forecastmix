@@ -258,15 +258,19 @@ f_s3_123456_t2 <- variable_freq_by_n(models_and_accu_s3_123456_t2,
                                      h_max = 7, max_rank = 20, n_freq = 4,
                                      is_wide = TRUE)
 
-f_s3_t2 <- variable_freq_by_n(models_and_accu_s3_t2, h_max = 7, max_rank = 20,
-                              n_freq = 4, is_wide = TRUE)
+f_s3_t2 <- variable_freq_by_n(models_and_accu_s3_t2, h_max = 7, max_rank = 10,
+                              n_freq = 20, is_wide = TRUE)
 
-f_s3_aic_fpe_hq_sc_t2$vbl_top_h1_total
-f_s3_aic_fpe_hq_sc_t2$lags_top_h1_total
-f_s3_123456_t2$vbl_top_h1_total
-f_s3_123456_t2$lags_top_h1_total
+f_s3_t2$vbl_freqs_by_h
 f_s3_t2$vbl_top_h1_total
 f_s3_t2$lags_top_h1_total
+
+foo <- f_s3_t2$vbl_freqs_by_h
+foo %>% arrange(desc(h_7))
+foo %>% arrange(desc(total_n))
+
+moo <- f_s3_t2$list_best
+moo
 
 format(object.size(models_and_accu_s3_t2), units = "auto")
 rm(models_and_accu_s3_aic_fpe_hq_sc_t2, models_and_accu_s3_123456_t2)

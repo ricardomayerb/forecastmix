@@ -269,6 +269,8 @@ search_var_one_size <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v,
           
           if (is_white_noise_fs & is_stable) {
             models_with_cv_excercises <- models_with_cv_excercises + 1
+            # print("paso!")
+            # print(models_with_cv_excercises)
             # print("var_restrictions")
             # print(var_restrictions)
             this_cv <- var_cv(var_data = sub_data, timetk_idx = FALSE,
@@ -325,96 +327,57 @@ search_var_one_size <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v,
         
       }
       
-      # print("1")
       var_all_vset_all_lags[[j]] <- var_fixed_vset_all_lags
       
   }
-  # print("2")
-    
+
   results_all_models <- flatten(var_all_vset_all_lags)
-  
-  # print("3")
-  
-  
-  
+
+  # print("pluck(results_all_models, cv_test_data) ... sort of")
+  # walk(results_all_models, ~ print(.x[["cv_test_data"]][[1]]))
+  # walk(results_all_models, ~ print(class(.x[["cv_test_data"]][[1]])))
+  # walk(results_all_models, ~ print(is.null(.x[["cv_test_data"]][[1]])))
+
+  results_all_models <- discard(results_all_models, 
+                                    ~ is.null(.x[["cv_test_data"]][[1]]))
+
+  if (length(results_all_models) == 0){
+    print("No model passed all tests")
+    
+    print(paste("Number of models analyzed:", model_number))
+    print(paste("Total models dropped after significance restrictions applied:", 
+                models_with_eqn_dropping, "out of", model_number))
+    print(paste("Total significant models unstable:", 
+                models_unstable, "out of", model_number - models_with_eqn_dropping))
+    print(paste("Total significant stable models, but with non-white residuals:", 
+                models_non_white_fs, "out of", model_number -
+                  models_with_eqn_dropping - models_unstable ))
+    
+    return(list(accu_rankings_models = list(),
+                cv_objects = list()
+                )
+           )
+  }
+
   column_names <- names(results_all_models[[1]])
 
-  
-  # print("names(results_all_models)")
-  # print(names(results_all_models))
-  # 
-  # print("length(results_all_models)")
-  # print(length(results_all_models))
-  # 
-  # print("column_names")
-  # print(column_names)
-  # 
-  # print("4")
-  
   # transitory names to allow conversion to tibble (columns must be names)
   names(results_all_models) <- seq_along(results_all_models)
-  
-  # print("5")
-  
-  
+
   # transpose tibble, ensure result is still a tibble
   results_all_models <- as_tibble(t(as_tibble(results_all_models)))
-  
-  # print("6")
+
   
   names(results_all_models) <- column_names
-  
-  print("7")
-  print(rgdp_current_form)
-  print(head(results_all_models))
-  print(8)
-  
-  
+
   if (rgdp_current_form != "yoy") {
     if (rgdp_current_form == "diff_yoy") {
       
       auxiliary_ts <-  rgdp_yoy_ts
       
-      print("results_all_models[[cv_errors]][[1]]")
-      print(results_all_models[["cv_errors"]][[1]])
-      
-      print("results_all_models[[cv_test_data]][[1]]")
-      print(results_all_models[["cv_test_data"]][[1]])
-      
-      print("results_all_models[[cv_fcs]][[1]]")
-      print(results_all_models[["cv_fcs"]][[1]])
-      
-      print("results_all_models[[cv_vbl_names]][[1]]")
-      print(results_all_models[["cv_vbl_names"]][[1]])
-      
-      print("results_all_models[[cv_lag]][[1]]")
-      print(results_all_models[["cv_lag"]][[1]])
-      
-      print("results_all_models[[cv_is_white_noise]][[1]]")
-      print(results_all_models[["cv_is_white_noise"]][[1]])
-      
-      print("results_all_models[[is_stable]][[1]]")
-      print(results_all_models[["is_stable"]][[1]])
-      
-      print("results_all_models[[t_treshold]][[1]]")
-      print(results_all_models[["t_treshold"]][[1]])
-      
-      print("results_all_models[[lag_sel_method]][[1]]")
-      print(results_all_models[["lag_sel_method"]][[1]])
-      
-      print("results_all_models[[some_eqn_drop]][[1]]")
-      print(results_all_models[["some_eqn_drop"]][[1]])
-
-      print("results_all_models[[cv_test_data]][[2]]")
-      print(results_all_models[["cv_test_data"]][[2]])
-      print("results_all_models[[cv_test_data]][[3]]")
-      print(results_all_models[["cv_test_data"]][[3]])
-      
       results_all_models <- results_all_models %>% 
         rename(cv_test_data_diff_yoy = cv_test_data,
                cv_fcs_diff_yoy = cv_fcs)
-      
-      
       
       results_all_models <- results_all_models %>% 
         mutate(cv_test_data = map(
@@ -440,12 +403,12 @@ search_var_one_size <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v,
       
       results_all_models <- results_all_models %>% 
         mutate(cv_test_data = map(
-          cv_test_data_diff, ~ transform_cv_new(list_series  = ., 
+          cv_test_data_diff, ~ transform_cv(list_series  = ., 
                                                 series_name = "cv_test_data",
                                                 current_form = rgdp_rec,
                                                 auxiliary_ts = auxiliary_ts) ),
           cv_fcs = map(
-            cv_fcs_diff,  ~ transform_cv_new(list_series  = .,
+            cv_fcs_diff,  ~ transform_cv(list_series  = .,
                                              series_name = "cv_fcs",
                                              current_form = rgdp_rec,
                                              auxiliary_ts = auxiliary_ts) ),
@@ -463,8 +426,6 @@ search_var_one_size <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v,
     
   }
   
-  
-  
   print(paste("Number of models analyzed:", model_number))
   print(paste("Total models dropped after significance restrictions applied:", 
               models_with_eqn_dropping, "out of", model_number))
@@ -479,18 +440,9 @@ search_var_one_size <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v,
               number_of_cv*models_with_cv_excercises + model_number))
   print(paste("Total times p exceeded max_p_for_e:", binding_max_p))
   
-  # print("results_all_models")
-  # print(results_all_models)
-  # print("length(results_all_models)")
-  # print(length(results_all_models))
-  # print("nrow(results_all_models)")
-  # print(nrow(results_all_models))
   
   if(nrow(results_all_models) > 0) {
-    
-    # print("names(results_all_models)")
-    # print(names(results_all_models))
-    
+  
     results_all_models <- get_rmses_h_rankings_h(data = results_all_models,
                                                  h_max = h_max)
     
@@ -531,14 +483,7 @@ search_var_one_size <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v,
     accu_rankings_models <- accu_rankings_models %>% 
       dplyr::select(short_name, everything())
   }
-  
-  if(nrow(results_all_models) == 0){
-    print("No models passed all criteria. Will return an empty list or lists.")
-    results_all_models <- list()
-    accu_rankings_models <- list()
-    cv_objects <- list()
-  }
-  
+
   if (return_cv) {
     return(list(accu_rankings_models = accu_rankings_models,
                 cv_objects = cv_objects))
@@ -724,11 +669,21 @@ variable_freq_by_n <- function(tbl_of_models, h_max = 8, max_rank = 10,
       ungroup()
   }
   
+  # print(tbl_of_models)
+  
+  summary_of_tom <- tbl_of_models %>% 
+    group_by(rmse_h) %>% 
+    summarize(n_models = n(),
+              less_than_max_rank = sum(rank_h < max_rank +1)
+              )
+  
+  print(summary_of_tom)
+  
   vec_of_rmse_h <- sort(unique(tbl_of_models$rmse_h))
   
   list_best <- map(vec_of_rmse_h, 
                    ~ tbl_of_models %>% 
-                     filter(rmse_h == .x, rank_h < max_rank +1 ) %>% 
+                     filter(rmse_h == .x, rank_h < max_rank + 1) %>% 
                      dplyr::select("variables") %>% 
                      unlist() %>% 
                      table() %>% 
@@ -737,12 +692,14 @@ variable_freq_by_n <- function(tbl_of_models, h_max = 8, max_rank = 10,
                      rename(., vbl = .)
   ) 
   
+
   
-  tbl_best <- reduce(list_best, left_join, by = c("vbl"))
+  tbl_best <- reduce(list_best, full_join, by = c("vbl"))
   names(tbl_best) <- c("vbl", paste("h", seq(h_max), sep = "_"))
   
   tbl_best <- tbl_best %>% 
-    mutate(total_n = rowSums(.[2:(h_max+1)], na.rm = TRUE))
+    mutate(total_n = rowSums(.[2:(h_max+1)], na.rm = TRUE),
+           avg = total_n/length(rmse_names))
   
   by_total <- tbl_best %>% 
     arrange(desc(total_n)) %>% 
@@ -754,7 +711,13 @@ variable_freq_by_n <- function(tbl_of_models, h_max = 8, max_rank = 10,
     dplyr::select(vbl) %>% 
     dplyr::filter(row_number() <= n_freq)
   
-  both <- unique(c(by_h1$vbl, by_total$vbl))
+  by_h7 <- tbl_best %>% 
+    arrange(desc(h_7)) %>% 
+    dplyr::select(vbl) %>% 
+    dplyr::filter(row_number() <= n_freq)
+  
+  
+  both <- unique(c(by_h1$vbl, by_total$vbl, by_h7$vbl))
   
   list_best_lags <- map(vec_of_rmse_h, 
                         ~ tbl_of_models %>% 
@@ -768,11 +731,12 @@ variable_freq_by_n <- function(tbl_of_models, h_max = 8, max_rank = 10,
   ) 
   
   
-  tbl_best_lags <- reduce(list_best_lags, left_join, by = c("max_lag"))
+  tbl_best_lags <- reduce(list_best_lags, full_join, by = c("max_lag"))
   names(tbl_best_lags) <- c("max_lag", paste("h", seq(h_max), sep = "_"))
   
   tbl_best_lags <- tbl_best_lags %>% 
-    mutate(total_n = rowSums(.[2:(h_max+1)], na.rm = TRUE))
+    mutate(total_n = rowSums(.[2:(h_max+1)], na.rm = TRUE),
+           avg = total_n/length(rmse_names))
   
   by_total_lags <- tbl_best_lags %>% 
     arrange(desc(total_n)) %>% 
@@ -784,10 +748,18 @@ variable_freq_by_n <- function(tbl_of_models, h_max = 8, max_rank = 10,
     dplyr::select(max_lag) %>% 
     dplyr::filter(row_number() <= n_freq)
   
-  both_lags <- unique(c(by_h1_lags$max_lag, by_total_lags$max_lag))
+  by_h7_lags <- tbl_best_lags %>% 
+    arrange(desc(h_7)) %>% 
+    dplyr::select(vbl) %>% 
+    dplyr::filter(row_number() <= n_freq)
+
+  both_lags <- unique(c(by_h1_lags$max_lag, by_total_lags$max_lag, 
+                        by_h7_lags$max_lag))
   
   return( list(vbl_freqs_by_h = tbl_best, vbl_top_h1_total = both,
-               lags_freqs_by_h = tbl_best_lags, lags_top_h1_total = both_lags))
+               lags_freqs_by_h = tbl_best_lags, lags_top_h1_total = both_lags,
+               this_tom = tbl_of_models,
+               list_best = list_best))
 }
 
 

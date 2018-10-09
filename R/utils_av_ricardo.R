@@ -8404,16 +8404,6 @@ to_ts_q <- function(df_xts){
 transform_cv_new <- function(list_series, series_name, current_form,
                          auxiliary_ts) {
   
-  # print("in transform_cv_new")
-  # current_form <- current_form
-  # print("in transform_cv, current form")
-  # print(current_form)
-  # print("auxiliary_ts")
-  # print(auxiliary_ts)
-  # print("list_series")
-  # print(list_series)
-  
-  
   series_name <- series_name
   new_series_list <- list_along(1:number_of_cv)
   
