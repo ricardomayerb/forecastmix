@@ -272,8 +272,21 @@ search_var_one_size <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v,
         if (!class(full_sample_var) == "try-error") {
           var_restrictions <- full_sample_var$restrictions
           some_eqn_drop <- FALSE
-          this_root <- vars::roots(full_sample_var)
-          is_stable <- all(this_root < 1)
+        
+          this_root <- try(vars::roots(full_sample_var))
+          
+          if (class(this_root) == "try-error") {
+            print("error computing roots. Possible NAs or Inf in x")
+            print(paste0("current variables: "))
+            print(colnames(sub_data))
+            print(paste0("current max lag: ", this_lag))
+            is_stable <- FALSE
+          } else {
+            is_stable <- all(this_root < 1)
+          }
+          
+          
+          
           if (!is_stable) {
             # print("Current VAR not stable. No CV analysis will be done")
             # print(paste("Roots are", paste(this_root, collapse = ", ")))

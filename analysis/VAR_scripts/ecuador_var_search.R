@@ -1,6 +1,6 @@
 source('./R/VAR_functions.R')
 
-country_name <- "Peru"
+country_name <- "Ecuador"
 print(country_name)
 forecast_exercise_year <- 2018
 forecast_exercise_number <- 2
@@ -81,25 +81,25 @@ max_rank_some_h <- 50
 
 tic()
 var_res_s2_123456_t2 <- search_var_one_size(var_size = 2,
-                                            vec_lags = vec_lags_123456,
-                                            var_data = VAR_data_for_estimation,
-                                            rgdp_level_ts = rgdp_level_ts,
-                                            rgdp_yoy_ts = rgdp_yoy_ts,
-                                            target_v = target_variable,
-                                            pre_selected_v = c(""),
-                                            is_cv = TRUE,
-                                            training_length = train_span,
-                                            h_max = fc_horizon,
-                                            n_cv = number_of_cv,
-                                            return_cv = ret_cv,
-                                            rgdp_current_form = rgdp_rec,
-                                            max_rank = max_rank_some_h,
-                                            check_residuals_cv = TRUE,
-                                            check_residuals_full_sample = TRUE,
-                                            restrict_by_signif = TRUE,
-                                            t_tresh = 2,
-                                            max_p_for_estimation = 12, 
-                                            add_info_based_lags = add_aic_bic_hq_fpe_lags)
+                               vec_lags = vec_lags_123456,
+                               var_data = VAR_data_for_estimation,
+                               rgdp_level_ts = rgdp_level_ts,
+                               rgdp_yoy_ts = rgdp_yoy_ts,
+                               target_v = target_variable,
+                               pre_selected_v = c(""),
+                               is_cv = TRUE,
+                               training_length = train_span,
+                               h_max = fc_horizon,
+                               n_cv = number_of_cv,
+                               return_cv = ret_cv,
+                               rgdp_current_form = rgdp_rec,
+                               max_rank = max_rank_some_h,
+                               check_residuals_cv = TRUE,
+                               check_residuals_full_sample = TRUE,
+                               restrict_by_signif = TRUE,
+                               t_tresh = 2,
+                               max_p_for_estimation = 12, 
+                               add_info_based_lags = add_aic_bic_hq_fpe_lags)
 
 toc()
 models_and_accu_s2_123456_t2 <- var_res_s2_123456_t2[["accu_rankings_models"]]
@@ -126,25 +126,25 @@ rm(models_and_accu_s2_123456_t2)
 
 tic()
 var_res_s3_123456_t2 <- search_var_one_size(var_size = 3,
-                                            vec_lags = vec_lags_123456,
-                                            var_data = VAR_data_for_estimation,
-                                            rgdp_level_ts = rgdp_level_ts,
-                                            rgdp_yoy_ts = rgdp_yoy_ts,
-                                            target_v = target_variable,
-                                            pre_selected_v = c(""),
-                                            is_cv = TRUE,
-                                            training_length = train_span,
-                                            h_max = fc_horizon,
-                                            n_cv = number_of_cv,
-                                            return_cv = ret_cv,
-                                            rgdp_current_form = rgdp_rec,
-                                            max_rank = max_rank_some_h,
-                                            check_residuals_cv = FALSE,
-                                            check_residuals_full_sample = TRUE,
-                                            max_p_for_estimation = 12,
-                                            restrict_by_signif = TRUE,
-                                            t_tresh = 2, 
-                                            add_info_based_lags = add_aic_bic_hq_fpe_lags)
+                               vec_lags = vec_lags_123456,
+                               var_data = VAR_data_for_estimation,
+                               rgdp_level_ts = rgdp_level_ts,
+                               rgdp_yoy_ts = rgdp_yoy_ts,
+                               target_v = target_variable,
+                               pre_selected_v = c(""),
+                               is_cv = TRUE,
+                               training_length = train_span,
+                               h_max = fc_horizon,
+                               n_cv = number_of_cv,
+                               return_cv = ret_cv,
+                               rgdp_current_form = rgdp_rec,
+                               max_rank = max_rank_some_h,
+                               check_residuals_cv = FALSE,
+                               check_residuals_full_sample = TRUE,
+                               max_p_for_estimation = 12,
+                               restrict_by_signif = TRUE,
+                               t_tresh = 2, 
+                               add_info_based_lags = add_aic_bic_hq_fpe_lags)
 
 toc()
 models_and_accu_s3_123456_t2 <- var_res_s3_123456_t2[["accu_rankings_models"]]
@@ -190,25 +190,25 @@ VAR_data_for_estimation_for_s4 <- VAR_data_for_estimation[, vbl_most_freq_multi]
 
 tic()
 var_res_s4_123456_t2 <- search_var_one_size(var_size = 4,
-                                            vec_lags = vec_lags_123456,
-                                            var_data = VAR_data_for_estimation_for_s4,
-                                            rgdp_level_ts = rgdp_level_ts,
-                                            rgdp_yoy_ts = rgdp_yoy_ts,
-                                            target_v = target_variable,
-                                            pre_selected_v = c(""),
-                                            is_cv = TRUE,
-                                            training_length = train_span,
-                                            h_max = fc_horizon,
-                                            n_cv = number_of_cv,
-                                            return_cv = ret_cv,
-                                            rgdp_current_form = rgdp_rec,
-                                            max_rank = max_rank_some_h,
-                                            check_residuals_cv = FALSE,
-                                            check_residuals_full_sample = TRUE,
-                                            max_p_for_estimation = 12,
-                                            restrict_by_signif = TRUE,
-                                            t_tresh = 2, 
-                                            add_info_based_lags = add_aic_bic_hq_fpe_lags)
+                               vec_lags = vec_lags_123456,
+                               var_data = VAR_data_for_estimation_for_s4,
+                               rgdp_level_ts = rgdp_level_ts,
+                               rgdp_yoy_ts = rgdp_yoy_ts,
+                               target_v = target_variable,
+                               pre_selected_v = c(""),
+                               is_cv = TRUE,
+                               training_length = train_span,
+                               h_max = fc_horizon,
+                               n_cv = number_of_cv,
+                               return_cv = ret_cv,
+                               rgdp_current_form = rgdp_rec,
+                               max_rank = max_rank_some_h,
+                               check_residuals_cv = FALSE,
+                               check_residuals_full_sample = TRUE,
+                               max_p_for_estimation = 12,
+                               restrict_by_signif = TRUE,
+                               t_tresh = 2, 
+                               add_info_based_lags = add_aic_bic_hq_fpe_lags)
 
 toc()
 models_and_accu_s4_123456_t2 <- var_res_s4_123456_t2[["accu_rankings_models"]]
@@ -284,9 +284,9 @@ saveRDS(models_and_accu_s5_t2,
         paste0(output_path, country_name,"_s5_t2.rds"))
 
 models_and_accu_s12345_t2 <- stack_models(list(models_and_accu_s2_t2,
-                                               models_and_accu_s3_t2,
-                                               models_and_accu_s4_t2,
-                                               models_and_accu_s5_t2))
+                                              models_and_accu_s3_t2,
+                                              models_and_accu_s4_t2,
+                                              models_and_accu_s5_t2))
 
 saveRDS(models_and_accu_s12345_t2,
         paste0(output_path, country_name,"_s12345_t2.rds"))

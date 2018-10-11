@@ -1,6 +1,6 @@
 source('./R/VAR_functions.R')
 
-country_name <- "Peru"
+country_name <- "Paraguay"
 print(country_name)
 forecast_exercise_year <- 2018
 forecast_exercise_number <- 2

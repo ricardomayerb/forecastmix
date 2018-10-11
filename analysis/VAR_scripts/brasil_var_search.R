@@ -275,15 +275,13 @@ cv_objects_s5_123456_t2 <- var_res_s5_123456_t2[["cv_objects"]]
 
 models_and_accu_s5_t2 <- stack_models(list(models_and_accu_s5_123456_t2))
 
-saveRDS(models_and_accu_s4_123456_t2,
-        paste0(output_path, country_name,"_s4_123456_t2.rds"))
-saveRDS(cv_objects_s4_123456_t2,
-        paste0(output_path, country_name,"_cvobj_s4_123456_t2.rds"))
+saveRDS(models_and_accu_s5_123456_t2,
+        paste0(output_path, country_name,"_s5_123456_t2.rds"))
+saveRDS(cv_objects_s5_123456_t2,
+        paste0(output_path, country_name,"_cvobj_s5_123456_t2.rds"))
 
 saveRDS(models_and_accu_s5_t2,
         paste0(output_path, country_name,"_s5_t2.rds"))
-saveRDS(cv_objects_s5_t2,
-        paste0(output_path, country_name,"_cvobj_s5_t2.rds"))
 
 models_and_accu_s12345_t2 <- stack_models(list(models_and_accu_s2_t2,
                                               models_and_accu_s3_t2,
