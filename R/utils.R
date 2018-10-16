@@ -332,10 +332,10 @@ make_model_name <- function(variables, lags, model_function = NULL,
   
   variables <- sort(variables)
   
-  colap_variables <- paste(variables, collapse = " ")
+  colap_variables <- paste(variables, collapse = "___")
   # print(colap_variables)
   
-  if (remove_base) {
+  if (!remove_base) {
     if (is.null(model_function)) {
       short_name <- paste(colap_variables, lags, sep = "__")
       model_name <- short_name
