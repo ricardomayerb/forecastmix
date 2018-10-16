@@ -3,7 +3,7 @@ source('./R/VAR_functions.R')
 tic(msg = "Total time for this country")
 ##### data selection part -----
 # arguments
-country_name <- "Chile"
+country_name <- "Bolivia"
 forecast_exercise_year <- 2018
 forecast_exercise_number <- 2
 
