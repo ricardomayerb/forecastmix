@@ -92,7 +92,7 @@ find_statio_diffs <- function(data_ts, country = "this_country") {
     this_variable_ts <- data_ts[ , this_variable_name]
     this_variable_ts <- na.omit(this_variable_ts)
     tests_of_stationarity <- suppressWarnings(comb_ndiffs(this_variable_ts))
-    tests_of_stationarity$country <- country_name
+    tests_of_stationarity$country <- country
     tests_of_stationarity$variable <- this_variable_name
     
     reco <- get_reco_from_sta(tests_of_stationarity, this_variable_name)
@@ -487,7 +487,7 @@ my_diff <- function(series, lag = 1, differences = 1) {
 
 
 transform_cv <- function(list_series, series_name, current_form,
-                             auxiliary_ts) {
+                             auxiliary_ts, n_cv) {
   
   # print("list_series")
   # print(list_series)
@@ -503,12 +503,12 @@ transform_cv <- function(list_series, series_name, current_form,
   
   
   series_name <- series_name
-  new_series_list <- list_along(1:number_of_cv)
+  new_series_list <- list_along(1:n_cv)
   
   if (current_form == "diff_yoy") {
     len_initial_cond <- 1
     
-    for (td in seq_along(1:number_of_cv)) {
+    for (td in seq_along(1:n_cv)) {
       
       this_test_data <- list_series[[td]]
       test_time <- time(this_test_data)
@@ -536,7 +536,7 @@ transform_cv <- function(list_series, series_name, current_form,
   if (current_form == "diff") {
     len_initial_cond <- 1
     
-    for (td in seq_along(1:number_of_cv)) {
+    for (td in seq_along(1:n_cv)) {
       
       this_test_data <- list_series[[td]]
       test_time <- time(this_test_data)
