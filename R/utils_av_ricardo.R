@@ -2531,61 +2531,6 @@ facet_rmse_all_h <- function(selected_models_tbl, extra_models = NULL) {
 
 
 
-facet_rmse_all_h_semiold <- function(selected_models_tbl) {
-  
-  rmse_table_single_h <- selected_models_tbl %>% 
-    select(variables, lags, model_function, rmse_h, rmse, horizon) %>%
-    arrange(rmse_h, model_function, rmse) %>% 
-    mutate(idx = 1:n()) %>% 
-    group_by(horizon) %>% 
-    mutate(id_in_h = 1:n())
-  
-  max_rmse <- max(rmse_table_single_h$rmse)
-  labels <- c(rmse_1 = "RMSE h = 1", rmse_2 = "RMSE h = 2", rmse_3 = "RMSE h = 3" , rmse_4 = "RMSE h = 4",
-              rmse_5 = "RMSE h = 5", rmse_6 = "RMSE h = 6", rmse_7 = "RMSE h = 7", rmse_8 = "RMSE h = 8")
-  
-  p <- ggplot(rmse_table_single_h, aes(x = id_in_h, y = rmse)) + 
-    geom_point(aes(color = model_function), size = 2.2, alpha = 0.8) + 
-    coord_cartesian(ylim = c(0, 1.1*max_rmse)) + 
-    facet_wrap(~ rmse_h, labeller=labeller(rmse_h = labels)) + 
-    theme_bw()  + 
-    theme(
-      axis.text.x = element_blank(),
-      axis.ticks.x = element_blank(),
-      axis.title.x = element_blank(),
-      legend.title = element_blank())
-  
-  
-  return(p)
-}
-
-
-facet_rmse_all_h_oldversion <- function(selected_models_tbl) {
-  
-  rmse_table_single_h <- selected_models_tbl %>% 
-    select(variables, lags, model_function, rmse_h, rmse, horizon) %>%
-    arrange(rmse_h, model_function, rmse) %>% 
-    mutate(idx = 1:n()) %>% 
-    group_by(horizon) %>% 
-    mutate(id_in_h = 1:n())
-  
-  
-  max_rmse <- max(rmse_table_single_h$rmse)
-  
-  p <- ggplot(rmse_table_single_h, aes(x = id_in_h, y = rmse)) + 
-    geom_point(aes(color = model_function), size = 2.2, alpha = 0.8) + 
-    coord_cartesian(ylim = c(0, 1.1*max_rmse)) + 
-    facet_wrap(~ rmse_h) + 
-    theme_bw()  + 
-    theme(
-      axis.text.x = element_blank(),
-      axis.ticks.x = element_blank(),
-      axis.title.x = element_blank(),
-      legend.title = element_blank())
-  
-  return(p)
-}
-
 fc_yoy_from_fc_level <- function(fc_obj, isloglevel = FALSE, dodifflog = FALSE,
                                  freq = 4){
   x <- fc_obj$x

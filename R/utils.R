@@ -10,6 +10,8 @@ library(lubridate)
 library(forecast)
 library(tictoc)
 library(tidyselect)
+library(ggplot2)
+library(ggthemes)
 
 
 
@@ -70,6 +72,58 @@ comb_ndiffs <- function(this_series, return_4_seas = FALSE,
 drop_this_vars <- function(df, vars_to_drop) {
   new_df <- df[,!(names(df) %in% vars_to_drop)]
 }
+
+
+
+facet_rmse_all_h <- function(selected_models_tbl, extra_models = NULL) {
+  
+  rmse_table_single_h <- selected_models_tbl %>% 
+    dplyr::select(variables, lags, model_function, rmse_h, rmse, horizon)
+  
+  if (!is.null(extra_models)) {
+    extra_models <- extra_models %>% 
+      dplyr::select(variables, lags, model_function, rmse_h, rmse, horizon) 
+    
+    rmse_table_single_h <- rbind(rmse_table_single_h, 
+                                 extra_models)
+  }
+  
+  rmse_table_single_h <- rmse_table_single_h %>% 
+    arrange(rmse_h, model_function, rmse) %>% 
+    mutate(idx = 1:n()) %>% 
+    group_by(horizon) %>% 
+    mutate(id_in_h = 1:n())
+  
+  max_horizon <- max(rmse_table_single_h$horizon)
+  
+  n_models_h <- nrow(rmse_table_single_h %>% filter(horizon == 1))
+  
+  max_rmse <- max(rmse_table_single_h$rmse)
+  
+  labels <- c(rmse_1 = "RMSE h = 1", rmse_2 = "RMSE h = 2", 
+              rmse_3 = "RMSE h = 3", rmse_4 = "RMSE h = 4",
+              rmse_5 = "RMSE h = 5", rmse_6 = "RMSE h = 6",
+              rmse_7 = "RMSE h = 7", rmse_8 = "RMSE h = 8")
+  
+  # labels <- paste0("RMSE h = ", 1:max_horizon)
+  # print(labels)
+  
+  p <- ggplot(rmse_table_single_h, aes(x = id_in_h, y = rmse)) + 
+    geom_point(aes(color = model_function), size = 2.2, alpha = 0.8) + 
+    coord_cartesian(ylim = c(0, 1.1*max_rmse)) + 
+    facet_wrap(~ rmse_h, labeller=labeller(rmse_h = labels)) + 
+    theme_bw()  + 
+    theme(
+      axis.text.x = element_blank(),
+      axis.ticks.x = element_blank(),
+      axis.title.x = element_blank(),
+      legend.title = element_blank())
+  
+  
+  return(p)
+}
+
+
 
 fcs_accu <- function(fc_mat, test_data_mat) {
   
@@ -482,6 +536,78 @@ my_diff <- function(series, lag = 1, differences = 1) {
     x_diff <- diff(series, lag = lag, differences = differences)
   }
   return(x_diff)
+}
+
+single_plot_rmse_all_h <- function(selected_models_tbl, extra_models = NULL,
+                                   is_wide = FALSE, h_max = 7) {
+  
+  rmse_names <- paste("rmse", seq(h_max), sep = "_")
+  
+  if (is_wide) {
+    selected_models_tbl <-  selected_models_tbl %>%
+      gather(key = "rmse_h", value = "rmse", rmse_names) %>% 
+      dplyr::select(vars_select(names(.), -starts_with("rank"))) %>% 
+      group_by(rmse_h) %>% 
+      arrange(rmse_h, rmse) %>% 
+      mutate(rank_h = rank(rmse),
+             horizon = as.numeric(substr(rmse_h, 6, 6))) %>% 
+      ungroup()
+  }
+  
+
+    
+  rmse_table_single_h <- selected_models_tbl %>% 
+    dplyr::select(variables, lags, model_function, rmse_h, rmse, horizon) 
+  
+  if (!is.null(extra_models)) {
+    extra_models <- extra_models %>% 
+      dplyr::select(variables, lags, model_function, rmse_h, rmse, horizon) 
+    
+    rmse_table_single_h <- rbind(rmse_table_single_h, 
+                                 extra_models)
+  }
+  
+  
+  # rmse_table_single_h <- rmse_table_single_h %>%
+  #   arrange(rmse_h, model_function, rmse) %>% 
+  #   mutate(idx = 1:n())
+  
+  rmse_table_single_h <- rmse_table_single_h %>%
+    arrange(rmse_h, rmse, model_function) %>% 
+    mutate(idx = 1:n())
+  
+  max_horizon <- max(rmse_table_single_h$horizon)
+  
+  n_models_h <- nrow(rmse_table_single_h %>% filter(horizon == 1))
+  
+  max_rmse <- max(rmse_table_single_h$rmse)
+  v_ticks <- 1 + n_models_h * (0:(max_horizon - 1))
+  
+  p <- ggplot(rmse_table_single_h, aes(x = idx, y = rmse)) + 
+    geom_point(aes(color = model_function),
+               size = 2.2, alpha = 0.8) + 
+    coord_cartesian(ylim = c(0, 1.1*max_rmse)) + 
+    geom_vline(xintercept = v_ticks , alpha = 0.3, 
+               linetype = "dashed") +
+    annotate("text", x = v_ticks[1] + 0.5*n_models_h, y = 1.1*max_rmse, label = "h = 1", fontface = "bold", colour = "royalblue4") +
+    annotate("text", x = v_ticks[2] + 0.5*n_models_h, y = 1.1*max_rmse, label = "h = 2", fontface = "bold", colour = "royalblue4") +
+    annotate("text", x = v_ticks[3] + 0.5*n_models_h, y = 1.1*max_rmse, label = "h = 3", fontface = "bold", colour = "royalblue4") +
+    annotate("text", x = v_ticks[4] + 0.5*n_models_h, y = 1.1*max_rmse, label = "h = 4", fontface = "bold", colour = "royalblue4") +
+    annotate("text", x = v_ticks[5] + 0.5*n_models_h, y = 1.1*max_rmse, label = "h = 5", fontface = "bold", colour = "royalblue4") +
+    annotate("text", x = v_ticks[6] + 0.5*n_models_h, y = 1.1*max_rmse, label = "h = 6", fontface = "bold", colour = "royalblue4") +
+    annotate("text", x = v_ticks[7] + 0.5*n_models_h, y = 1.1*max_rmse, label = "h = 7", fontface = "bold", colour = "royalblue4") +
+    annotate("text", x = v_ticks[8] + 0.5*n_models_h, y = 1.1*max_rmse, label = "h = 8", fontface = "bold", colour = "royalblue4") +
+    theme_tufte() + 
+    theme(
+      axis.text.x = element_blank(),
+      axis.ticks.x = element_blank(),
+      axis.title.x = element_blank(),
+      legend.title = element_blank()) +
+    theme(axis.title = element_text(face = "bold"))
+  
+  # p + annotate("text", x = 2:3, y = 20:21, label = c("my label", "label 2"))
+  
+  return(p)
 }
 
 
