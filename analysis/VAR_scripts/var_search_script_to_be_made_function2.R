@@ -69,10 +69,10 @@ other_prechosen_variables <- c("")
 
 ## VAR sizes (how many variables per VAR) to explore:
 
-# vec_var_sizes <- c(2, 3, 4, 5)
-vec_var_sizes <- c(2, 3, 4)
-# vec_freq_limit <- list("none", "none", 15, 10)
-vec_freq_limit <- list("none", "none", 10)
+vec_var_sizes <- c(2, 3, 4, 5)
+# vec_var_sizes <- c(2, 3, 4)
+vec_freq_limit <- list("none", "none", 15, 10)
+# vec_freq_limit <- list("none", "none", 10)
 
 
 ## VAR lags to explore
@@ -81,7 +81,7 @@ add_aic_bic_hq_fpe_lags <-  FALSE
 
 ## VAR restrictions
 restrict_by_signif <- TRUE
-t_tresh <- c(2, 2, 2)
+t_tresh <- c(2, 2, 2, 2)
 
 ## forecast horizon
 fc_horizon <- 7
@@ -94,6 +94,7 @@ ret_cv = TRUE
 
 ## model retention parameters
 max_rank_some_h <- 50
+max_rank_some_h_for_freq <- 30 
 
 
 if (train_span + fc_horizon + number_of_cv > nrow(VAR_data_for_estimation)) {
@@ -106,6 +107,7 @@ f_vbls_list <- list_along(vec_var_sizes)
 selection_for_next_size_list <- list_along(vec_var_sizes)
 
 tic(msg = "Finish var search")
+
 
 for (i in seq(length(vec_var_sizes))) {
 
@@ -121,7 +123,7 @@ for (i in seq(length(vec_var_sizes))) {
   }
   
 
-  if (is.numeric(this_freq_limit)) {
+  if (i > 1 & is.numeric(this_freq_limit)) {
     print("Using this subset of variables: ")
     print(freq_sel_vbls)
     
@@ -152,6 +154,16 @@ for (i in seq(length(vec_var_sizes))) {
     max_p_for_estimation = 12,
     add_info_based_lags = add_aic_bic_hq_fpe_lags)
   
+  if (i == 1) {
+    current_consolidated_models <- stack_models(
+      list(var_res[["accu_rankings_models"]])
+      ) 
+  } else {
+    current_consolidated_models <- stack_models(
+      list(var_res[["accu_rankings_models"]], current_consolidated_models)
+      ) 
+  }
+  
   if (i < length(vec_var_sizes)) {
     next_freq_limit <- vec_freq_limit[[i + 1]]
   }
@@ -161,21 +173,23 @@ for (i in seq(length(vec_var_sizes))) {
   }
   
   
-  if(next_freq_limit == "none") {
+  if (next_freq_limit == "none") {
     f_vbls <- variable_freq_by_n(var_res[["accu_rankings_models"]], 
-                                 h_max = fc_horizon, max_rank = 30,
+                                 h_max = fc_horizon, max_rank = max_rank_some_h_for_freq,
                                  n_freq = ncol(data_ts), is_wide = TRUE)
     freq_sel_vbls <- colnames(VAR_data_for_estimation) 
   }
   
   if (is.numeric(next_freq_limit)) {
     f_vbls <- variable_freq_by_n(var_res[["accu_rankings_models"]], 
-                                 h_max = fc_horizon, max_rank = 30,
+                                 h_max = fc_horizon, max_rank = max_rank_some_h_for_freq,
                                  n_freq = next_freq_limit, is_wide = TRUE)
     freq_sel_vbls <- f_vbls$vbl_multi
   }
   
-  file_suffix <- paste0("_size_", this_size, "_fqlim_", this_freq_limit, "_t_", this_t_tresh, ".rds")
+  file_suffix <- paste0("_size_", this_size, "_fqlim_", this_freq_limit,
+                        "_t_", this_t_tresh, "mr", max_rank_some_h,
+                        "_mrfq", max_rank_some_h_for_freq, ".rds")
   filename <- paste0("var_results_", country_name, file_suffix)
   saveRDS(var_res, paste0(output_path, filename))
   
@@ -192,15 +206,21 @@ bind_var_res_all_sizes <- reduce(map(per_size_results, "accu_rankings_models"), 
 
 consolidated_var_res <- stack_models(map(per_size_results, "accu_rankings_models"))
 
+res_and_info <- list(consolidated_var_res = consolidated_var_res,
+                     f_vbls_all_sizes = f_vbls_list,
+                     selected_for_next_size = selection_for_next_size_list)
+
+
 allsizes <- paste(vec_var_sizes, collapse = "")
 allthresh <- paste(t_tresh, collapse = "")
 allfqlim <- paste(vec_freq_limit, collapse = "")
 
 file_suffix_all_sizes <-  paste0("_sizes_", allsizes, "_fqlims_", allfqlim,
-                                 "_t_", allthresh, ".rds")
+                                 "_t_", allthresh, "_mr", max_rank_some_h,
+                                 "_mrfq", max_rank_some_h_for_freq,  ".rds")
 
 filename <- paste0("var_results_", country_name, file_suffix_all_sizes)
-saveRDS(consolidated_var_res, paste0(output_path, filename))
+saveRDS(res_and_info, paste0(output_path, filename))
 
 final_time <- Sys.time()
 
