@@ -153,6 +153,16 @@ for (i in seq(length(vec_var_sizes))) {
     max_p_for_estimation = 12,
     add_info_based_lags = add_aic_bic_hq_fpe_lags)
   
+  if (i == 1) {
+    current_consolidated_models <- stack_models(
+      list(var_res[["accu_rankings_models"]])
+      ) 
+  } else {
+    current_consolidated_models <- stack_models(
+      list(var_res[["accu_rankings_models"]], current_consolidated_models)
+      ) 
+  }
+  
   if (i < length(vec_var_sizes)) {
     next_freq_limit <- vec_freq_limit[[i + 1]]
   }
@@ -195,6 +205,10 @@ bind_var_res_all_sizes <- reduce(map(per_size_results, "accu_rankings_models"), 
 
 consolidated_var_res <- stack_models(map(per_size_results, "accu_rankings_models"))
 
+res_and_info <- list(consolidated_var_res = consolidated_var_res,
+                     f_vbls_all_sizes = f_vbls_list,
+                     selected_for_next_size = selection_for_next_size_list)
+
 allsizes <- paste(vec_var_sizes, collapse = "")
 allthresh <- paste(t_tresh, collapse = "")
 allfqlim <- paste(vec_freq_limit, collapse = "")
@@ -204,7 +218,7 @@ file_suffix_all_sizes <-  paste0("_sizes_", allsizes, "_fqlims_", allfqlim,
                                  "_mrfq", max_rank_some_h_for_freq,  ".rds")
 
 filename <- paste0("var_results_", country_name, file_suffix_all_sizes)
-saveRDS(consolidated_var_res, paste0(output_path, filename))
+saveRDS(res_and_info, paste0(output_path, filename))
 
 final_time <- Sys.time()
 

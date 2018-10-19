@@ -13,6 +13,11 @@ read_compare_var_res <- function(filename_new, filename_old, h_max = 7,
   var_res_new <- readRDS(filename_new)
   var_res_old <- readRDS(filename_old)
   
+
+  if ("f_vbls_all_sizes" %in% names(var_res_new)) {
+    var_res_new <- var_res_new[["consolidated_var_res"]]
+  }
+  
   var_res_new <- var_res_new %>% 
     mutate(short_name = map2(variables, lags, ~make_model_name(.x, .y, remove_base = FALSE)),
            model_function = "new") %>% 
@@ -105,6 +110,18 @@ chl_filename_new <- paste0(output_path, chl_partial_filename_new)
 chl_filename_old <- "./analysis/VAR_output/edd_exercises/2018_exercise_2/from_older_version_code/Chile_by_step_12345.rds"
 chl <- read_compare_var_res(chl_filename_new, chl_filename_old)
 
+chl2_partial_filename_new <- "var_results_Chile_sizes_2345_fqlims_nonenone1510_t_2222_mr50_mrfq30.rds"
+chl2_filename_new <- paste0(output_path, chl2_partial_filename_new)
+chl2 <- read_compare_var_res(chl2_filename_new, chl_filename_old)
+
+chl3_partial_filename_new <- "var_results3_Chile_sizes_2345_fqlims_nonenone1510_t_2222_mr50_mrfq30.rds"
+chl3_filename_new <- paste0(output_path, chl3_partial_filename_new)
+chl3 <- read_compare_var_res(chl3_filename_new, chl_filename_old)
+
+chl4_partial_filename_new <- "var_results4_Chile_sizes_2345_fqlims_nonenone1515_t_2222_mr50_mrfq30.rds"
+chl4_filename_new <- paste0(output_path, chl4_partial_filename_new)
+chl4 <- read_compare_var_res(chl4_filename_new, chl_filename_old)
+
 col_partial_filename_new <- "var_results_Colombia_sizes_2345_fqlims_nonenone1510_t_2222.rds"
 col_filename_new <- paste0(output_path, col_partial_filename_new)
 col_filename_old <- "./analysis/VAR_output/edd_exercises/2018_exercise_2/from_older_version_code/Colombia_by_step_12345.rds"
@@ -143,6 +160,15 @@ print(bol_plot)
 chl_plot <- chl$plot_best_consolidated + ggtitle("Chile")
 print(chl_plot)
 
+chl2_plot <- chl2$plot_best_consolidated + ggtitle("Chile2")
+print(chl2_plot)
+
+chl3_plot <- chl3$plot_best_consolidated + ggtitle("Chile3")
+print(chl3_plot)
+
+chl4_plot <- chl4$plot_best_consolidated + ggtitle("Chile4")
+print(chl4_plot)
+
 col_plot <- col$plot_best_consolidated + ggtitle("Colombia")
 print(col_plot)
 
@@ -173,6 +199,15 @@ print(bol_plot2)
 
 chl_plot2 <- chl$plot_best_each + ggtitle("Chile")
 print(chl_plot2)
+
+chl2_plot2 <- chl2$plot_best_each + ggtitle("Chile2")
+print(chl2_plot2)
+
+chl3_plot2 <- chl3$plot_best_each + ggtitle("Chile3")
+print(chl3_plot2)
+
+chl4_plot2 <- chl4$plot_best_each + ggtitle("Chile4")
+print(chl4_plot2)
 
 col_plot2 <- col$plot_best_each + ggtitle("Colombia")
 print(col_plot2)
