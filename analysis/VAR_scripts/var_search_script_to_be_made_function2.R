@@ -178,7 +178,7 @@ for (i in seq(length(vec_var_sizes))) {
   
   file_suffix <- paste0("_size_", this_size, "_fqlim_", this_freq_limit,
                         "_t_", this_t_tresh, "mr", max_rank_some_h,
-                        "mrfq", max_rank_some_h_for_freq, ".rds")
+                        "_mrfq", max_rank_some_h_for_freq, ".rds")
   filename <- paste0("var_results_", country_name, file_suffix)
   saveRDS(var_res, paste0(output_path, filename))
   
@@ -200,7 +200,8 @@ allthresh <- paste(t_tresh, collapse = "")
 allfqlim <- paste(vec_freq_limit, collapse = "")
 
 file_suffix_all_sizes <-  paste0("_sizes_", allsizes, "_fqlims_", allfqlim,
-                                 "_t_", allthresh, ".rds")
+                                 "_t_", allthresh, "_mr", max_rank_some_h,
+                                 "_mrfq", max_rank_some_h_for_freq,  ".rds")
 
 filename <- paste0("var_results_", country_name, file_suffix_all_sizes)
 saveRDS(consolidated_var_res, paste0(output_path, filename))
