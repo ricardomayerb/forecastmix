@@ -1314,7 +1314,12 @@ variable_freq_by_n <- function(tbl_of_models, h_max = 8, max_rank = 20,
   
   tbl_best_small <- tbl_best_small %>% 
     mutate(total_n = rowSums(.[2:(h_max+1)], na.rm = TRUE),
-           avg = total_n/length(rmse_names))
+           avg = total_n/length(rmse_names)) %>% 
+    arrange(total_n)
+  
+  # print("tbl_best_small")
+  # print(tbl_best_small)
+  
   
   variables_in_top_small <- unique(unlist(tbl_best_small[, "vbl"]))
   
@@ -1322,8 +1327,8 @@ variable_freq_by_n <- function(tbl_of_models, h_max = 8, max_rank = 20,
   print(paste0("top_small N = ", length(variables_in_top_small)))
   
   
-  print("tbl_best")
-  print(tbl_best)
+  # print("tbl_best")
+  # print(tbl_best)
   
   print(paste0("Variables in best-", max_small_rank, " VARs at any h:"))
   print(variables_in_top_small)
@@ -1332,8 +1337,10 @@ variable_freq_by_n <- function(tbl_of_models, h_max = 8, max_rank = 20,
     filter(! vbl %in% variables_in_top_small) %>% 
     arrange(desc(total_n))
   
-  print("tbl_best_not_in_small")
-  print(tbl_best_not_in_small)
+  # print("tbl_best_not_in_small")
+  # print(tbl_best_not_in_small)
+  
+  by_total_not_in_top_small <- unique(unlist(tbl_best_not_in_small[, "vbl"]))
   
   
   by_total <- tbl_best %>% 
@@ -1397,14 +1404,6 @@ variable_freq_by_n <- function(tbl_of_models, h_max = 8, max_rank = 20,
   
   lags_all <- unique(c(lags_by_h1, lags_by_total, lags_by_hlast))
   
-  
- 
-  
-  
-  
-  
-  
-  
   return(list(vbl_freqs_by_h = tbl_best, vbl_multi = vbl_all, 
               vbl_by_h1 = vbl_by_h1, vbl_by_total = vbl_by_total, 
               vbl_by_hlast = vbl_by_hlast, 
@@ -1413,7 +1412,8 @@ variable_freq_by_n <- function(tbl_of_models, h_max = 8, max_rank = 20,
               lags_by_h1 = lags_by_h1, lags_by_total = lags_by_total, 
               lags_by_hlast = lags_by_hlast,
               list_best = list_best, 
-              variables_in_top_small = variables_in_top_small))
+              variables_in_top_small = variables_in_top_small,
+              by_total_not_in_top_small = by_total_not_in_top_small))
 }
 
 

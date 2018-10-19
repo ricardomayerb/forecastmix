@@ -71,7 +71,7 @@ other_prechosen_variables <- c("")
 
 vec_var_sizes <- c(2, 3, 4, 5)
 # vec_var_sizes <- c(2, 3, 4)
-vec_freq_limit <- list("none", "none", 20, 20)
+vec_freq_limit <- list("none", "none", 20, 15) # number *includes* rgdp
 # vec_freq_limit <- list("none", "none", 10)
 
 
@@ -94,7 +94,7 @@ ret_cv = TRUE
 
 ## model retention parameters
 max_rank_some_h <- 50
-max_rank_some_h_for_freq <- 30 
+max_rank_some_h_for_freq <- 50 
 
 
 if (train_span + fc_horizon + number_of_cv > nrow(VAR_data_for_estimation)) {
@@ -126,9 +126,9 @@ for (i in seq(length(vec_var_sizes))) {
 
   if (i > 1 & is.numeric(this_freq_limit)) {
     print("Using this subset of variables: ")
-    print(freq_sel_vbls)
+    print(new_select_vbls)
     
-    this_VAR_data <- VAR_data_for_estimation[, freq_sel_vbls]
+    this_VAR_data <- VAR_data_for_estimation[, new_select_vbls]
   }
   
   tic(msg = paste0("Finished VARs with ", this_size, " variables"))
@@ -176,7 +176,8 @@ for (i in seq(length(vec_var_sizes))) {
     f_vbls <- variable_freq_by_n(current_consolidated_models, 
                                  h_max = fc_horizon, max_rank = max_rank_some_h_for_freq,
                                  n_freq = ncol(data_ts), is_wide = TRUE)
-    freq_sel_vbls <- colnames(VAR_data_for_estimation) 
+    freq_sel_vbls_by_multi <- colnames(VAR_data_for_estimation) 
+    new_select_vbls <- colnames(VAR_data_for_estimation) 
     vbls_top_small <- NA
     by_total_not_in_tsm <- NA
   }
@@ -185,10 +186,28 @@ for (i in seq(length(vec_var_sizes))) {
     f_vbls <- variable_freq_by_n(current_consolidated_models, 
                                  h_max = fc_horizon, max_rank = max_rank_some_h_for_freq,
                                  n_freq = next_freq_limit, is_wide = TRUE)
-    freq_sel_vbls <- f_vbls$vbl_multi
+    freq_sel_vbls_by_multi <- f_vbls$vbl_multi
     vbls_top_small <- f_vbls$variables_in_top_small
+    
+    if(length(vbls_top_small) > next_freq_limit) {
+      "number of best-3 variables exceeds next freq limit. Downsizing."
+      vbls_top_small <- vbls_top_small[1:next_freq_limit]
+    }
+    
+    
     by_total_not_in_tsm <- f_vbls$by_total_not_in_top_small
+    
+    print("vector tiene NA:")
+    print(by_total_not_in_tsm)
+    by_total_na <- is.na(by_total_not_in_tsm)
+    print("by_total_na")
+    print(by_total_na)
+    print(!by_total_na)
+    
+    by_total_not_in_tsm <- by_total_not_in_tsm[!by_total_na]
+    
     n_gap_vbls <- next_freq_limit - length(vbls_top_small)
+    
     print("vbls_top_small")
     print(vbls_top_small)
     print("by_total_not_in_tsm")
@@ -206,8 +225,9 @@ for (i in seq(length(vec_var_sizes))) {
     
     new_select_vbls <- c(vbls_top_small, extra_vbls)
     
-    print(new_select_vbls)
     print("new_select_vbls")
+    print(new_select_vbls)
+    
     
   }
   
@@ -219,7 +239,7 @@ for (i in seq(length(vec_var_sizes))) {
   
   per_size_results[[i]] <- var_res
   f_vbls_list[[i]] <- f_vbls
-  selection_for_next_size_list[[i]] <- freq_sel_vbls
+  selection_for_next_size_list[[i]] <- new_select_vbls
   current_consolidated_models_list[[i]] <- current_consolidated_models
   
   toc()
