@@ -1246,7 +1246,8 @@ var_cv <- function(var_data, this_p, this_type = "const",
 
 
 variable_freq_by_n <- function(tbl_of_models, h_max = 8, max_rank = 20, 
-                               n_freq = 10, is_wide = FALSE, max_small_rank = 3) {
+                               n_freq = 10, is_wide = FALSE, 
+                               max_small_rank = 3) {
   
   rmse_names <- paste("rmse", seq(h_max), sep = "_")
   
@@ -1332,9 +1333,13 @@ variable_freq_by_n <- function(tbl_of_models, h_max = 8, max_rank = 20,
     filter(! vbl %in% variables_in_top_small) %>% 
     arrange(desc(total_n))
   
+  variables_not_in_top_small <- unique(unlist(tbl_best_not_in_small[, "vbl"]))
+  
   print("tbl_best_not_in_small")
   print(tbl_best_not_in_small)
   
+  print("variables_not_in_top_small")
+  print(variables_not_in_top_small)
   
   by_total <- tbl_best %>% 
     arrange(desc(total_n)) %>% 
@@ -1397,14 +1402,6 @@ variable_freq_by_n <- function(tbl_of_models, h_max = 8, max_rank = 20,
   
   lags_all <- unique(c(lags_by_h1, lags_by_total, lags_by_hlast))
   
-  
- 
-  
-  
-  
-  
-  
-  
   return(list(vbl_freqs_by_h = tbl_best, vbl_multi = vbl_all, 
               vbl_by_h1 = vbl_by_h1, vbl_by_total = vbl_by_total, 
               vbl_by_hlast = vbl_by_hlast, 
@@ -1413,7 +1410,8 @@ variable_freq_by_n <- function(tbl_of_models, h_max = 8, max_rank = 20,
               lags_by_h1 = lags_by_h1, lags_by_total = lags_by_total, 
               lags_by_hlast = lags_by_hlast,
               list_best = list_best, 
-              variables_in_top_small = variables_in_top_small))
+              variables_in_top_small = variables_in_top_small,
+              by_total_not_in_top_small = variables_not_in_top_small))
 }
 
 
