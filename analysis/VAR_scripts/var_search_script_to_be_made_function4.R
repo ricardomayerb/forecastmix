@@ -71,12 +71,12 @@ other_prechosen_variables <- c("")
 
 vec_var_sizes <- c(2, 3, 4)
 # vec_var_sizes <- c(2, 3, 4)
-vec_freq_limit <- list("none", "none", 14)
+vec_freq_limit <- list("none", "none", 15)
 # vec_freq_limit <- list("none", "none", 10)
 
 
 ## VAR lags to explore
-vec_lags <- c(1, 2, 3, 4, 5)
+vec_lags <- c(1, 2, 3, 4, 5, 6)
 add_aic_bic_hq_fpe_lags <-  FALSE
 
 ## VAR restrictions
@@ -177,6 +177,8 @@ for (i in seq(length(vec_var_sizes))) {
                                  h_max = fc_horizon, max_rank = max_rank_some_h_for_freq,
                                  n_freq = ncol(data_ts), is_wide = TRUE)
     freq_sel_vbls <- colnames(VAR_data_for_estimation) 
+    vbls_top_small <- NA
+    by_total_not_in_tsm <- NA
   }
   
   if (is.numeric(next_freq_limit)) {
@@ -184,6 +186,8 @@ for (i in seq(length(vec_var_sizes))) {
                                  h_max = fc_horizon, max_rank = max_rank_some_h_for_freq,
                                  n_freq = next_freq_limit, is_wide = TRUE)
     freq_sel_vbls <- f_vbls$vbl_multi
+    vbls_top_small <- f_vbls$variables_in_top_small
+    by_total_not_in_tsm <- f_vbls$by_total_not_in_top_small
   }
   
   file_suffix <- paste0("_size_", this_size, "_fqlim_", this_freq_limit,
