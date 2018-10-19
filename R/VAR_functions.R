@@ -795,7 +795,7 @@ search_var_one_size_old <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target
       p_for_estimation[too_high_p] <- max_p_for_estimation 
       # print(p_for_estimation)
       
-      if(any(too_high_p)) {
+      if (any(too_high_p)) {
         
         # print(paste0("One or more lags found larger than max_p_for_estimation (",
         #              max_p_for_estimation,"). Replace them with max instead"))
@@ -937,7 +937,7 @@ search_var_one_size_old <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target
   results_all_models <- discard(results_all_models, 
                                 ~ is.null(.x[["cv_test_data"]][[1]]))
   
-  if (length(results_all_models) == 0){
+  if (length(results_all_models) == 0) {
     print("No model passed all tests")
     
     print(paste("Number of models analyzed:", model_number))
@@ -1015,7 +1015,7 @@ search_var_one_size_old <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target
     
   }
   
-  if(keep_only_white_noise_fs){
+  if (keep_only_white_noise_fs){
     
     results_all_models <- results_all_models %>% 
       filter(unlist(is_white_noise_fse))
@@ -1315,7 +1315,12 @@ variable_freq_by_n <- function(tbl_of_models, h_max = 8, max_rank = 20,
   
   tbl_best_small <- tbl_best_small %>% 
     mutate(total_n = rowSums(.[2:(h_max+1)], na.rm = TRUE),
-           avg = total_n/length(rmse_names))
+           avg = total_n/length(rmse_names)) %>% 
+    arrange(total_n)
+  
+  # print("tbl_best_small")
+  # print(tbl_best_small)
+  
   
   variables_in_top_small <- unique(unlist(tbl_best_small[, "vbl"]))
   
@@ -1323,8 +1328,8 @@ variable_freq_by_n <- function(tbl_of_models, h_max = 8, max_rank = 20,
   print(paste0("top_small N = ", length(variables_in_top_small)))
   
   
-  print("tbl_best")
-  print(tbl_best)
+  # print("tbl_best")
+  # print(tbl_best)
   
   print(paste0("Variables in best-", max_small_rank, " VARs at any h:"))
   print(variables_in_top_small)
@@ -1337,7 +1342,9 @@ variable_freq_by_n <- function(tbl_of_models, h_max = 8, max_rank = 20,
   
   print("tbl_best_not_in_small")
   print(tbl_best_not_in_small)
-  
+
+  by_total_not_in_top_small <- unique(unlist(tbl_best_not_in_small[, "vbl"]))
+
   print("variables_not_in_top_small")
   print(variables_not_in_top_small)
   
@@ -1411,7 +1418,7 @@ variable_freq_by_n <- function(tbl_of_models, h_max = 8, max_rank = 20,
               lags_by_hlast = lags_by_hlast,
               list_best = list_best, 
               variables_in_top_small = variables_in_top_small,
-              by_total_not_in_top_small = variables_not_in_top_small))
+              by_total_not_in_top_small = by_total_not_in_top_small))
 }
 
 
