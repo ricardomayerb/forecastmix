@@ -353,6 +353,12 @@ search_var_one_size <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v,
       vec_of_other_vbls <- sets_of_other_variables[,j]
       vbls_for_var <- c(already_chosen, vec_of_other_vbls)
       
+      print("in search var current variables are")
+      print(vbls_for_var)
+      
+      print("in search var names(var_data)")
+      print(names(var_data))
+      
       sub_data = var_data[, vbls_for_var]
       sub_data = na.omit(sub_data)
       sub_data_tk_index <- tk_index(var_data, timetk_idx = TRUE)
@@ -1246,7 +1252,8 @@ var_cv <- function(var_data, this_p, this_type = "const",
 
 
 variable_freq_by_n <- function(tbl_of_models, h_max = 8, max_rank = 20, 
-                               n_freq = 10, is_wide = FALSE, max_small_rank = 3) {
+                               n_freq = 10, is_wide = FALSE, max_small_rank = 3
+                               , max_smallest_rank = 1) {
   
   rmse_names <- paste("rmse", seq(h_max), sep = "_")
   
