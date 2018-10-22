@@ -84,7 +84,7 @@ restrict_by_signif <- TRUE
 t_tresh <- c(2, 2, 2, 2)
 
 ## forecast horizon
-fc_horizon <- 7
+fc_horizon <- 8
 
 ## Cross-validation parameters
 number_of_cv <- 8
@@ -260,11 +260,13 @@ allsizes <- paste(vec_var_sizes, collapse = "")
 allthresh <- paste(t_tresh, collapse = "")
 allfqlim <- paste(vec_freq_limit, collapse = "")
 
-file_suffix_all_sizes <-  paste0("_sizes_", allsizes, "_fqlims_", allfqlim,
-                                 "_t_", allthresh, "_mr", max_rank_some_h,
-                                 "_mrfq", max_rank_some_h_for_freq,  ".rds")
+file_suffix_all_sizes <-  paste0("_s", allsizes, "_fq", allfqlim,
+                                 "_t", allthresh, "_mr", max_rank_some_h,
+                                 "_mrfq", max_rank_some_h_for_freq,
+                                 "_cv",number_of_cv,"_tspan", train_span,
+                                 "_h", fc_horizon,".rds")
 
-filename <- paste0("var_results4_", country_name, file_suffix_all_sizes)
+filename <- paste0("vr_", country_name, file_suffix_all_sizes)
 saveRDS(res_and_info, paste0(output_path, filename))
 
 final_time <- Sys.time()
