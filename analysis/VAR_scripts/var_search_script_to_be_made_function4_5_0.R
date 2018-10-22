@@ -88,7 +88,7 @@ fc_horizon <- 8
 
 ## Cross-validation parameters
 number_of_cv <- 8
-train_span <- 25
+train_span <- 32
 ret_cv = TRUE
 
 

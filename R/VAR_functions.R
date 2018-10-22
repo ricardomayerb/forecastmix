@@ -890,7 +890,7 @@ variable_freq_by_n <- function(tbl_of_models, h_max = 8, max_rank = 20,
                                n_freq = 10, is_wide = FALSE, max_small_rank = 3
                                , max_smallest_rank = 1) {
 
-  
+
   rmse_names <- paste("rmse", seq(h_max), sep = "_")
   
   if ("full_sample_varest" %in% names(tbl_of_models)) {
@@ -908,15 +908,12 @@ variable_freq_by_n <- function(tbl_of_models, h_max = 8, max_rank = 20,
       ungroup()
   }
   
-  # print(tbl_of_models)
-  
+
   summary_of_tom <- tbl_of_models %>% 
     group_by(rmse_h) %>% 
     summarize(n_models = n(),
               less_than_max_rank = sum(rank_h < max_rank +1)
               )
-  
-  # print(summary_of_tom)
   
   vec_of_rmse_h <- sort(unique(tbl_of_models$rmse_h))
   
@@ -932,28 +929,70 @@ variable_freq_by_n <- function(tbl_of_models, h_max = 8, max_rank = 20,
   ) 
   
   tbl_best <- reduce(list_best, full_join, by = c("vbl"))
+  
   names(tbl_best) <- c("vbl", paste("h", seq(h_max), sep = "_"))
+  
 
   tbl_best <- tbl_best %>% 
     mutate(total_n = rowSums(.[2:(h_max+1)], na.rm = TRUE),
            avg = total_n/length(rmse_names))
   
+  # print("max_small_rank + 1")
+  # print(max_small_rank + 1)
+  # 
+  # print(tbl_of_models)
+  # list_best_small <- map(vec_of_rmse_h, 
+  #                        ~ tbl_of_models %>% 
+  #                          filter(rmse_h == .x, rank_h < max_small_rank + 1) 
+  # )
+  # 
+  # print("list_best_small")
+  # print(list_best_small)
   
   list_best_small <- map(vec_of_rmse_h, 
                          ~ tbl_of_models %>% 
-                           filter(rmse_h == .x, rank_h < max_small_rank + 1) %>% 
+                           filter(rmse_h == .x) %>% arrange(rmse)
+  )
+  # 
+  # print("first list_best_small")
+  # print(list_best_small)
+  
+  small_effective_rank <- map_dbl(list_best_small, ~ sort(.x[["rank_h"]])[max_small_rank])
+  
+  # print("small_effective_rank")
+  # print(small_effective_rank)
+   
+  
+  list_best_small <- map2(list_best_small, small_effective_rank,
+                         ~ filter(.x, rank_h <= .y) %>% 
                            dplyr::select("variables") %>% 
                            unlist() %>% 
                            table() %>% 
                            as_tibble() %>% 
-                           arrange(desc(n)) %>% 
-                           rename(., vbl = .)
+                           arrange(desc(n)) 
   ) 
   
-   
+  # print("second list_best_small ")
+  # 
+  # print(list_best_small )
+  
+  for (k in seq_along(list_best_small)) {
+    print(k)
+    names(list_best_small[[k]]) <- c("vbl", "n")
+  }
+  
+  # print(9)
+  # 
+  # print(list_best_small )
   
   tbl_best_small <- reduce(list_best_small, full_join, by = c("vbl"))
+  
+  # print(10)
+  
+  
   names(tbl_best_small) <- c("vbl", paste("h", seq(h_max), sep = "_"))
+  
+  # print(11)
   
   tbl_best_small <- tbl_best_small %>% 
     mutate(total_n = rowSums(.[2:(h_max + 1)], na.rm = TRUE),

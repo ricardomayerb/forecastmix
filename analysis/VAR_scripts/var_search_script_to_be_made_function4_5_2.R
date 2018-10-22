@@ -81,7 +81,7 @@ add_aic_bic_hq_fpe_lags <-  FALSE
 
 ## VAR restrictions
 restrict_by_signif <- TRUE
-t_tresh <- c(1.65, 1.65, 1.65, 1.65)
+t_tresh <- c(2, 2, 2, 2)
 
 ## forecast horizon
 fc_horizon <- 8
@@ -174,7 +174,8 @@ for (i in seq(length(vec_var_sizes))) {
   
   if (next_freq_limit == "none") {
     f_vbls <- variable_freq_by_n(current_consolidated_models, 
-                                 h_max = fc_horizon, max_rank = max_rank_some_h_for_freq,
+                                 h_max = fc_horizon, 
+                                 max_rank = max_rank_some_h_for_freq,
                                  n_freq = ncol(data_ts), is_wide = TRUE)
     freq_sel_vbls_by_multi <- colnames(VAR_data_for_estimation) 
     new_select_vbls <- colnames(VAR_data_for_estimation) 
