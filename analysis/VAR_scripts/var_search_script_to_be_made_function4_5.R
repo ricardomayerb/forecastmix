@@ -5,7 +5,7 @@ initial_time <- Sys.time()
 tic(msg = "Total time for this country")
 ##### data selection part -----
 # arguments
-country_name <- "Chile"
+country_name <- "Argentina"
 forecast_exercise_year <- 2018
 forecast_exercise_number <- 2
 
@@ -81,26 +81,35 @@ add_aic_bic_hq_fpe_lags <-  FALSE
 
 ## VAR restrictions
 restrict_by_signif <- TRUE
-t_tresh <- c(2, 2, 2, 2)
+t_tresh <- c(1.65, 1.65, 1.65, 1.65)
 
 ## forecast horizon
 fc_horizon <- 8
 
 ## Cross-validation parameters
 number_of_cv <- 8
-train_span <- 25
 ret_cv = TRUE
 
+train_span <- 31
 
 ## model retention parameters
 max_rank_some_h <- 50
 max_rank_some_h_for_freq <- 50 
 
 
-if (train_span + fc_horizon + number_of_cv > nrow(VAR_data_for_estimation)) {
-  print("not enough obs")
-  stop()
-}
+# if (train_span + fc_horizon + number_of_cv > nrow(VAR_data_for_estimation)) {
+#   print("not enough obs")
+#   stop()
+# }
+
+max_common_train_span_guaranted <- nrow(na.omit(VAR_data_for_estimation)) - fc_horizon - number_of_cv
+max_common_train_span_guaranted
+
+train_span <- max_common_train_span_guaranted
+
+upper_bound_for_train_span <- length(na.omit(VAR_data_for_estimation[ , "rgdp"])) - fc_horizon - number_of_cv
+upper_bound_for_train_span
+
 
 per_size_results <- list_along(vec_var_sizes)
 f_vbls_list <- list_along(vec_var_sizes)

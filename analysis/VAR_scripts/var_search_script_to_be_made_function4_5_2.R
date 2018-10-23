@@ -5,7 +5,7 @@ initial_time <- Sys.time()
 tic(msg = "Total time for this country")
 ##### data selection part -----
 # arguments
-country_name <- "Chile"
+country_name <- "Argentina"
 forecast_exercise_year <- 2018
 forecast_exercise_number <- 2
 
@@ -88,7 +88,7 @@ fc_horizon <- 8
 
 ## Cross-validation parameters
 number_of_cv <- 8
-train_span <- 32
+train_span <- 31
 ret_cv = TRUE
 
 

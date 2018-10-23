@@ -1,17 +1,21 @@
 source('./R/VAR_functions.R')
 
-country <- "Argentina"
+country <- "Chile"
 sizes <- c(2, 3, 4, 5)
 forecast_exercise_year <- 2018
 forecast_exercise_number <- 2
-fc_horizon <- 7
+fc_horizon <- 8
+other_prechosen_variables <-  list(c(""), c(""), c(""), c("")) # default value, can be omitted for shorter code
 add_aic_bic_hq_fpe_lags <- FALSE # default value, can be omitted for shorter code
 vec_lags <-  c(1, 2, 3, 4, 5, 6) # default value, can be omitted for shorter code
 vec_freq_limit <- c("none", "none", 10, 10) # default value, can be omitted
 t_tresh <- c(2, 2, 2, 2) # default value, can be omitted for shorter code
 number_of_cv <- 8 # default value, can be omitted for shorter code
-train_span <- 25 # default value, can be omitted for shorter code
+train_span <- 28 
 max_rank_some_h <- 50 # default value, can be omitted for shorter code
+results_file_name <-  "prueba"
+
+
 
 var_result <- var_search(
   country = country,
@@ -25,16 +29,10 @@ var_result <- var_search(
   t_tresh = t_tresh, 
   number_of_cv = number_of_cv, 
   train_span = train_span, 
-  max_rank_some_h = max_rank_some_h
-  ) 
-
-
-
-
-
-
-
-
+  max_rank_some_h = max_rank_some_h,
+  other_prechosen_variables = other_prechosen_variables,
+  results_file_name = results_file_name
+) 
 
 
 

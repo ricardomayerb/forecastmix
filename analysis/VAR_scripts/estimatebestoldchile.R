@@ -61,15 +61,15 @@ ncolumns <- ncol(VAR_data_for_estimation)
 chl_filename_old <- "./analysis/VAR_output/edd_exercises/2018_exercise_2/from_older_version_code/Chile_by_step_12345.rds"
 chlold <- readRDS(chl_filename_old)
 
-chl0_partial_filename_new <- "vr_Chile_s2345_fqnonenone2015_t0000_mr50_mrfq50_cv8_tspan25_h8.rds"
+chl0_partial_filename_new <- "vr_Chile_s2345_fqnonenone2015_t0000_mr50_mrfq50_cv8_tspan32_h8.rds"
 chl0_filename_new <- paste0(output_path, chl0_partial_filename_new)
 chl0 <- readRDS(chl0_filename_new)[["consolidated_var_res"]]
 
-chl2_partial_filename_new <- "vr_Chile_s2345_fqnonenone2015_t2222_mr50_mrfq50_cv8_tspan25_h8.rds"
+chl2_partial_filename_new <- "vr_Chile_s2345_fqnonenone2015_t2222_mr50_mrfq50_cv8_tspan32_h8.rds"
 chl2_filename_new <- paste0(output_path, chl2_partial_filename_new)
 chl2 <- readRDS(chl2_filename_new)[["consolidated_var_res"]]
 
-chl165_partial_filename_new <- "vr_Chile_s2345_fqnonenone2015_t165165165165_mr50_mrfq50_cv8_tspan25_h8.rds"
+chl165_partial_filename_new <- "vr_Chile_s2345_fqnonenone2015_t165165165165_mr50_mrfq50_cv8_tspan32_h8.rds"
 chl165_filename_new <- paste0(output_path, chl165_partial_filename_new)
 chl165 <- readRDS(chl165_filename_new)[["consolidated_var_res"]]
 
@@ -192,10 +192,15 @@ vb_8_n2
 
 
 
-
+# best h 1 old model
 selected_variables <- c("rgdp", "ipec", "ri", "primario", "imp_capital")
 selected_lags <- 3
-var_data <- na.omit(VAR_data_for_estimation[, selected_variables])
+# rmse_1 0.003768305 
+
+var_data <- na.omit(VAR_data_for_estimation)
+var_data <- var_data[, selected_variables]
+
+
 
 fit <- vars::VAR(y = var_data, p = selected_lags, type = "const")
 all(roots(fit) < 1)
@@ -208,13 +213,13 @@ fr2 <- vars::restrict(fit, method = "ser", thresh = 2)
 fr165 <- vars::restrict(fit, method = "ser", thresh = 1.65)
 
 cv_r0 <- var_cv(var_data = var_data, this_p = 3, n_cv = 8,
-              h_max = 7, training_length = 25, full_sample_resmat = fr0$restrictions)
+              h_max = 8, training_length = 32, full_sample_resmat = fr0$restrictions)
 
 cv_r2 <- var_cv(var_data = var_data, this_p = 3, n_cv = 8,
-                h_max = 7, training_length = 25, full_sample_resmat = fr2$restrictions)
+                h_max = 8, training_length = 32, full_sample_resmat = fr2$restrictions)
 
 cv_r165 <- var_cv(var_data = var_data, this_p = 3, n_cv = 8,
-                h_max = 7, training_length = 25, full_sample_resmat = fr165$restrictions)
+                h_max = 8, training_length = 32, full_sample_resmat = fr165$restrictions)
 
 results_r0 <- cv_r0
 column_names <- names(results_r0)
@@ -224,6 +229,7 @@ cv_errors0 <- results_r0[["cv_errors"]]
 mat_error0 <- reduce(cv_errors0, rbind)
 mse_all_h0 <- colMeans(mat_error0^2)
 rmse_all_h0 <- sqrt(mse_all_h0)
+rmse_all_h0[1]
 
 results_r2 <- cv_r2
 results_r2 <- as_tibble(results_r2)
@@ -232,7 +238,7 @@ cv_errors2 <- results_r2[["cv_errors"]]
 mat_error2 <- reduce(cv_errors2, rbind)
 mse_all_h2 <- colMeans(mat_error2^2)
 rmse_all_h2 <- sqrt(mse_all_h2)
-
+rmse_all_h2[1]
 
 results_r165 <- cv_r165
 results_r165 <- as_tibble(results_r165)
@@ -241,9 +247,70 @@ cv_errors165 <- results_r165[["cv_errors"]]
 mat_error165 <- reduce(cv_errors165, rbind)
 mse_all_h165 <- colMeans(mat_error165^2)
 rmse_all_h165 <- sqrt(mse_all_h165)
-
+rmse_all_h165[1]
 
 rmse_all_h0
 rmse_all_h165
 rmse_all_h2
 
+
+# best old model rmse 7
+selected_variables <- c("rgdp", "ipec", "imp", "imp_capital", "copper_output")	
+selected_lags <- 3
+# rmse_1 0.002612981 
+
+var_data <- na.omit(VAR_data_for_estimation)
+var_data <- var_data[, selected_variables]
+
+
+
+fit <- vars::VAR(y = var_data, p = selected_lags, type = "const")
+all(roots(fit) < 1)
+vars::serial.test(fit)
+vars::serial.test(fit, lags.pt = 12)
+vars::serial.test(fit, lags.pt = 8)
+
+fr0  <- vars::restrict(fit, method = "ser", thresh = 0)
+fr2 <- vars::restrict(fit, method = "ser", thresh = 2)
+fr165 <- vars::restrict(fit, method = "ser", thresh = 1.65)
+
+cv_r0 <- var_cv(var_data = var_data, this_p = 3, n_cv = 8,
+                h_max = 8, training_length = 32, full_sample_resmat = fr0$restrictions)
+
+cv_r2 <- var_cv(var_data = var_data, this_p = 3, n_cv = 8,
+                h_max = 8, training_length = 32, full_sample_resmat = fr2$restrictions)
+
+cv_r165 <- var_cv(var_data = var_data, this_p = 3, n_cv = 8,
+                  h_max = 8, training_length = 32, full_sample_resmat = fr165$restrictions)
+
+results_r0 <- cv_r0
+column_names <- names(results_r0)
+results_r0 <- as_tibble(results_r0)
+names(results_r0) <- column_names
+cv_errors0 <- results_r0[["cv_errors"]]
+mat_error0 <- reduce(cv_errors0, rbind)
+mse_all_h0 <- colMeans(mat_error0^2)
+rmse_all_h0 <- sqrt(mse_all_h0)
+rmse_all_h0[7]
+
+results_r2 <- cv_r2
+results_r2 <- as_tibble(results_r2)
+names(results_r2) <- column_names
+cv_errors2 <- results_r2[["cv_errors"]]
+mat_error2 <- reduce(cv_errors2, rbind)
+mse_all_h2 <- colMeans(mat_error2^2)
+rmse_all_h2 <- sqrt(mse_all_h2)
+rmse_all_h2[7]
+
+results_r165 <- cv_r165
+results_r165 <- as_tibble(results_r165)
+names(results_r165) <- column_names
+cv_errors165 <- results_r165[["cv_errors"]]
+mat_error165 <- reduce(cv_errors165, rbind)
+mse_all_h165 <- colMeans(mat_error165^2)
+rmse_all_h165 <- sqrt(mse_all_h165)
+rmse_all_h165[7]
+
+rmse_all_h0
+rmse_all_h165
+rmse_all_h2

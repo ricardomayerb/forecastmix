@@ -69,7 +69,7 @@ check_resid_VAR <- function(fit_VAR, type = "PT.adjusted", lags.pt = 12,
     pval <- unname(pval)
     is_white_noise <- pval > pval_ref
   }
-
+  
   return(is_white_noise)
 }
 
@@ -81,7 +81,7 @@ get_sets_of_variables <- function(df, this_size, all_variables, already_chosen){
   len_other_vbls <- this_size - len_already_chosen
   
   passing_variables <- all_variables
-
+  
   passing_not_alr_chosen <- passing_variables[!passing_variables %in% already_chosen]
   
   n_passing_vbls <- length(passing_not_alr_chosen)
@@ -116,15 +116,14 @@ max_effective_lag <- function(var_obj) {
 
 
 
-
 var_search <- function(country, 
                        sizes, 
                        forecast_exercise_year, 
                        forecast_exercise_number,
                        fc_horizon,
                        target_variable = c("rgdp"),
-                       other_prechosen_variables = c(""),
-                       vec_lags = c(1, 2, 3, 4, 5, 6),
+                       other_prechosen_variables = list(c(""), c(""), c(""), c("")),
+                       vec_lags = c(1, 2, 3, 4, 5, 6) ,
                        add_aic_bic_hq_fpe_lags =  FALSE,
                        vec_freq_limit = list("none", "none", 15, 10),
                        restrict_by_signif = TRUE,
@@ -132,7 +131,284 @@ var_search <- function(country,
                        number_of_cv = 8,
                        train_span = 25,
                        ret_cv = TRUE,
-                       max_rank_some_h =50
+                       max_rank_some_h =50,
+                       max_rank_some_h_for_freq = 50, 
+                       results_file_name = NULL
+) {
+  
+  tic(msg = "Total time for this country")
+  
+  
+  # file paths
+  excel_data_path <- paste0("./data/edd_exercises/", forecast_exercise_year, 
+                            "_exercise_", forecast_exercise_number, "/")
+  
+  output_path <- paste0("./analysis/VAR_output/edd_exercises/",
+                        forecast_exercise_year, 
+                        "_exercise_", forecast_exercise_number, "/")
+  
+  country_data_ts <- get_raw_data_ts(country = country, data_path = excel_data_path)
+  external_data_ts <- get_raw_external_data_ts(data_path = excel_data_path)
+  data_ts <- country_data_ts
+  
+  rgdp_level_ts <- data_ts[, "rgdp"]
+  rgdp_level_ts <- na.omit(rgdp_level_ts)
+  rgdp_yoy_ts <- make_yoy_ts(rgdp_level_ts)
+  
+  print(paste0("This country: ", country))
+  print(paste0("Number of variables (incl. rgdp): ", ncol(data_ts)))
+  print("Names of variables: ")
+  print(colnames(data_ts))
+  
+  tic()
+  print("Finding and applying stationary transformations to all variables")
+  reco_all_variables <- find_statio_diffs(data_ts, country)
+  country_transformed_data <- follow_rec(data_ts, reco_all_variables)
+  print("Done.")
+  toc()
+  
+  rgdp_rec <- reco_all_variables[reco_all_variables$variable == "rgdp", ][["kpss_05_level"]]
+  print(paste0("Stationary transformation for rgdp: ", rgdp_rec))
+  
+  VAR_data_for_estimation  <- country_transformed_data
+  
+  print(paste0("rgdp obs. after transformation: ", 
+               length(na.omit(VAR_data_for_estimation[ , "rgdp"]))
+  )
+  )
+  
+  print(paste0("rgdp obs. before transformation: ", length(rgdp_level_ts)))
+  
+  variable_names <- colnames(VAR_data_for_estimation)
+  ncolumns <- ncol(VAR_data_for_estimation)
+  
+  max_common_train_span_guaranted <- nrow(na.omit(VAR_data_for_estimation)) - fc_horizon - number_of_cv
+  print(paste0("Taking all variables together, maximum common training span is ",
+               max_common_train_span_guaranted))
+  upper_bound_for_train_span <- length(na.omit(VAR_data_for_estimation[ , "rgdp"])) - fc_horizon - number_of_cv
+  print(paste0("For variables encompasing rgdp extent, max training span is ",
+               upper_bound_for_train_span))
+  
+  if(train_span == "common_max") {
+    train_span <- max_common_train_span_guaranted
+  }
+  
+  saveRDS(VAR_data_for_estimation, 
+          paste0(output_path, "VAR_data_", country, ".rds"))
+  
+  
+  freq_sel_vbls <- colnames(VAR_data_for_estimation) # same as freq_limit = 'none'
+  
+  
+  # if (train_span + fc_horizon + number_of_cv > nrow(VAR_data_for_estimation)) {
+  #   print("not enough obs")
+  #   stop()
+  # }
+  
+  per_size_results <- list_along(sizes)
+  
+  tic(msg = "Finish var search")
+  
+  
+
+  
+  for (i in seq(length(sizes))) {
+    
+    this_size <- sizes[i]
+    this_t_tresh <- t_tresh[i]
+    this_freq_limit <- vec_freq_limit[[i]]
+    this_prechosen_variables <- other_prechosen_variables[[i]]
+    
+    print(paste0("Starting the estimation of VAR with ", this_size," vbls"))
+    
+    
+    
+    if (i < length(sizes)) {
+      next_freq_limit <- vec_freq_limit[[i + 1]]
+    }
+    
+    if (this_freq_limit == "none") {
+      print("Using all variables")
+      this_VAR_data <- VAR_data_for_estimation
+    }
+    
+    
+    if (i > 1 & is.numeric(this_freq_limit)) {
+      print("Using this subset of variables: ")
+      print(new_select_vbls)
+      
+      this_VAR_data <- VAR_data_for_estimation[, new_select_vbls]
+    }
+    
+    tic(msg = paste0("Finished VARs with ", this_size, " variables"))
+    
+    var_res <- search_var_one_size(
+      var_size = this_size,
+      vec_lags = vec_lags,
+      var_data = this_VAR_data,
+      rgdp_level_ts = rgdp_level_ts,
+      rgdp_yoy_ts = rgdp_yoy_ts,
+      target_v = target_variable,
+      pre_selected_v = this_prechosen_variables,
+      is_cv = TRUE,
+      training_length = train_span,
+      h_max = fc_horizon,
+      n_cv = number_of_cv,
+      return_cv = ret_cv,
+      rgdp_current_form = rgdp_rec,
+      max_rank = max_rank_some_h,
+      check_residuals_cv = TRUE,
+      check_residuals_full_sample = TRUE,
+      restrict_by_signif = restrict_by_signif,
+      t_tresh = this_t_tresh,
+      max_p_for_estimation = 12,
+      add_info_based_lags = add_aic_bic_hq_fpe_lags)
+    
+    if (i == 1) {
+      current_consolidated_models <- stack_models(
+        list(var_res[["accu_rankings_models"]])
+      ) 
+    } else {
+      current_consolidated_models <- stack_models(map(per_size_results, "accu_rankings_models"))
+    }
+    
+    if (i < length(sizes)) {
+      next_freq_limit <- vec_freq_limit[[i + 1]]
+    }
+    
+    if (i == length(sizes)) {
+      next_freq_limit <- "none"
+    }
+    
+    
+    if (next_freq_limit == "none") {
+      f_vbls <- variable_freq_by_n(current_consolidated_models, 
+                                   h_max = fc_horizon, max_rank = max_rank_some_h_for_freq,
+                                   n_freq = ncol(data_ts), is_wide = TRUE)
+      freq_sel_vbls_by_multi <- colnames(VAR_data_for_estimation) 
+      new_select_vbls <- colnames(VAR_data_for_estimation) 
+      vbls_top_small <- NA
+      by_total_not_in_tsm <- NA
+    }
+    
+    if (is.numeric(next_freq_limit)) {
+      f_vbls <- variable_freq_by_n(current_consolidated_models, 
+                                   h_max = fc_horizon, max_rank = max_rank_some_h_for_freq,
+                                   n_freq = next_freq_limit, is_wide = TRUE)
+      freq_sel_vbls_by_multi <- f_vbls$vbl_multi
+      vbls_top_small <- f_vbls$variables_in_top_small
+      
+      if(length(vbls_top_small) > next_freq_limit) {
+        "number of best-3 variables exceeds next freq limit. Downsizing."
+        vbls_top_small <- vbls_top_small[1:next_freq_limit]
+      }
+      
+      
+      by_total_not_in_tsm <- f_vbls$by_total_not_in_top_small
+      
+      # print("vector tiene NA:")
+      # print(by_total_not_in_tsm)
+      # by_total_na <- is.na(by_total_not_in_tsm)
+      # print("by_total_na")
+      # print(by_total_na)
+      # print(!by_total_na)
+      
+      by_total_not_in_tsm <- by_total_not_in_tsm[!by_total_na]
+      
+      n_gap_vbls <- next_freq_limit - length(vbls_top_small)
+      
+      # print("vbls_top_small")
+      # print(vbls_top_small)
+      # print("by_total_not_in_tsm")
+      # print(by_total_not_in_tsm)
+      # print("n_gap_vbls")
+      # print(n_gap_vbls)
+      
+      if (n_gap_vbls > 0) {
+        extra_vbls <- by_total_not_in_tsm[1:n_gap_vbls]
+        # print("extra_vbls")
+        # print(extra_vbls)
+      } else {
+        extra_vbls <- c()
+      }
+      
+      new_select_vbls <- c(vbls_top_small, extra_vbls)
+      
+      # print("new_select_vbls")
+      # print(new_select_vbls)
+      
+      
+    }
+    
+    file_suffix <- paste0("_size_", this_size, "_fqlim_", this_freq_limit,
+                          "_t_", this_t_tresh, "mr", max_rank_some_h,
+                          "_mrfq", max_rank_some_h_for_freq, ".rds")
+    filename <- paste0("var_results_", country, file_suffix)
+    saveRDS(var_res, paste0(output_path, filename))
+    
+    per_size_results[[i]] <- var_res
+    f_vbls_list[[i]] <- f_vbls
+    selection_for_next_size_list[[i]] <- new_select_vbls
+    current_consolidated_models_list[[i]] <- current_consolidated_models
+    
+    toc()
+  }
+  
+  toc()
+  
+  bind_var_res_all_sizes <- reduce(map(per_size_results, "accu_rankings_models"), rbind)
+  
+  consolidated_var_res <- stack_models(map(per_size_results, "accu_rankings_models"))
+  
+  final_time <- Sys.time()
+  
+  elapsed_time <- final_time - initial_time
+  
+  res_and_info <- list(consolidated_var_res = consolidated_var_res,
+                       f_vbls_all_sizes = f_vbls_list,
+                       selected_for_next_size = selection_for_next_size_list,
+                       var_data = VAR_data_for_estimation,
+                       elapsed_time = elapsed_time)
+  
+  
+  allsizes <- paste(vec_var_sizes, collapse = "")
+  allthresh <- paste(t_tresh, collapse = "")
+  allfqlim <- paste(vec_freq_limit, collapse = "")
+  
+  file_suffix_all_sizes <-  paste0("_s", allsizes, "_fq", allfqlim,
+                                   "_t", allthresh, "_mr", max_rank_some_h,
+                                   "_mrfq", max_rank_some_h_for_freq,
+                                   "_cv",number_of_cv,"_tspan", train_span,
+                                   "_h", fc_horizon,".rds")
+  
+  if(is.null(results_file_name)) {
+    filename <- paste0("vr_", country_name, file_suffix_all_sizes)
+  } else {
+    filename <- results_file_name
+  }
+  
+  saveRDS(res_and_info, paste0(output_path, filename))
+  
+  return(res_and_info)
+}
+
+
+var_search_old <- function(country, 
+                           sizes, 
+                           forecast_exercise_year, 
+                           forecast_exercise_number,
+                           fc_horizon,
+                           target_variable = c("rgdp"),
+                           other_prechosen_variables = c(""),
+                           vec_lags = c(1, 2, 3, 4, 5, 6),
+                           add_aic_bic_hq_fpe_lags =  FALSE,
+                           vec_freq_limit = list("none", "none", 15, 10),
+                           restrict_by_signif = TRUE,
+                           t_tresh = c(2, 2, 2, 2),
+                           number_of_cv = 8,
+                           train_span = 25,
+                           ret_cv = TRUE,
+                           max_rank_some_h =50
 ) {
   
   tic(msg = "Total time for this country")
@@ -295,33 +571,32 @@ var_search <- function(country,
   return(consolidated_var_res)
 }
 
-
 # search var one size formerly known as try_sizes_vbls_lags
 # then it was modified to work on single size choice
 search_var_one_size <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v, 
-                       var_size, 
-                       vec_lags = c(1,2,3,4), pre_selected_v = "",
-                       is_cv = FALSE, h_max = 5, 
-                       n_cv = 8,
-                       training_length = 24,
-                       return_cv = TRUE,
-                       max_rank = 30,
-                       rgdp_current_form = "yoy",
-                       check_residuals_full_sample = TRUE,
-                       check_residuals_cv = TRUE,
-                       white_noise_target_ratio = 1,
-                       keep_only_white_noise_fs = TRUE,
-                       max_p_for_estimation = 7,
-                       restrict_by_signif = TRUE,
-                       t_tresh = 1.65,
-                       keep_varest = FALSE,
-                       add_info_based_lags = TRUE) {
-
+                                var_size, 
+                                vec_lags = c(1,2,3,4), pre_selected_v = "",
+                                is_cv = FALSE, h_max = 5, 
+                                n_cv = 8,
+                                training_length = 24,
+                                return_cv = TRUE,
+                                max_rank = 30,
+                                rgdp_current_form = "yoy",
+                                check_residuals_full_sample = TRUE,
+                                check_residuals_cv = TRUE,
+                                white_noise_target_ratio = 1,
+                                keep_only_white_noise_fs = TRUE,
+                                max_p_for_estimation = 7,
+                                restrict_by_signif = TRUE,
+                                t_tresh = 1.65,
+                                keep_varest = FALSE,
+                                add_info_based_lags = TRUE) {
+  
   all_names <- colnames(var_data)
   models_with_cv_excercises <- 0
   models_with_eqn_dropping <- 0
   binding_max_p <- 0
- 
+  
   
   if (!restrict_by_signif) {
     t_tresh <- NA
@@ -329,251 +604,275 @@ search_var_one_size <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v,
   
   ## j, loop through the combination of variables of a fixed size, e.g. all sets of 5 variables
   ### k, loop through values of lags
-
+  
   model_number <- 0
   models_unstable <- 0
   models_non_white_fs <- 0
-    
+  
   already_chosen <- c(target_v, pre_selected_v)
   already_chosen <- already_chosen[already_chosen != ""]
   len_already_chosen <- length(already_chosen)
   len_other_vbls <- var_size - len_already_chosen
-    
+  
   sets_of_other_variables <- get_sets_of_variables(
-      df = var_data, this_size = var_size, all_variables = all_names, 
-      already_chosen = already_chosen)
-    
+    df = var_data, this_size = var_size, all_variables = all_names, 
+    already_chosen = already_chosen)
+  
   len_sets_of_vars <- ncol(sets_of_other_variables)
-    
+  
   var_all_vset_all_lags <- list_along(seq.int(1, len_sets_of_vars))
-    
+  
   for (j in seq.int(1, len_sets_of_vars)) {
-      
-      # vec_of_other_vbls <- sets_of_other_variables[[j]]
+    
+    # vec_of_other_vbls <- sets_of_other_variables[[j]]
     
     
-      vec_of_other_vbls <- sets_of_other_variables[,j]
-      # print("in search var one size, vec_of_other_vbls")
-      # print(vec_of_other_vbls)
-      # print("in search var one size, already_chosen")
-      # print(already_chosen)
+    vec_of_other_vbls <- sets_of_other_variables[,j]
+    # print("in search var one size, vec_of_other_vbls")
+    # print(vec_of_other_vbls)
+    # print("in search var one size, already_chosen")
+    # print(already_chosen)
+    
+    vbls_for_var <- c(already_chosen, vec_of_other_vbls)
+    
+    
+    # print("vbls for var")
+    # print(vbls_for_var)
+    # 
+    # print("colnames(var_data)")
+    # print(colnames(var_data))
+    
+    
+    sub_data = var_data[, vbls_for_var]
+    sub_data = na.omit(sub_data)
+    sub_data_tk_index <- tk_index(var_data, timetk_idx = TRUE)
+    
+    if (is.character(vec_lags)) {
+      lag_sel_method <- "info"
+      sel <- vars::VARselect(sub_data, type = "const", lag.max = 16)
+      sel_criteria <- sel$selection
+      # print("sel_criteria")
+      # print(sel_criteria)
+      cri_names <- c(aic = "AIC(n)", hq = "HQ(n)", sc = "SC(n)",
+                     fpe = "FPE(n)")
+      this_cri <- cri_names[vec_lags]
+      named_lags <- sel_criteria[this_cri]
+      # print("named_lags")
+      # print(named_lags)
+      p_for_estimation <- unique(unname(named_lags))
+      max_found_p <- max(p_for_estimation)
+      too_high_p <- p_for_estimation > max_p_for_estimation
+      # print(any(too_high_p))
+      p_for_estimation[too_high_p] <- max_p_for_estimation 
+      # print(p_for_estimation)
       
-      vbls_for_var <- c(already_chosen, vec_of_other_vbls)
+      if(any(too_high_p)) {
+        
+        # print(paste0("One or more lags found larger than max_p_for_estimation (",
+        #              max_p_for_estimation,"). Replace them with max instead"))
+        
+        binding_max_p <- binding_max_p + 1
+      }
       
-
-      # print("vbls for var")
-      # print(vbls_for_var)
-      # 
-      # print("colnames(var_data)")
-      # print(colnames(var_data))
-
+    }
+    
+    
+    
+    if (is.numeric(vec_lags)) {
+      p_for_estimation <- unique(vec_lags)
       
-      sub_data = var_data[, vbls_for_var]
-      sub_data = na.omit(sub_data)
-      sub_data_tk_index <- tk_index(var_data, timetk_idx = TRUE)
-      
-      if (is.character(vec_lags)) {
-        lag_sel_method <- "info"
+      if (add_info_based_lags) {
+        
         sel <- vars::VARselect(sub_data, type = "const", lag.max = 16)
         sel_criteria <- sel$selection
-        # print("sel_criteria")
-        # print(sel_criteria)
+        print(sel_criteria)
         cri_names <- c(aic = "AIC(n)", hq = "HQ(n)", sc = "SC(n)",
                        fpe = "FPE(n)")
-        this_cri <- cri_names[vec_lags]
+        this_cri <- cri_names
         named_lags <- sel_criteria[this_cri]
-        # print("named_lags")
-        # print(named_lags)
-        p_for_estimation <- unique(unname(named_lags))
-        max_found_p <- max(p_for_estimation)
-        too_high_p <- p_for_estimation > max_p_for_estimation
-        # print(any(too_high_p))
-        p_for_estimation[too_high_p] <- max_p_for_estimation 
-        # print(p_for_estimation)
+        info_based_p_for_estimation <- unique(unname(named_lags))
         
-        if(any(too_high_p)) {
-          
-          # print(paste0("One or more lags found larger than max_p_for_estimation (",
-          #              max_p_for_estimation,"). Replace them with max instead"))
-          
-          binding_max_p <- binding_max_p + 1
-        }
+        too_high_p <- info_based_p_for_estimation > max_p_for_estimation
         
+        info_based_p_for_estimation[too_high_p] <- max_p_for_estimation
+        
+        p_for_estimation <- unique(c(p_for_estimation, 
+                                     info_based_p_for_estimation)
+        )
       }
       
+    }
+    
+    
+    if (is.numeric(vec_lags)) {
+      lag_sel_method <- "manual"
+    }
+    
+    len_lag <- length(p_for_estimation)
+    var_fixed_vset_all_lags <- list_along(seq(len_lag))
+    fcs_fixed_vset_all_lags <- list_along(seq(len_lag))
+    
+    for (k in seq.int(1, len_lag)) {
+      this_cv <- list()
+      this_lag <- p_for_estimation[k]
       
+      full_sample_var <- vars::VAR(sub_data, type = "const", p = this_lag)
+      model_number <- model_number + 1
       
-      if (is.numeric(vec_lags)) {
-        p_for_estimation <- unique(vec_lags)
-        
-        if (add_info_based_lags) {
-          
-          sel <- vars::VARselect(sub_data, type = "const", lag.max = 16)
-          sel_criteria <- sel$selection
-          print(sel_criteria)
-          cri_names <- c(aic = "AIC(n)", hq = "HQ(n)", sc = "SC(n)",
-                         fpe = "FPE(n)")
-          this_cri <- cri_names
-          named_lags <- sel_criteria[this_cri]
-          info_based_p_for_estimation <- unique(unname(named_lags))
-
-          too_high_p <- info_based_p_for_estimation > max_p_for_estimation
-          
-          info_based_p_for_estimation[too_high_p] <- max_p_for_estimation
-
-          p_for_estimation <- unique(c(p_for_estimation, 
-                                       info_based_p_for_estimation)
-                                     )
-        }
-        
+      if(restrict_by_signif){
+        full_sample_var <- try(vars::restrict(full_sample_var, method = "ser", 
+                                              thresh = t_tresh), silent = TRUE)
       }
       
-      
-      if (is.numeric(vec_lags)) {
-        lag_sel_method <- "manual"
-      }
-      
-      len_lag <- length(p_for_estimation)
-      var_fixed_vset_all_lags <- list_along(seq(len_lag))
-      fcs_fixed_vset_all_lags <- list_along(seq(len_lag))
-
-      for (k in seq.int(1, len_lag)) {
-        this_cv <- list()
-        this_lag <- p_for_estimation[k]
-        
-        full_sample_var <- vars::VAR(sub_data, type = "const", p = this_lag)
-        model_number <- model_number + 1
-        
-        if(restrict_by_signif){
-          full_sample_var <- try(vars::restrict(full_sample_var, method = "ser", 
-                                                thresh = t_tresh), silent = TRUE)
+      if (class(full_sample_var) == "try-error") {
+        # print(paste("One or more equations in", paste(colnames(sub_data), collapse = " "),  
+        #             ",have no coefficients passing t-treshold =", t_tresh))
+        some_eqn_drop <- TRUE
+        models_with_eqn_dropping <- models_with_eqn_dropping + 1
+        is_stable <- FALSE
+        is_white_noise_fs <- FALSE
+        this_cv[["t_treshold"]] <-  t_tresh
+        this_cv[["lag_sel_method"]] <- lag_sel_method
+        if (keep_varest) {
+          this_cv[["full_sample_varest"]] <- full_sample_var
         }
         
-        if (class(full_sample_var) == "try-error") {
-          # print(paste("One or more equations in", paste(colnames(sub_data), collapse = " "),  
-          #             ",have no coefficients passing t-treshold =", t_tresh))
-          some_eqn_drop <- TRUE
-          models_with_eqn_dropping <- models_with_eqn_dropping + 1
+      } 
+      
+      if (!class(full_sample_var) == "try-error") {
+        var_restrictions <- full_sample_var$restrictions
+        some_eqn_drop <- FALSE
+        
+        this_root <- try(vars::roots(full_sample_var))
+        
+        if (class(this_root) == "try-error") {
+          print("error computing roots. Possible NAs or Inf in x")
+          print(paste0("current variables: "))
+          print(colnames(sub_data))
+          print(paste0("current max lag: ", this_lag))
           is_stable <- FALSE
-          is_white_noise_fs <- FALSE
-          this_cv[["t_treshold"]] <-  t_tresh
-          this_cv[["lag_sel_method"]] <- lag_sel_method
-          if (keep_varest) {
-            this_cv[["full_sample_varest"]] <- full_sample_var
-          }
-          
-        } 
-        
-        if (!class(full_sample_var) == "try-error") {
-          var_restrictions <- full_sample_var$restrictions
-          some_eqn_drop <- FALSE
-        
-          this_root <- try(vars::roots(full_sample_var))
-          
-          if (class(this_root) == "try-error") {
-            print("error computing roots. Possible NAs or Inf in x")
-            print(paste0("current variables: "))
-            print(colnames(sub_data))
-            print(paste0("current max lag: ", this_lag))
-            is_stable <- FALSE
-          } else {
-            is_stable <- all(this_root < 1)
-          }
-          
-          
-          
-          if (!is_stable) {
-            # print("Current VAR not stable. No CV analysis will be done")
-            # print(paste("Roots are", paste(this_root, collapse = ", ")))
-            models_unstable <- models_unstable + 1 
-            # print(paste("Unstable models so far:", models_unstable))
-          }
-          if (is_stable & check_residuals_full_sample) {
-            is_white_noise_fs <- check_resid_VAR(full_sample_var)
-            # print("is_white_noise_fs")
-            # print(is_white_noise_fs)
-            if (!is_white_noise_fs) {
-              # print("foo")
-              models_non_white_fs <- models_non_white_fs + 1
-            }
-          } else {
-            is_white_noise_fs <- TRUE
-          }
-          
-          if (is_white_noise_fs & is_stable) {
-            models_with_cv_excercises <- models_with_cv_excercises + 1
-            # print("paso!")
-            # print(models_with_cv_excercises)
-            # print("var_restrictions")
-            # print(var_restrictions)
-            this_cv <- var_cv(var_data = sub_data, timetk_idx = FALSE,
-                              external_idx = sub_data_tk_index, this_p = this_lag,
-                              this_type = "const", h_max = h_max,
-                              n_cv = n_cv, training_length = training_length, 
-                              test_residuals = check_residuals_cv,
-                              full_sample_resmat = var_restrictions)
-            cv_num_of_white_noises <- sum(this_cv[["cv_is_white_noise"]])
-            ratio_of_white_noises <- cv_num_of_white_noises/n_cv
-            overall_cv_white_noise <- ratio_of_white_noises >= white_noise_target_ratio
-            this_cv[["overall_cv_white_noise"]] <- overall_cv_white_noise
-            this_cv[["is_white_noise_fse"]] <- TRUE
-            this_cv[["is_stable"]] <- TRUE
-            this_cv[["t_treshold"]] <- t_tresh
-            this_cv[["lag_sel_method"]] <- lag_sel_method
-            if (keep_varest) {
-              this_cv[["full_sample_varest"]] <- full_sample_var
-            }
-            
-          }
+        } else {
+          is_stable <- all(this_root < 1)
         }
         
-        if ( (!is_white_noise_fs) | (!is_stable) | some_eqn_drop) {
-          
-          this_cv <- list(cv_errors = list(NULL),
-                          cv_test_data = list(NULL),
-                          cv_fcs = list(NULL),
-                          mean_cv_rmse = list(NULL),
-                          cv_vbl_names = list(colnames(sub_data)),
-                          cv_lag = list(this_lag),
-                          cv_is_white_noise = list(NULL))
-          
-          this_cv[["overall_cv_white_noise"]] <- list(NULL)
-          this_cv[["is_white_noise_fse"]] <- list(FALSE)
-          this_cv[["is_stable"]] <- is_stable
+        
+        
+        if (!is_stable) {
+          # print("Current VAR not stable. No CV analysis will be done")
+          # print(paste("Roots are", paste(this_root, collapse = ", ")))
+          models_unstable <- models_unstable + 1 
+          # print(paste("Unstable models so far:", models_unstable))
+        }
+        if (is_stable & check_residuals_full_sample) {
+          is_white_noise_fs <- check_resid_VAR(full_sample_var)
+          # print("is_white_noise_fs")
+          # print(is_white_noise_fs)
+          if (!is_white_noise_fs) {
+            # print("foo")
+            models_non_white_fs <- models_non_white_fs + 1
+          }
+        } else {
+          is_white_noise_fs <- TRUE
+        }
+        
+        if (is_white_noise_fs & is_stable) {
+          models_with_cv_excercises <- models_with_cv_excercises + 1
+          # print("paso!")
+          # print(models_with_cv_excercises)
+          # print("var_restrictions")
+          # print(var_restrictions)
+          this_cv <- var_cv(var_data = sub_data, timetk_idx = FALSE,
+                            external_idx = sub_data_tk_index, this_p = this_lag,
+                            this_type = "const", h_max = h_max,
+                            n_cv = n_cv, training_length = training_length, 
+                            test_residuals = check_residuals_cv,
+                            full_sample_resmat = var_restrictions)
+          cv_num_of_white_noises <- sum(this_cv[["cv_is_white_noise"]])
+          ratio_of_white_noises <- cv_num_of_white_noises/n_cv
+          overall_cv_white_noise <- ratio_of_white_noises >= white_noise_target_ratio
+          this_cv[["overall_cv_white_noise"]] <- overall_cv_white_noise
+          this_cv[["is_white_noise_fse"]] <- TRUE
+          this_cv[["is_stable"]] <- TRUE
           this_cv[["t_treshold"]] <- t_tresh
           this_cv[["lag_sel_method"]] <- lag_sel_method
           if (keep_varest) {
             this_cv[["full_sample_varest"]] <- full_sample_var
           }
           
+          
+          # full_sample_var_165 <- try(vars::restrict(full_sample_var, method = "ser", 
+          #                                       thresh = 1.65), silent = TRUE)
+          # var_restrictions_165 <- full_sample_var_165$restrictions
+          # this_cv_165 <- var_cv(var_data = sub_data, timetk_idx = FALSE,
+          #                   external_idx = sub_data_tk_index, this_p = this_lag,
+          #                   this_type = "const", h_max = h_max,
+          #                   n_cv = n_cv, training_length = training_length, 
+          #                   test_residuals = check_residuals_cv,
+          #                   full_sample_resmat = var_restrictions_165)
+          # cv_num_of_white_noises <- sum(this_cv[["cv_is_white_noise"]])
+          # ratio_of_white_noises <- cv_num_of_white_noises/n_cv
+          # overall_cv_white_noise <- ratio_of_white_noises >= white_noise_target_ratio
+          # this_cv_165[["overall_cv_white_noise"]] <- overall_cv_white_noise
+          # this_cv_165[["is_white_noise_fse"]] <- TRUE
+          # this_cv_165[["is_stable"]] <- TRUE
+          # this_cv_165[["t_treshold"]] <- 1.65
+          # this_cv_165[["lag_sel_method"]] <- lag_sel_method
+          
+          if (keep_varest) {
+            this_cv[["full_sample_varest"]] <- full_sample_var
+          }
+          
+          
         }
+      }
+      
+      if ( (!is_white_noise_fs) | (!is_stable) | some_eqn_drop) {
         
-        this_cv[["some_eqn_drop"]] <- some_eqn_drop
+        this_cv <- list(cv_errors = list(NULL),
+                        cv_test_data = list(NULL),
+                        cv_fcs = list(NULL),
+                        mean_cv_rmse = list(NULL),
+                        cv_vbl_names = list(colnames(sub_data)),
+                        cv_lag = list(this_lag),
+                        cv_is_white_noise = list(NULL))
         
-        # print(paste0("j = ", j, ", k = ", k))
-        # print("names(this_cv)")
-        # print(names(this_cv))
-        # print("this_cv")
-        # print(this_cv)
-        
-        var_fixed_vset_all_lags[[k]] <- this_cv
+        this_cv[["overall_cv_white_noise"]] <- list(NULL)
+        this_cv[["is_white_noise_fse"]] <- list(FALSE)
+        this_cv[["is_stable"]] <- is_stable
+        this_cv[["t_treshold"]] <- t_tresh
+        this_cv[["lag_sel_method"]] <- lag_sel_method
+        if (keep_varest) {
+          this_cv[["full_sample_varest"]] <- full_sample_var
+        }
         
       }
       
-      var_all_vset_all_lags[[j]] <- var_fixed_vset_all_lags
+      this_cv[["some_eqn_drop"]] <- some_eqn_drop
       
+      # print(paste0("j = ", j, ", k = ", k))
+      # print("names(this_cv)")
+      # print(names(this_cv))
+      # print("this_cv")
+      # print(this_cv)
+      
+      var_fixed_vset_all_lags[[k]] <- this_cv
+      
+    }
+    
+    var_all_vset_all_lags[[j]] <- var_fixed_vset_all_lags
+    
   }
-
+  
   results_all_models <- flatten(var_all_vset_all_lags)
-
+  
   # print("pluck(results_all_models, cv_test_data) ... sort of")
   # walk(results_all_models, ~ print(.x[["cv_test_data"]][[1]]))
   # walk(results_all_models, ~ print(class(.x[["cv_test_data"]][[1]])))
   # walk(results_all_models, ~ print(is.null(.x[["cv_test_data"]][[1]])))
-
+  
   results_all_models <- discard(results_all_models, 
-                                    ~ is.null(.x[["cv_test_data"]][[1]]))
-
+                                ~ is.null(.x[["cv_test_data"]][[1]]))
+  
   if (length(results_all_models) == 0){
     print("No model passed all tests")
     
@@ -588,21 +887,21 @@ search_var_one_size <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v,
     
     return(list(accu_rankings_models = list(),
                 cv_objects = list()
-                )
-           )
+    )
+    )
   }
-
+  
   column_names <- names(results_all_models[[1]])
-
+  
   # transitory names to allow conversion to tibble (columns must be names)
   names(results_all_models) <- seq_along(results_all_models)
-
+  
   # transpose tibble, ensure result is still a tibble
   results_all_models <- as_tibble(t(as_tibble(results_all_models)))
-
+  
   
   names(results_all_models) <- column_names
-
+  
   if (rgdp_current_form != "yoy") {
     if (rgdp_current_form == "diff_yoy") {
       
@@ -639,15 +938,15 @@ search_var_one_size <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v,
       results_all_models <- results_all_models %>% 
         mutate(cv_test_data = map(
           cv_test_data_diff, ~ transform_cv(list_series  = ., 
-                                                series_name = "cv_test_data",
-                                                current_form = rgdp_current_form,
-                                                auxiliary_ts = auxiliary_ts,
+                                            series_name = "cv_test_data",
+                                            current_form = rgdp_current_form,
+                                            auxiliary_ts = auxiliary_ts,
                                             n_cv = n_cv) ),
           cv_fcs = map(
             cv_fcs_diff,  ~ transform_cv(list_series  = .,
-                                             series_name = "cv_fcs",
-                                             current_form = rgdp_current_form,
-                                             auxiliary_ts = auxiliary_ts,
+                                         series_name = "cv_fcs",
+                                         current_form = rgdp_current_form,
+                                         auxiliary_ts = auxiliary_ts,
                                          n_cv = n_cv) ),
           cv_errors = map2(cv_test_data, cv_fcs, ~ map2(.x, .y, ~ .x - .y) )
         )
@@ -679,7 +978,7 @@ search_var_one_size <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v,
   
   
   if(nrow(results_all_models) > 0) {
-  
+    
     results_all_models <- get_rmses_h_rankings_h(data = results_all_models,
                                                  h_max = h_max)
     
@@ -688,7 +987,7 @@ search_var_one_size <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v,
       mutate(cv_vbl_names = map(cv_vbl_names, 1),
              cv_lag = map(cv_lag, 1))
     
-
+    
     cv_objects <- results_all_models %>% 
       dplyr::select(cv_vbl_names, cv_lag, 
                     cv_errors, cv_test_data, cv_fcs) %>% 
@@ -720,7 +1019,7 @@ search_var_one_size <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v,
     accu_rankings_models <- accu_rankings_models %>% 
       dplyr::select(short_name, everything())
   }
-
+  
   if (return_cv) {
     return(list(accu_rankings_models = accu_rankings_models,
                 cv_objects = cv_objects))
@@ -807,7 +1106,7 @@ var_cv <- function(var_data, this_p, this_type = "const",
     training_y <- window(var_data, 
                          start = this_tra_s,
                          end = this_tra_e)
-
+    
     training_rgdp <- training_y[ , "rgdp"]
     
     test_y <- window(var_data, 
@@ -815,7 +1114,7 @@ var_cv <- function(var_data, this_p, this_type = "const",
                      end = this_tes_e)
     
     test_rgdp <- test_y[ , "rgdp"]
-
+    
     this_var <- vars::VAR(y = training_y, p = this_p, type = this_type) 
     this_var <- vars::restrict(this_var, method = "manual", 
                                resmat = full_sample_resmat)
@@ -838,7 +1137,7 @@ var_cv <- function(var_data, this_p, this_type = "const",
       resid_result <- check_resid_VAR(this_var)
       if (is.na(resid_result)) {
         print(paste("Error in resid test. Lag is", this_p, ", variables are", 
-              paste(colnames(var_data), collapse = "_")))
+                    paste(colnames(var_data), collapse = "_")))
       }
       is_white_noise <- resid_result
     } else {
@@ -889,8 +1188,8 @@ var_cv <- function(var_data, this_p, this_type = "const",
 variable_freq_by_n <- function(tbl_of_models, h_max = 8, max_rank = 20, 
                                n_freq = 10, is_wide = FALSE, max_small_rank = 3
                                , max_smallest_rank = 1) {
-
-
+  
+  
   rmse_names <- paste("rmse", seq(h_max), sep = "_")
   
   if ("full_sample_varest" %in% names(tbl_of_models)) {
@@ -908,12 +1207,12 @@ variable_freq_by_n <- function(tbl_of_models, h_max = 8, max_rank = 20,
       ungroup()
   }
   
-
+  
   summary_of_tom <- tbl_of_models %>% 
     group_by(rmse_h) %>% 
     summarize(n_models = n(),
               less_than_max_rank = sum(rank_h < max_rank +1)
-              )
+    )
   
   vec_of_rmse_h <- sort(unique(tbl_of_models$rmse_h))
   
@@ -932,7 +1231,7 @@ variable_freq_by_n <- function(tbl_of_models, h_max = 8, max_rank = 20,
   
   names(tbl_best) <- c("vbl", paste("h", seq(h_max), sep = "_"))
   
-
+  
   tbl_best <- tbl_best %>% 
     mutate(total_n = rowSums(.[2:(h_max+1)], na.rm = TRUE),
            avg = total_n/length(rmse_names))
@@ -961,15 +1260,15 @@ variable_freq_by_n <- function(tbl_of_models, h_max = 8, max_rank = 20,
   
   # print("small_effective_rank")
   # print(small_effective_rank)
-   
+  
   
   list_best_small <- map2(list_best_small, small_effective_rank,
-                         ~ filter(.x, rank_h <= .y) %>% 
-                           dplyr::select("variables") %>% 
-                           unlist() %>% 
-                           table() %>% 
-                           as_tibble() %>% 
-                           arrange(desc(n)) 
+                          ~ filter(.x, rank_h <= .y) %>% 
+                            dplyr::select("variables") %>% 
+                            unlist() %>% 
+                            table() %>% 
+                            as_tibble() %>% 
+                            arrange(desc(n)) 
   ) 
   
   # print("second list_best_small ")
@@ -1006,14 +1305,14 @@ variable_freq_by_n <- function(tbl_of_models, h_max = 8, max_rank = 20,
   variables_in_top_small <- unique(unlist(tbl_best_small[, "vbl"]))
   
   
-  print(paste0("top_small N = ", length(variables_in_top_small)))
+  # print(paste0("top_small N = ", length(variables_in_top_small)))
   
   
   # print("tbl_best")
   # print(tbl_best)
   
-  print(paste0("Variables in best-", max_small_rank, " VARs at any h:"))
-  print(variables_in_top_small)
+  # print(paste0("Variables in best-", max_small_rank, " VARs at any h:"))
+  # print(variables_in_top_small)
   
   tbl_best_not_in_small <- tbl_best %>% 
     filter(! vbl %in% variables_in_top_small) %>% 
@@ -1021,13 +1320,13 @@ variable_freq_by_n <- function(tbl_of_models, h_max = 8, max_rank = 20,
   
   variables_not_in_top_small <- unique(unlist(tbl_best_not_in_small[, "vbl"]))
   
-  print("tbl_best_not_in_small")
-  print(tbl_best_not_in_small)
-
+  # print("tbl_best_not_in_small")
+  # print(tbl_best_not_in_small)
+  
   by_total_not_in_top_small <- unique(unlist(tbl_best_not_in_small[, "vbl"]))
-
-  print("variables_not_in_top_small")
-  print(variables_not_in_top_small)
+  
+  # print("variables_not_in_top_small")
+  # print(variables_not_in_top_small)
   
   by_total <- tbl_best %>% 
     arrange(desc(total_n)) %>% 
