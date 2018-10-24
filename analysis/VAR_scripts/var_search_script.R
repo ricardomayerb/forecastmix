@@ -1,6 +1,7 @@
 source('./R/VAR_functions.R')
 
-country <- "Chile"
+country <- "Brasil"
+print(paste0("this country: ", country))
 sizes <- c(2, 3, 4, 5)
 forecast_exercise_year <- 2018
 forecast_exercise_number <- 2
@@ -9,13 +10,13 @@ prechosen_variables_at_each_size <-  list(c(""), c(""), c(""), c("")) # default 
 add_aic_bic_hq_fpe_lags <- FALSE # default value, can be omitted for shorter code
 vec_lags <-  c(1, 2, 3, 4, 5, 6) # default value, can be omitted for shorter code
 # vec_freq_limit <- list("none", "none", 10, 10) # default value, can be omitted
-vec_freq_limit <- list("none", 20, 18, 10) 
-t_tresh <- c(2, 2, 2, 2) # default value, can be omitted for shorter code
+vec_freq_limit <- list("none", "none", 20, 15) 
+t_tresh <- c(1.65, 1.65, 1.65, 1.65) # default value, can be omitted for shorter code
 number_of_cv <- 8 # default value, can be omitted for shorter code
-train_span <- 28 
+train_span <- 40
 max_rank_some_h <- 50 # default value, can be omitted for shorter code
-results_file_name <-  "prueba"
-
+results_file_name <-  NULL
+return_cv <-  TRUE
 
 
 var_result <- var_search(
@@ -32,7 +33,8 @@ var_result <- var_search(
   train_span = train_span, 
   max_rank_some_h = max_rank_some_h,
   other_prechosen_variables = prechosen_variables_at_each_size,
-  results_file_name = results_file_name
+  results_file_name = results_file_name, 
+  ret_cv = return_cv
 ) 
 
 

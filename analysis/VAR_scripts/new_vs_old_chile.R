@@ -105,7 +105,7 @@ read_compare_var_res <- function(filename_new, filename_old, h_max = 7,
 chl_filename_old <- "./analysis/VAR_output/edd_exercises/2018_exercise_2/from_older_version_code/Chile_by_step_12345.rds"
 chl_old <- readRDS(chl_filename_old)
 
-chl2_partial_filename_new <- "vr_Chile_s2345_fqnonenone2015_t2222_mr50_mrfq50_cv8_tspan32_h8.rds"
+chl2_partial_filename_new <- "vr_Chile_s2345_fqnonenone2015_t2222_mr50_mrfq50_cv8_tspan39_h8.rds"
 chl2_filename_new <- paste0(output_path, chl2_partial_filename_new)
 chl2 <- read_compare_var_res(chl2_filename_new, chl_filename_old)
 

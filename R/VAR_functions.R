@@ -1008,7 +1008,7 @@ search_var_one_size <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v,
     
     cv_objects <- results_all_models %>% 
       dplyr::select(cv_vbl_names, cv_lag, 
-                    cv_errors, cv_test_data, cv_fcs, cv_fc_object) %>% 
+                    cv_errors, cv_test_data, cv_fcs) %>% 
       rename(variables = cv_vbl_names, lags = cv_lag)
     
     
@@ -1093,7 +1093,7 @@ var_cv <- function(var_data, this_p, this_type = "const",
   cv_errors <- list_along(1:n_cv)
   cv_test_data <- list_along(1:n_cv)
   cv_fcs <- list_along(1:n_cv)
-  cv_fc_object <- list_along(1:n_cv)
+  # cv_fc_object <- list_along(1:n_cv)
   cv_vbl_names <- list_along(1:n_cv)
   cv_lag <- list_along(1:n_cv)
   cv_is_white_noise <- vector(mode = "logical", length = n_cv)
@@ -1178,7 +1178,7 @@ var_cv <- function(var_data, this_p, this_type = "const",
     cv_errors[[i]] <- fc_error
     cv_test_data[[i]] <- test_rgdp
     cv_fcs[[i]] <- this_rgdp_fc_mean
-    cv_fc_object[[i]] <- this_fc
+    # cv_fc_object[[i]] <- this_fc
     cv_is_white_noise[[i]] <- is_white_noise
     
   }
@@ -1199,8 +1199,7 @@ var_cv <- function(var_data, this_p, this_type = "const",
               mean_cv_rmse = mean_cv_rmse,
               cv_vbl_names = cv_vbl_names,
               cv_lag = cv_lag,
-              cv_is_white_noise = cv_is_white_noise,
-              cv_fc_object = cv_fc_object))
+              cv_is_white_noise = cv_is_white_noise))
 }
 
 
