@@ -206,6 +206,9 @@ var_search <- function(country,
   # }
   
   per_size_results <- list_along(sizes)
+  f_vbls_list <- list_along(sizes)
+  selection_for_next_size_list <- list_along(sizes)
+  current_consolidated_models_list <- list_along(sizes)
   
   tic(msg = "Finish var search")
   
