@@ -211,6 +211,7 @@ var_search <- function(country,
   f_vbls_list <- list_along(sizes)
   selection_for_next_size_list <- list_along(sizes)
   current_consolidated_models_list <- list_along(sizes)
+  cv_objects_list <- list_along(sizes)
   
   tic(msg = "Finish var search")
   
@@ -268,6 +269,8 @@ var_search <- function(country,
       t_tresh = this_t_tresh,
       max_p_for_estimation = 12,
       add_info_based_lags = add_aic_bic_hq_fpe_lags)
+    
+    
     
     if (i == 1) {
       current_consolidated_models <- stack_models(
@@ -355,6 +358,7 @@ var_search <- function(country,
     f_vbls_list[[i]] <- f_vbls
     selection_for_next_size_list[[i]] <- new_select_vbls
     current_consolidated_models_list[[i]] <- current_consolidated_models
+    cv_objects_list[[i]] <- var_res[["cv_objects"]]
     
     toc()
   }
@@ -369,12 +373,21 @@ var_search <- function(country,
   
   elapsed_time <- final_time - initial_time
   
-  res_and_info <- list(consolidated_var_res = consolidated_var_res,
-                       f_vbls_all_sizes = f_vbls_list,
-                       selected_for_next_size = selection_for_next_size_list,
-                       var_data = VAR_data_for_estimation,
-                       elapsed_time = elapsed_time)
-  
+  if (ret_cv) {
+    res_and_info <- list(consolidated_var_res = consolidated_var_res,
+                         f_vbls_all_sizes = f_vbls_list,
+                         selected_for_next_size = selection_for_next_size_list,
+                         var_data = VAR_data_for_estimation,
+                         elapsed_time = elapsed_time,
+                         cv_objects = cv_objects_list)
+    
+  } else {
+    res_and_info <- list(consolidated_var_res = consolidated_var_res,
+                         f_vbls_all_sizes = f_vbls_list,
+                         selected_for_next_size = selection_for_next_size_list,
+                         var_data = VAR_data_for_estimation,
+                         elapsed_time = elapsed_time)
+  }
   
   allsizes <- paste(sizes, collapse = "")
   allthresh <- paste(t_tresh, collapse = "")
