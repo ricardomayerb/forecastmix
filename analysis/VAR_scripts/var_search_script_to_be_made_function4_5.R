@@ -191,6 +191,9 @@ for (i in seq(length(vec_var_sizes))) {
     by_total_not_in_tsm <- NA
   }
   
+  print("next_freq_limit")
+  print(next_freq_limit)
+  
   if (is.numeric(next_freq_limit)) {
     f_vbls <- variable_freq_by_n(current_consolidated_models, 
                                  h_max = fc_horizon, max_rank = max_rank_some_h_for_freq,
