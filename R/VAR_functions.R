@@ -191,6 +191,7 @@ var_search <- function(country,
                upper_bound_for_train_span))
   
   if(train_span == "common_max") {
+    print(paste0("Using common_max span for training sets: ", max_common_train_span_guaranted))
     train_span <- max_common_train_span_guaranted
   }
   
@@ -375,7 +376,7 @@ var_search <- function(country,
                        elapsed_time = elapsed_time)
   
   
-  allsizes <- paste(vec_var_sizes, collapse = "")
+  allsizes <- paste(sizes, collapse = "")
   allthresh <- paste(t_tresh, collapse = "")
   allfqlim <- paste(vec_freq_limit, collapse = "")
   
@@ -386,7 +387,7 @@ var_search <- function(country,
                                    "_h", fc_horizon,".rds")
   
   if(is.null(results_file_name)) {
-    filename <- paste0("vr_", country_name, file_suffix_all_sizes)
+    filename <- paste0("vr_", country, file_suffix_all_sizes)
   } else {
     filename <- results_file_name
   }
