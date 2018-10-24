@@ -136,6 +136,7 @@ var_search <- function(country,
                        results_file_name = NULL
 ) {
   
+  initial_time <- Sys.time()
   tic(msg = "Total time for this country")
   
   
@@ -311,7 +312,7 @@ var_search <- function(country,
       
       # print("vector tiene NA:")
       # print(by_total_not_in_tsm)
-      # by_total_na <- is.na(by_total_not_in_tsm)
+      by_total_na <- is.na(by_total_not_in_tsm)
       # print("by_total_na")
       # print(by_total_na)
       # print(!by_total_na)
@@ -1279,7 +1280,7 @@ variable_freq_by_n <- function(tbl_of_models, h_max = 8, max_rank = 20,
   # print(list_best_small )
   
   for (k in seq_along(list_best_small)) {
-    print(k)
+    # print(k)
     names(list_best_small[[k]]) <- c("vbl", "n")
   }
   
