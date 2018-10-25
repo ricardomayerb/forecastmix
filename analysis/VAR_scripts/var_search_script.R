@@ -1,6 +1,6 @@
 source('./R/VAR_functions.R')
 
-country <- "Brasil"
+country <- "Chile"
 print(paste0("this country: ", country))
 sizes <- c(2, 3, 4, 5)
 forecast_exercise_year <- 2018
@@ -13,8 +13,8 @@ vec_lags <-  c(1, 2, 3, 4, 5, 6) # default value, can be omitted for shorter cod
 vec_freq_limit <- list("none", "none", 20, 15) 
 t_tresh <- c(1.65, 1.65, 1.65, 1.65) # default value, can be omitted for shorter code
 number_of_cv <- 8 # default value, can be omitted for shorter code
-train_span <- 40
-max_rank_some_h <- 50 # default value, can be omitted for shorter code
+train_span <- "common_max"
+max_rank_some_h <- 60 # default value, can be omitted for shorter code
 results_file_name <-  NULL
 return_cv <-  TRUE
 

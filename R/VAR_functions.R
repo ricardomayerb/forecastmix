@@ -132,7 +132,8 @@ var_search <- function(country,
                        train_span = 25,
                        ret_cv = TRUE,
                        max_rank_some_h =50,
-                       max_rank_some_h_for_freq = 50, 
+                       max_rank_some_h_for_freq = 50,
+                       mas_small_rank = 3,
                        results_file_name = NULL
 ) {
   
@@ -270,7 +271,7 @@ var_search <- function(country,
       max_p_for_estimation = 12,
       add_info_based_lags = add_aic_bic_hq_fpe_lags)
     
-    
+    per_size_results[[i]] <- var_res
     
     if (i == 1) {
       current_consolidated_models <- stack_models(
@@ -292,7 +293,8 @@ var_search <- function(country,
     if (next_freq_limit == "none") {
       f_vbls <- variable_freq_by_n(current_consolidated_models, 
                                    h_max = fc_horizon, max_rank = max_rank_some_h_for_freq,
-                                   n_freq = ncol(data_ts), is_wide = TRUE)
+                                   n_freq = ncol(data_ts), is_wide = TRUE,
+                                   max_small_rank = max_small_rank)
       freq_sel_vbls_by_multi <- colnames(VAR_data_for_estimation) 
       new_select_vbls <- colnames(VAR_data_for_estimation) 
       vbls_top_small <- NA
@@ -302,13 +304,20 @@ var_search <- function(country,
     if (is.numeric(next_freq_limit)) {
       f_vbls <- variable_freq_by_n(current_consolidated_models, 
                                    h_max = fc_horizon, max_rank = max_rank_some_h_for_freq,
-                                   n_freq = next_freq_limit, is_wide = TRUE)
+                                   n_freq = next_freq_limit, is_wide = TRUE,
+                                   mas_small_rank)
       freq_sel_vbls_by_multi <- f_vbls$vbl_multi
       vbls_top_small <- f_vbls$variables_in_top_small
       
       if(length(vbls_top_small) > next_freq_limit) {
-        "number of best-3 variables exceeds next freq limit. Downsizing."
-        vbls_top_small <- vbls_top_small[1:next_freq_limit]
+        print(paste0("Number of best-n-VAR variables (", length(vbls_top_small), 
+                     "exceeds next_freq_limit (",  next_freq_limit, "). We will preserve 
+        the integrity of best VARs and use those",  length(vbls_top_small), " variables in next size." )  )
+        
+        print(paste0("If you want to decrease the number of variables, reduce the mas_small_rank 
+                     parameter to some value lower than ", max_small_rank))
+          
+        vbls_top_small <- vbls_top_small
       }
       
       
