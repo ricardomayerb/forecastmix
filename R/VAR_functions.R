@@ -136,6 +136,10 @@ var_search <- function(country,
                        results_file_name = NULL
 ) {
   
+  
+  print("fooooooooooo")
+  
+  
   tic(msg = "Total time for this country")
   
   
@@ -189,7 +193,7 @@ var_search <- function(country,
   print(paste0("For variables encompasing rgdp extent, max training span is ",
                upper_bound_for_train_span))
   
-  if(train_span == "common_max") {
+  if (train_span == "common_max") {
     train_span <- max_common_train_span_guaranted
   }
   
@@ -217,6 +221,8 @@ var_search <- function(country,
   
   for (i in seq(length(sizes))) {
     
+    print(paste0("i = ", i))
+    
     this_size <- sizes[i]
     this_t_tresh <- t_tresh[i]
     this_freq_limit <- vec_freq_limit[[i]]
@@ -224,10 +230,9 @@ var_search <- function(country,
     
     print(paste0("Starting the estimation of VAR with ", this_size," vbls"))
     
-    
-    
     if (i < length(sizes)) {
       next_freq_limit <- vec_freq_limit[[i + 1]]
+      print(paste0("i = ", i, ". Next freq lim :", next_freq_limit))
     }
     
     if (this_freq_limit == "none") {
@@ -320,12 +325,12 @@ var_search <- function(country,
       
       n_gap_vbls <- next_freq_limit - length(vbls_top_small)
       
-      # print("vbls_top_small")
-      # print(vbls_top_small)
+      print("vbls_top_small")
+      print(vbls_top_small)
       # print("by_total_not_in_tsm")
       # print(by_total_not_in_tsm)
-      # print("n_gap_vbls")
-      # print(n_gap_vbls)
+      print("n_gap_vbls")
+      print(n_gap_vbls)
       
       if (n_gap_vbls > 0) {
         extra_vbls <- by_total_not_in_tsm[1:n_gap_vbls]
@@ -337,8 +342,8 @@ var_search <- function(country,
       
       new_select_vbls <- c(vbls_top_small, extra_vbls)
       
-      # print("new_select_vbls")
-      # print(new_select_vbls)
+      print("new_select_vbls")
+      print(new_select_vbls)
       
       
     }
@@ -1192,6 +1197,7 @@ variable_freq_by_n <- function(tbl_of_models, h_max = 8, max_rank = 20,
                                n_freq = 10, is_wide = FALSE, max_small_rank = 3
                                , max_smallest_rank = 1) {
   
+  print("mooooooooooo")
   
   rmse_names <- paste("rmse", seq(h_max), sep = "_")
   
@@ -1236,7 +1242,7 @@ variable_freq_by_n <- function(tbl_of_models, h_max = 8, max_rank = 20,
   
   
   tbl_best <- tbl_best %>% 
-    mutate(total_n = rowSums(.[2:(h_max+1)], na.rm = TRUE),
+    mutate(total_n = rowSums(.[2:(h_max + 1)], na.rm = TRUE),
            avg = total_n/length(rmse_names))
   
   # print("max_small_rank + 1")
@@ -1279,7 +1285,7 @@ variable_freq_by_n <- function(tbl_of_models, h_max = 8, max_rank = 20,
   # print(list_best_small )
   
   for (k in seq_along(list_best_small)) {
-    print(k)
+    
     names(list_best_small[[k]]) <- c("vbl", "n")
   }
   
