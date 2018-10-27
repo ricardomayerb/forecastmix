@@ -105,23 +105,27 @@ read_compare_var_res <- function(filename_new, filename_old, h_max = 7,
 chl_filename_old <- "./analysis/VAR_output/edd_exercises/2018_exercise_2/from_older_version_code/Chile_by_step_12345.rds"
 chl_old <- readRDS(chl_filename_old)
 
-chl2_partial_filename_new <- "vr_Chile_s2345_fqnonenone2015_t2222_mr50_mrfq50_cv8_tspan32_h8.rds"
+chl2_partial_filename_new <- "vr_Chile_s2345_fqnonenone2015_t2222_mr50_mrfq50_cv8_tspan39_h8.rds"
 chl2_filename_new <- paste0(output_path, chl2_partial_filename_new)
 chl2 <- read_compare_var_res(chl2_filename_new, chl_filename_old)
 
-chl0_partial_filename_new <- "vr_Chile_s2345_fqnonenone2015_t0000_mr50_mrfq50_cv8_tspan32_h8.rds"
-chl0_filename_new <- paste0(output_path, chl0_partial_filename_new)
-chl0 <- read_compare_var_res(chl0_filename_new, chl_filename_old)
+# chl0_partial_filename_new <- "vr_Chile_s2345_fqnonenone2015_t0000_mr50_mrfq50_cv8_tspan32_h8.rds"
+# chl0_filename_new <- paste0(output_path, chl0_partial_filename_new)
+# chl0 <- read_compare_var_res(chl0_filename_new, chl_filename_old)
 
-chl165_partial_filename_new <- "vr_Chile_s2345_fqnonenone2015_t165165165165_mr50_mrfq50_cv8_tspan32_h8.rds"
+chl165_partial_filename_new <- "vr_Chile_s2345_fqnonenone2015_t165165165165_mr200_mrfq100_cv8_tspan39_h8.rds"
 chl165_filename_new <- paste0(output_path, chl165_partial_filename_new)
 chl165 <- read_compare_var_res(chl165_filename_new, chl_filename_old)
+
+chl165_42_partial_filename_new <- "vr_Chile_s2345_fqnonenone2015_t165165165165_mr50_mrfq50_cv8_tspan42_h8.rds"
+chl165_42_filename_new <- paste0(output_path, chl165_partial_filename_new)
+chl165_42 <- read_compare_var_res(chl165_filename_new, chl_filename_old)
 
 chl2_rds <- readRDS(chl2_filename_new)
 chl2_mr <- chl2_rds$consolidated_var_res
 
-chl0_rds <- readRDS(chl0_filename_new)
-chl0_mr <- chl0_rds$consolidated_var_res
+# chl0_rds <- readRDS(chl0_filename_new)
+# chl0_mr <- chl0_rds$consolidated_var_res
 
 chl165_rds <- readRDS(chl165_filename_new)
 chl165_mr <- chl165_rds$consolidated_var_res
@@ -129,11 +133,21 @@ chl165_mr <- chl165_rds$consolidated_var_res
 chl2_165_mr <- rbind(chl2_mr , chl165_mr ) 
 chl2165 <- read_compare_var_res(chl2_165_mr, chl_old)
 
+chl165_42_rds <- readRDS(chl165_42_filename_new)
+chl165_42_mr <- chl165_42_rds$consolidated_var_res
+
+chl2_165_42_mr <- rbind(chl2_mr , chl165_42_mr ) 
+chl2165_42 <- read_compare_var_res(chl2_165_42_mr, chl_old)
+
+
 chl2_plot <- chl2$plot_best_consolidated + ggtitle("Chile2")
 print(chl2_plot)
 
-chl0_plot <- chl0$plot_best_consolidated + ggtitle("Chile0")
-print(chl0_plot)
+# chl0_plot <- chl0$plot_best_consolidated + ggtitle("Chile0")
+# print(chl0_plot)
+
+chl165_plot <- chl165$plot_best_consolidated + ggtitle("Chile165")
+print(chl165_plot)
 
 chl165_plot <- chl165$plot_best_consolidated + ggtitle("Chile165")
 print(chl165_plot)
@@ -142,15 +156,28 @@ chl2165_plot <- chl2165$plot_best_consolidated + ggtitle("Chile2165")
 print(chl2165_plot)
 
 
+chl165_42_plot <- chl165_42$plot_best_consolidated + ggtitle("Chile165_42")
+print(chl165_42_plot)
+
+chl2165_42_plot <- chl2165_42$plot_best_consolidated + ggtitle("Chile2165_42")
+print(chl2165_42_plot)
+
+
 
 chl2_plot2 <- chl2$plot_best_each + ggtitle("Chile2")
 print(chl2_plot2)
 
-chl0_plot2 <- chl0$plot_best_each + ggtitle("Chile0")
-print(chl0_plot2)
+# chl0_plot2 <- chl0$plot_best_each + ggtitle("Chile0")
+# print(chl0_plot2)
 
 chl165_plot2 <- chl165$plot_best_each + ggtitle("Chile165")
 print(chl165_plot2)
 
 chl2165_plot2 <- chl2165$plot_best_each + ggtitle("Chile2165")
 print(chl2165_plot2)
+
+chl165_42_plot2 <- chl165_42$plot_best_each + ggtitle("Chile165_42")
+print(chl165_42_plot2)
+
+chl2165_42_plot2 <- chl2165_42$plot_best_each + ggtitle("Chile2165_42")
+print(chl2165_42_plot2)
