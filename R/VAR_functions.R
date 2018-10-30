@@ -201,11 +201,9 @@ var_search <- function(country,
 
   per_size_results <- list_along(1:n_steps)
   f_vbls_list <- list_along(1:n_steps)
-  selection_for_next_size_list <- list_along(1:n_steps)
   current_consolidated_models_list <- list_along(1:n_steps)
   cv_objects_list <- list_along(1:n_steps)
-  previously_prechosen_vbl_list <- list_along(1:n_steps)
-  previously_prechosen_vbl_list[[1]] <- c("")
+  prechosen_variables_at_each_step <- list_along(1:n_steps)
   
   tic(msg = "Finish var search")
   
@@ -252,88 +250,179 @@ var_search <- function(country,
     
     print("This manually pre chosen = ")
     print(this_manually_prechosen)
-   
-  
-    # this_prechosen_variables <- other_prechosen_variables[[i]]
-    # 
-    # 
-    # print(paste0("prechosen variables for this size: "))
-    # print(this_prechosen_variables)
     
+    if (is.null(this_search_step$n_new_prechosen)) {
+      n_new_prechosen <- 0
+      auto_prechosen_at_this_step <- c("")
+      all_prechosen_at_this_step <- c(this_manually_prechosen, 
+                                      auto_prechosen_at_this_step) %>% 
+        unique() %>% sort() 
+      print(all_prechosen_at_this_step)
+      print("all_prechosen_at_this_step")
+      prechosen_variables_at_each_step[[i]] <- all_prechosen_at_this_step
+      print("prechosen_variables_at_each_step")
+      print(prechosen_variables_at_each_step)
+      
+    } else {
+      n_new_prechosen <- this_search_step[["n_new_prechosen"]]
+    }
 
     if (this_selection_type == "none") {
       print("Using all variables")
       this_VAR_data <- VAR_data_for_estimation
       this_prechosen_variables <- this_manually_prechosen
+      f_vbls <- NULL
+      new_select_vbls <- colnames(VAR_data_for_estimation) 
+      vbls_top_small <- NA
+      by_total_not_in_tsm <- NA
     }
     
     if (this_selection_type == "incremental_auto_prechosen") {
       print("Using pre-selected from a previous stage/size")
       
-      var_res_of_previous_size <- keep(per_size_results[1: (i-1)], 
-                                       ~ .x[["explored_size"]] == (this_size-1))
+      n_new_prechosen <- this_search_step[["n_new_prechosen"]]
+      prechosen_at_previous_step <- prechosen_variables_at_each_step[[i-1]]
       
-      n_previous_size_results <- length(var_res_of_previous_size)
+      print("prechosen_at_previous_step")
+      print(prechosen_at_previous_step)
+      print("length(prechosen_at_previous_step)")
+      print(length(prechosen_at_previous_step))
       
-      prechosen_of_previous_size <- map(var_res_of_previous_size, "used_prechosen")
-      
-      print("prechosen_of_previous_size")
-      print(prechosen_of_previous_size)
-      
-      new_prechosen_at_this_stage_list <- list_along(seq(n_new_prechosen*n_previous_pre_chosen))
-      
-      print(paste0("There are ", n_previous_size_results, 
-                   " sets of results available from the previous size (i.e ", 
-                   this_size-1, ")."))
-      
-      best_n_VAR_for_preselecting <- 10
-      n_freq_for_preselecting <- 2*this_size
-      
-      nth_after_target <- 1
-      
-      preselected_for_this_size <- vector(mode = "integer", length = n_previous_size_results)
-      
-      for (psr in seq(1, n_previous_size_results)) {
-        print(paste0("psr = ", psr))
-        this_results <- var_res_of_previous_size[psr][[1]]
+      if (is.null(prechosen_at_previous_step)) {
+        n_sets_of_previous_prechosen <- 1
         
-        f_vbls <- variable_freq_by_n(this_results[["accu_rankings_models"]], 
-                                     h_max = fc_horizon, 
-                                     max_rank = max_rank_some_h_for_freq,
-                                     n_freq = n_freq_for_preselecting , 
-                                     is_wide = TRUE,
-                                     max_small_rank = best_n_VAR_for_preselecting)
+      } else {
+        n_sets_of_previous_prechosen <- length(prechosen_at_previous_step)
+      }
+      
+      all_prechosen_variables_at_each_step <- list_along(1, n_sets_of_previous_prechosen*n_new_prechosen)
+      
+      apc <- 1
+      
+      for (ppc in seq(1, n_sets_of_previous_prechosen)) {
+        previous_prechosen <- prechosen_at_previous_step[ppc]
+        print(paste0(previous_prechosen, " is ", ppc, " out of ",
+                     n_sets_of_previous_prechosen, " previously pre-chosen variables"))
+        print(paste0("In this step we will add ", n_new_prechosen, " variables to the set of 
+                     prechosen for this VAR search"))
         
-        vbl_table <- f_vbls$vbl_freqs_by_h %>% arrange(desc(total_n))
+        new_prechosen_list <- list_along(seq(1, n_new_prechosen))
         
-        vbl_table_by_total <- vbl_table %>% 
-          arrange(desc(total_n)) %>% 
-          dplyr::select(vbl) %>% 
-          dplyr::filter(row_number() <= n_freq_for_preselecting)
+        for (new_pc in seq(1, n_new_prechosen)) {
+          
+          print(paste0("using newly prechosen variable ", new_pc, " out of ",
+                       n_new_prechosen))
+          
+          best_n_VAR_for_preselecting <- 10
+          n_freq_for_preselecting <- 2*this_size
+          
+          nth_after_target <- new_pc
+          
+          current_consolidated_models <- current_consolidated_models_list[[i-1]]
+          
+          # f_vbls <- variable_freq_by_n(per_size_results[[i-1]][["accu_rankings_models"]], 
+          #                              h_max = fc_horizon, 
+          #                              max_rank = max_rank_some_h_for_freq,
+          #                              n_freq = n_freq_for_preselecting , 
+          #                              is_wide = TRUE,
+          #                              max_small_rank = best_n_VAR_for_preselecting)
+          
+          f_vbls <- variable_freq_by_n(current_consolidated_models,
+                                       h_max = fc_horizon,
+                                       max_rank = max_rank_some_h_for_freq,
+                                       n_freq = n_freq_for_preselecting ,
+                                       is_wide = TRUE,
+                                       max_small_rank = best_n_VAR_for_preselecting)
+          
+          vbl_table <- f_vbls$vbl_freqs_by_h %>% arrange(desc(total_n))
+          
+          print("vbl_table")
+          print(vbl_table)
+          
+          vbl_table_by_total <- vbl_table %>% 
+            arrange(desc(total_n)) %>% 
+            dplyr::select(vbl) %>% 
+            dplyr::filter(row_number() <= n_freq_for_preselecting)
+          
+          
+          print("vbl_table_by_total")
+          print(vbl_table_by_total)
+          
+          vbl_by_total <-  vbl_table_by_total$vbl
+          
+          print("vbl_by_total")
+          print(vbl_by_total)
+          
+          new_prechosen <- vbl_by_total[1+nth_after_target]
+          
+          print("nth_after_target")
+          print(nth_after_target)
+          
+          print("new_prechosen")
+          print(new_prechosen)
+          
+          new_prechosen_list[[new_pc]] <- new_prechosen
+          
+          this_prechosen_variables <- c(previous_prechosen, new_prechosen)
+          
+          print(this_prechosen_variables)
+          print(this_prechosen_variables)
+          
+          all_prechosen_variables_at_each_step[[apc]] <- this_prechosen_variables
+          
+          apc <- apc + 1
+          
+        }
+        print("new_prechosen_list")
+        print(new_prechosen_list)
         
-        vbl_by_total <-  vbl_table_by_total$vbl
-        
-        for (npc in seq(1, ))
-        
-        new_preselected <- vbl_by_total[1+nth_after_target]
-        
-        preselected_for_this_size[psr] <- new_preselected
-        other_prechosen_variables[[i]] <- new_preselected
-        vec_of_prechosen <- reduce(other_prechosen_variables, c)
-        vec_of_prechosen <- vec_of_prechosen[vec_of_prechosen != ""]
-        print("vec_of_prechosen")
-        print(vec_of_prechosen)
+        prechosen_variables_at_each_step[[i]] <- new_prechosen_list
         
       }
       
-      print("set of pre-selected variables: ")
-      print(preselected_for_this_size)
-      
+      print("all_prechosen_variables_at_each_step")
+      print(all_prechosen_variables_at_each_step)
+     
+
     }
-    
-    print("hasta aquiiiiiiiiiiiiiiii")
-    
+ 
     if (i > 1 & is.numeric(this_selection_type)) {
+      f_vbls <- variable_freq_by_n(current_consolidated_models, 
+                                   h_max = fc_horizon,
+                                   max_rank = max_rank_some_h_for_freq,
+                                   n_freq = this_selection_type, 
+                                   is_wide = TRUE,
+                                   mas_small_rank)
+      freq_sel_vbls_by_multi <- f_vbls$vbl_multi
+      vbls_top_small <- f_vbls$variables_in_top_small
+      
+      if(length(vbls_top_small) > this_selection_type) {
+        print(paste0("Number of best-n-VAR variables (", length(vbls_top_small), 
+                     "exceeds next_freq_limit (",  this_selection_type, "). We will preserve 
+        the integrity of best VARs and use those",  length(vbls_top_small), " variables in next size." )  )
+        
+        print(paste0("If you want to decrease the number of variables, reduce the mas_small_rank 
+                     parameter to some value lower than ", max_small_rank))
+        
+        vbls_top_small <- vbls_top_small
+        }
+      
+      by_total_not_in_tsm <- f_vbls$by_total_not_in_top_small
+
+      by_total_na <- is.na(by_total_not_in_tsm)
+
+      by_total_not_in_tsm <- by_total_not_in_tsm[!by_total_na]
+      
+      n_gap_vbls <- this_selection_type - length(vbls_top_small)
+
+      if (n_gap_vbls > 0) {
+        extra_vbls <- by_total_not_in_tsm[1:n_gap_vbls]
+      } else {
+        extra_vbls <- c()
+      }
+      
+      new_select_vbls <- c(vbls_top_small, extra_vbls)
+      
       print("Using this subset of variables: ")
       print(new_select_vbls)
       
@@ -376,98 +465,19 @@ var_search <- function(country,
     } else {
       current_consolidated_models <- stack_models(map(per_size_results, "accu_rankings_models"))
     }
-    
-    if (i < length(sizes)) {
-      next_freq_limit <- vec_freq_limit[[i + 1]]
-    }
-    
-    if (i == length(sizes)) {
-      next_freq_limit <- list(type = "none")
-    }
-    
-    
-    if (next_freq_limit$type == "none") {
-      f_vbls <- NULL
-      new_select_vbls <- colnames(VAR_data_for_estimation) 
-      vbls_top_small <- NA
-      by_total_not_in_tsm <- NA
-    }
-    
-    
-    if (is.numeric(next_freq_limit)) {
-      f_vbls <- variable_freq_by_n(current_consolidated_models, 
-                                   h_max = fc_horizon, max_rank = max_rank_some_h_for_freq,
-                                   n_freq = next_freq_limit, is_wide = TRUE,
-                                   mas_small_rank)
-      freq_sel_vbls_by_multi <- f_vbls$vbl_multi
-      vbls_top_small <- f_vbls$variables_in_top_small
-      
-      if(length(vbls_top_small) > next_freq_limit) {
-        print(paste0("Number of best-n-VAR variables (", length(vbls_top_small), 
-                     "exceeds next_freq_limit (",  next_freq_limit, "). We will preserve 
-        the integrity of best VARs and use those",  length(vbls_top_small), " variables in next size." )  )
-        
-        print(paste0("If you want to decrease the number of variables, reduce the mas_small_rank 
-                     parameter to some value lower than ", max_small_rank))
-        
-        vbls_top_small <- vbls_top_small
-      }
-      
-      
-      by_total_not_in_tsm <- f_vbls$by_total_not_in_top_small
-      
-      # print("vector tiene NA:")
-      # print(by_total_not_in_tsm)
-      by_total_na <- is.na(by_total_not_in_tsm)
-      # print("by_total_na")
-      # print(by_total_na)
-      # print(!by_total_na)
-      
-      by_total_not_in_tsm <- by_total_not_in_tsm[!by_total_na]
-      
-      n_gap_vbls <- next_freq_limit - length(vbls_top_small)
-      
-      # print("vbls_top_small")
-      # print(vbls_top_small)
-      # print("by_total_not_in_tsm")
-      # print(by_total_not_in_tsm)
-      # print("n_gap_vbls")
-      # print(n_gap_vbls)
-      
-      if (n_gap_vbls > 0) {
-        extra_vbls <- by_total_not_in_tsm[1:n_gap_vbls]
-        # print("extra_vbls")
-        # print(extra_vbls)
-      } else {
-        extra_vbls <- c()
-      }
-      
-      new_select_vbls <- c(vbls_top_small, extra_vbls)
-      
-      # print("new_select_vbls")
-      # print(new_select_vbls)
-      
-      
-    }
-    
-    # file_suffix <- paste0("_size_", this_size, "_fqlim_", this_freq_limit,
-    #                       "_t_", this_t_tresh, "mr", max_rank_some_h,
-    #                       "_mrfq", max_rank_some_h_for_freq, ".rds")
-    
+
     file_suffix <- paste0("_size_", this_size,
                           "_t_", this_t_tresh, "mr", max_rank_some_h,
                           "_mrfq", max_rank_some_h_for_freq, ".rds")
     
     filename <- paste0("var_results_", country, file_suffix)
-    
-    print("filename")
-    print(filename)
-    
+
     saveRDS(var_res, paste0(output_path, filename))
     
     per_size_results[[i]] <- var_res
     f_vbls_list[[i]] <- f_vbls
-    selection_for_next_size_list[[i]] <- new_select_vbls
+    
+    prechosen_variables_at_each_step[[i]] <- this_prechosen_variables
     current_consolidated_models_list[[i]] <- current_consolidated_models
     cv_objects_list[[i]] <- var_res[["cv_objects"]]
     
@@ -500,16 +510,10 @@ var_search <- function(country,
                          elapsed_time = elapsed_time)
   }
   
-  allsizes <- paste(sizes, collapse = "")
+  allsizes <- paste(n_steps, collapse = "")
   allthresh <- paste(t_tresh, collapse = "")
-  allfqlim <- paste(vec_freq_limit, collapse = "")
-  
-  # file_suffix_all_sizes <-  paste0("_s", allsizes, "_fq", allfqlim,
-  #                                  "_t", allthresh, "_mr", max_rank_some_h,
-  #                                  "_mrfq", max_rank_some_h_for_freq,
-  #                                  "_cv",number_of_cv,"_tspan", train_span,
-  #                                  "_h", fc_horizon,".rds")
-  
+  allfqlim <- paste(c(9,6,6), collapse = "")
+
   file_suffix_all_sizes <-  paste0("_s", allsizes,
                                    "_t", allthresh, "_mr", max_rank_some_h,
                                    "_mrfq", max_rank_some_h_for_freq,
