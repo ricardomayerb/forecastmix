@@ -295,7 +295,9 @@ var_search <- function(country,
         n_sets_of_previous_prechosen <- length(prechosen_at_previous_step)
       }
       
-      all_prechosen_variables_at_each_step <- list_along(1, n_sets_of_previous_prechosen*n_new_prechosen)
+      total_comb_prechosen <- n_sets_of_previous_prechosen*n_new_prechosen
+      
+      all_prechosen_variables_at_each_step <- list_along(1, total_comb_prechosen)
       
       apc <- 1
       
