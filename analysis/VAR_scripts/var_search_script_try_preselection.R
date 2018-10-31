@@ -14,9 +14,9 @@ default_treshold <- 1.65
 Search_step_1 <- list(size = 2, vbl_selection_type = "none", lags = default_vec_lag)
 Search_step_2 <- list(size = 3, vbl_selection_type = "none", lags = default_vec_lag)
 Search_step_3 <- list(size = 4, vbl_selection_type = "incremental_auto_prechosen", n_new_prechosen = 2, lags = default_vec_lag)
-# Search_step_4 <- list(size = 5, vbl_selection_type = "incremental_auto_prechosen", n_new_prechosen = 2, lags = default_vec_lag)
-# search_plan <- list(Search_step_1, Search_step_2, Search_step_3, Search_step_4)
-search_plan <- list(Search_step_1, Search_step_2, Search_step_3)
+Search_step_4 <- list(size = 5, vbl_selection_type = "incremental_auto_prechosen", n_new_prechosen = 2, lags = default_vec_lag)
+search_plan <- list(Search_step_1, Search_step_2, Search_step_3, Search_step_4)
+# search_plan <- list(Search_step_1, Search_step_2, Search_step_3)
 
 number_of_cv <- 8 # default value, can be omitted for shorter code
 train_span <- "common_max"
