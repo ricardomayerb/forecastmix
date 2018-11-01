@@ -11,8 +11,8 @@ add_prechosen_for_this_step <- function(search_plan, step_index, prechosen_so_fa
                                         best_n_VAR_for_preselecting = 10) {
   
   this_search_step <- search_plan[[step_index]]
-  print("In addprechosen, this_search_step:")
-  print(this_search_step)
+  # print("In addprechosen, this_search_step:")
+  # print(this_search_step)
   
   this_size <- this_search_step[["size"]]
   
@@ -24,7 +24,7 @@ add_prechosen_for_this_step <- function(search_plan, step_index, prechosen_so_fa
     this_manually_prechosen <- this_search_step[["manually_prechose"]]
   }
   
-  if(this_manually_prechosen == c("")) {
+  if (this_manually_prechosen == c("")) {
     print("No manually pre-chosen variables for this step")
   }
   
@@ -48,8 +48,8 @@ add_prechosen_for_this_step <- function(search_plan, step_index, prechosen_so_fa
     all_prechosen_previous_step <- map(all_prechosen_previous_step, ~ c(.x, this_manually_prechosen))
   }
   
-  print("Prechosen, including manually specified and from previous steps:")
-  print(all_prechosen_previous_step)
+  # print("Prechosen, including manually specified and from previous steps:")
+  # print(all_prechosen_previous_step)
   
   
   if (is.null(this_search_step$n_new_prechosen)) {
@@ -67,6 +67,12 @@ add_prechosen_for_this_step <- function(search_plan, step_index, prechosen_so_fa
   
   apc <- 1
   
+  # print("unlist version of all_prechosen_previous_step")
+  # print(unlist(all_prechosen_previous_step))
+  
+  vec_all_prechosen_previous_step <- all_prechosen_previous_step
+  
+  
   for (ppc in seq(1, n_sets_of_previous_prechosen)) {
     
     this_previous_prechosen <- all_prechosen_previous_step[ppc]
@@ -78,13 +84,13 @@ add_prechosen_for_this_step <- function(search_plan, step_index, prechosen_so_fa
       
       n_freq_for_preselecting <- 2*this_size
       
-      print(paste0("step = ", step_index ,", ppc = ", ppc, ", new_pc = ", new_pc, " and this_previous_prechosen:"))
+      print(paste0("step = ", step_index ,", previous = ", ppc, ", new = ", new_pc, " and this_previous_prechosen:"))
       print(this_previous_prechosen)
       
       position_of_new_prechosen <- 1 + new_pc + length(this_previous_prechosen)
       
-      print("position_of_new_prechosen")
-      print(position_of_new_prechosen)
+      # print("position_of_new_prechosen")
+      # print(position_of_new_prechosen)
       
       # print("models_table")
       # print(models_table)
@@ -108,8 +114,15 @@ add_prechosen_for_this_step <- function(search_plan, step_index, prechosen_so_fa
       
       vbl_by_total <-  vbl_table_by_total$vbl
       
-      new_prechosen <- vbl_by_total[position_of_new_prechosen]
+      is_vbl_by_total_in_pc <- vbl_by_total %in% vec_all_prechosen_previous_step
+      vbl_by_total_not_in_pc <- vbl_by_total[!is_vbl_by_total_in_pc]
       
+      new_prechosen <- vbl_by_total_not_in_pc[new_pc + 1] 
+      
+      # print("vbl_by_total")
+      # print(vbl_by_total)
+      # print("vbl_by_total_not_in_pc")
+      # print(vbl_by_total_not_in_pc)
       print("new_prechosen")
       print(new_prechosen)
       
@@ -129,8 +142,6 @@ add_prechosen_for_this_step <- function(search_plan, step_index, prechosen_so_fa
     
   }
   
-  print("updated_prechosen_so_far")
-  print(updated_prechosen_so_far)
   return(updated_prechosen_so_far)
 }
 
@@ -359,8 +370,8 @@ var_search <- function(country,
       this_lags <- this_search_step[["lags"]]
     }
     
-    print("This lags = ")
-    print(this_lags)
+    # print("This lags = ")
+    # print(this_lags)
     
     
     if (is.null(this_search_step$t_treshold)) {
@@ -369,8 +380,8 @@ var_search <- function(country,
       this_t_tresh <- this_search_step[["t_treshold"]]
     }
     
-    print("This t tresh = ")
-    print(this_t_tresh)
+    # print("This t tresh = ")
+    # print(this_t_tresh)
 
     if (this_selection_type == "none") {
       print("Using all variables")
@@ -454,19 +465,19 @@ var_search <- function(country,
     tic(msg = paste0("Finished VARs with ", this_size, " variables"))
     
     if (! is.null(set_of_prechosen_to_use)) {
-      print("Inside the prechose vbls loop:")
-      print("set_of_prechosen_to_use")
-      print(set_of_prechosen_to_use)
+      # print("Inside the prechose vbls loop:")
+      # print("set_of_prechosen_to_use")
+      # print(set_of_prechosen_to_use)
       
       var_res_each_prechosen <- list_along(seq(1, length(set_of_prechosen_to_use)))
       
       for (ptu in seq(1, length(set_of_prechosen_to_use))) {
-        print(paste0("ptu = ", ptu))
+        print(paste0("new prechosen ", ptu, " of ", length(set_of_prechosen_to_use)))
         
         this_prechosen_variables <- set_of_prechosen_to_use[ptu][[1]]
         
-        print("this_prechosen_variables")
-        print(this_prechosen_variables)
+        # print("this_prechosen_variables")
+        # print(this_prechosen_variables)
         
         var_res <- search_var_one_size(
           var_size = this_size,
@@ -490,9 +501,9 @@ var_search <- function(country,
           max_p_for_estimation = 12,
           add_info_based_lags = add_aic_bic_hq_fpe_lags)
         
-        print("names(var_res)")
-        
-        print(names(var_res))
+        # print("names(var_res)")
+        # 
+        # print(names(var_res))
         
         var_res[["explored_size"]] <- this_size
         var_res[["used_prechosen"]] <- this_prechosen_variables
