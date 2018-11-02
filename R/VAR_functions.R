@@ -16,7 +16,7 @@ add_prechosen_for_this_step <- function(search_plan, step_index, prechosen_so_fa
   
   this_size <- this_search_step[["size"]]
   
-  print("Preparing possible pre-chosen variables (other than the target variable)")
+  # print("Preparing possible pre-chosen variables (other than the target variable)")
   
   if (is.null(this_search_step$manually_prechosen)) {
     this_manually_prechosen <- c("")
@@ -25,13 +25,13 @@ add_prechosen_for_this_step <- function(search_plan, step_index, prechosen_so_fa
   }
   
   if (this_manually_prechosen == c("")) {
-    print("No manually pre-chosen variables for this step")
+    # print("No manually pre-chosen variables for this step")
   }
   
   all_prechosen_previous_step <- prechosen_so_far[[step_index - 1]]
   
   if (is.null(all_prechosen_previous_step)) {
-    print("No pre-chosen variables from previous step")
+    # print("No pre-chosen variables from previous step")
     all_prechosen_previous_step <- c("")
   }
   
@@ -123,16 +123,16 @@ add_prechosen_for_this_step <- function(search_plan, step_index, prechosen_so_fa
       # print(vbl_by_total)
       # print("vbl_by_total_not_in_pc")
       # print(vbl_by_total_not_in_pc)
-      print("new_prechosen")
-      print(new_prechosen)
+      # print("new_prechosen")
+      # print(new_prechosen)
       
       new_prechosen_list[[new_pc]] <- new_prechosen
       
       this_prechosen_variables <- c(this_previous_prechosen, new_prechosen)
       this_prechosen_variables <- this_prechosen_variables[this_prechosen_variables != ""]
       
-      print("this_prechosen_variables")
-      print(this_prechosen_variables)
+      # print("this_prechosen_variables")
+      # print(this_prechosen_variables)
       
       updated_prechosen_so_far[[step_index]][[apc]] <- this_prechosen_variables
       
@@ -229,9 +229,9 @@ get_sets_of_variables <- function(df, this_size, all_variables, already_chosen){
   
   n_passing_vbls <- length(passing_not_alr_chosen)
   
-  print(paste("We have", n_passing_vbls, "variables, to fill", len_other_vbls,
-              "slots in the VAR.Total possible combinations :",
-              choose(n_passing_vbls, len_other_vbls)))
+  # print(paste("We have", n_passing_vbls, "free variables, to fill the remaining", len_other_vbls,
+  #             "variables in the VAR.Total possible combinations :",
+  #             choose(n_passing_vbls, len_other_vbls)))
   
   combinations <- combn(passing_not_alr_chosen, len_other_vbls)
 }
@@ -332,7 +332,7 @@ var_search <- function(country,
   print(paste0("For variables encompasing rgdp extent, max training span is ",
                upper_bound_for_train_span))
   
-  if(train_span == "common_max") {
+  if (train_span == "common_max") {
     print(paste0("Using common_max span for training sets: ", max_common_train_span_guaranted))
     train_span <- max_common_train_span_guaranted
   }
@@ -360,6 +360,9 @@ var_search <- function(country,
     this_size <- this_search_step[["size"]]
     this_selection_type <- this_search_step[["vbl_selection_type"]]
     
+    print("")
+    print("--------------------------------------")
+    print("")
     print(paste0("Starting the estimation of VAR with ", this_size," vbls"))
     print(paste0("Variable selection type for this size: ", this_selection_type))
     
@@ -384,7 +387,7 @@ var_search <- function(country,
     # print(this_t_tresh)
 
     if (this_selection_type == "none") {
-      print("Using all variables")
+      print("Using all variables without pre-chosen variables")
       this_VAR_data <- VAR_data_for_estimation
       this_prechosen_variables <- NULL
       f_vbls <- NULL
@@ -440,7 +443,12 @@ var_search <- function(country,
     
     if (this_selection_type == "incremental_auto_prechosen") {
       
-      print("Using automatic incremental prechosen variables")
+      print("Using automatic incrementally added pre-chosen variables")
+      
+      print("Inherits from previous step, the following prechosen variables:")
+      print(all_prechosen_variables_at_each_step[[i - 1]])
+      
+      
       
       current_consolidated_models <- current_consolidated_models_list[[i-1]]
       
@@ -454,17 +462,20 @@ var_search <- function(country,
       
       set_of_prechosen_to_use <- all_prechosen_variables_at_each_step[[i]]
       
-      print("all_prechosen_variables_at_each_step")
-      print(all_prechosen_variables_at_each_step)
-      
-      print("set_of_prechosen_to_use")
+      print("And in this step we will add the following variables as prechosen, one at the time:")
       print(set_of_prechosen_to_use)
+      
+      # print("all_prechosen_variables_at_each_step")
+      # print(all_prechosen_variables_at_each_step)
+      
+      # print("set_of_prechosen_to_use")
+      # print(set_of_prechosen_to_use)
     }
     
     
     tic(msg = paste0("Finished VARs with ", this_size, " variables"))
     
-    if (! is.null(set_of_prechosen_to_use)) {
+    if (!is.null(set_of_prechosen_to_use)) {
       # print("Inside the prechose vbls loop:")
       # print("set_of_prechosen_to_use")
       # print(set_of_prechosen_to_use)
@@ -476,8 +487,8 @@ var_search <- function(country,
         
         this_prechosen_variables <- set_of_prechosen_to_use[ptu][[1]]
         
-        # print("this_prechosen_variables")
-        # print(this_prechosen_variables)
+        print("pre-chosen variables to be use in the coming VAR search:")
+        print(this_prechosen_variables)
         
         var_res <- search_var_one_size(
           var_size = this_size,
@@ -511,7 +522,7 @@ var_search <- function(country,
         var_res_each_prechosen[[ptu]] <- var_res
         
         n_searches_for_this_size <- n_searches_for_this_size + 1
-        print("n_searches_for_this_size")
+        print("N of searches for this size:")
         print(n_searches_for_this_size)
       }
       
@@ -519,7 +530,7 @@ var_search <- function(country,
       all_models <- reduce(all_models, rbind)
       
       all_cv_obj <- map(var_res_each_prechosen, "cv_objects")
-      all_cv_obj<- reduce(all_cv_obj, rbind)
+      all_cv_obj <- reduce(all_cv_obj, rbind)
       
       var_res <- list(accu_rankings_models = all_models,
                       cv_objects = all_cv_obj)
@@ -550,18 +561,13 @@ var_search <- function(country,
         add_info_based_lags = add_aic_bic_hq_fpe_lags)
       
       n_searches_for_this_size <- n_searches_for_this_size + 1
-      print("n_searches_for_this_size")
+      print("N of searches for this size:")
       print(n_searches_for_this_size)
       
       var_res[["explored_size"]] <- this_size
       var_res[["used_prechosen"]] <- this_prechosen_variables
     }
 
-    
-    
-    
-    
-    
     per_size_results[[i]] <- var_res
     
     if (i == 1) {
@@ -1166,6 +1172,8 @@ search_var_one_size <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v,
   models_unstable <- 0
   models_non_white_fs <- 0
   
+  n_pre_selected_v <- length(pre_selected_v[pre_selected_v != ""])
+  
   already_chosen <- c(target_v, pre_selected_v)
   already_chosen <- already_chosen[already_chosen != ""]
   len_already_chosen <- length(already_chosen)
@@ -1178,6 +1186,30 @@ search_var_one_size <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v,
   len_sets_of_vars <- ncol(sets_of_other_variables)
   
   var_all_vset_all_lags <- list_along(seq.int(1, len_sets_of_vars))
+  
+  messa1 <- paste0("This search: VARs with ", target_v, " as target variable, ",
+                   n_pre_selected_v, " variables as pre-chosen variables and ",
+                   len_other_vbls, " other free variables chosen among the ",
+                   ncol(var_data) - len_already_chosen, " available variables.")
+  
+  
+  messa2 <- paste0("That amounts to ", len_sets_of_vars, " different combinations of 
+                   variables, each of them paired with ", length(vec_lags), 
+                   " choices of max. lag to form " ,
+                   len_sets_of_vars*length(vec_lags), " concrete unrestricted VARs.")
+  
+  messa3 <- paste0("Furthermore each unrestricted VAR will produce ", length(t_tresh), 
+                   " more restricted version(s) to be evaluated alonside the unrestricted one.")
+  
+  print("")
+  print(messa1)
+  print(messa2)
+  print(messa3)
+  
+  if (n_pre_selected_v > 0) {
+    print("Prechosen variables (other than the target variables) for this search:")
+    print(pre_selected_v)
+  }
   
   for (j in seq.int(1, len_sets_of_vars)) {
     
