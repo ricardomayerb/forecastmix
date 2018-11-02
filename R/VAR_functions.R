@@ -237,6 +237,62 @@ get_sets_of_variables <- function(df, this_size, all_variables, already_chosen){
 }
 
 
+make_exomat <- function(exodata, exov, exo_lag) {
+  
+  n_exo <- length(exov)
+  
+  if (n_exo == 0) {
+    exodata <- NULL
+    return(exodata)
+  }
+  
+  if (n_exo > 0) {
+    exo_and_lags_list <- list_along(seq(1, n_exo))
+    names_exo_and_lags_list <- list_along(seq(1, n_exo))
+    for (ex in 1:n_exo) {
+      this_exoname <- exov[ex]
+      if (n_exo == 1) {
+        this_exovar <- exodata
+      } else {
+        this_exovar <- exodata[, this_exoname]
+      }
+      # print(this_exoname)
+      # print(this_exovar)
+      
+      one_exo_with_lags_list <- list_along(seq(0, exo_lag))
+      # print("one_exo_with_lags_list")
+      # print(one_exo_with_lags_list)
+      for (exlag  in seq(0, exo_lag)) {
+        # print(paste0("ex"))
+        this_lag_exo <- lag.xts(this_exovar, k = exlag)
+        one_exo_with_lags_list[[exlag + 1]] <- this_lag_exo
+      }
+      one_exo_with_lags <- reduce(one_exo_with_lags_list, ts.union)
+      if (!is.null(dim(one_exo_with_lags))) {
+        this_exolags_names <- paste(this_exoname, seq(0, exo_lag), sep = "_")
+        colnames(one_exo_with_lags) <- this_exolags_names
+      } else {
+        this_exolags_names <- paste(this_exoname, seq(0, exo_lag), sep = "_")
+        names(one_exo_with_lags) <- this_exolags_names
+      }
+      exo_and_lags_list[[ex]] <- one_exo_with_lags
+      names_exo_and_lags_list[[ex]] <- this_exolags_names
+    }
+    exo_and_lags <- reduce(exo_and_lags_list, ts.union)
+    names_exo_and_lags <- reduce(names_exo_and_lags_list, c)
+    if(is.null(dim(exo_and_lags))){
+      names(exo_and_lags) <- names_exo_and_lags
+    } else {
+      colnames(exo_and_lags) <- names_exo_and_lags
+    }
+  }
+  
+  return(exo_and_lags)
+  
+}
+
+
+
 
 max_effective_lag <- function(var_obj) {
   
@@ -275,7 +331,9 @@ var_search <- function(country,
                        max_rank_some_h =50,
                        max_rank_some_h_for_freq = 50,
                        max_small_rank = 3,
-                       results_file_name = NULL
+                       results_file_name = NULL,
+                       names_exogenous = c(""),
+                       exo_lag = NULL
 ) {
   
   initial_time <- Sys.time()
@@ -510,7 +568,9 @@ var_search <- function(country,
           restrict_by_signif = restrict_by_signif,
           t_tresh = this_t_tresh,
           max_p_for_estimation = 12,
-          add_info_based_lags = add_aic_bic_hq_fpe_lags)
+          add_info_based_lags = add_aic_bic_hq_fpe_lags,
+          names_exogenous = names_exogenous,
+          exo_lag = exo_lag)
         
         # print("names(var_res)")
         # 
@@ -1136,10 +1196,17 @@ var_search <- function(country,
 
 # search var one size formerly known as try_sizes_vbls_lags
 # then it was modified to work on single size choice
-search_var_one_size <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v, 
+search_var_one_size <- function(var_data,
+                                rgdp_yoy_ts,
+                                rgdp_level_ts,
+                                target_v, 
                                 var_size, 
-                                vec_lags = c(1,2,3,4), pre_selected_v = "",
-                                is_cv = FALSE, h_max = 5, 
+                                vec_lags = c(1,2,3,4),
+                                names_exogenous = c(""),
+                                exo_lag = NULL,
+                                pre_selected_v = "",
+                                is_cv = FALSE, 
+                                h_max = 5, 
                                 n_cv = 8,
                                 training_length = 24,
                                 return_cv = TRUE,
@@ -1155,6 +1222,7 @@ search_var_one_size <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v,
                                 keep_varest = FALSE,
                                 add_info_based_lags = TRUE) {
   
+
   all_names <- colnames(var_data)
   models_with_cv_excercises <- 0
   models_with_eqn_dropping <- 0
@@ -1236,9 +1304,29 @@ search_var_one_size <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v,
     sub_data = na.omit(sub_data)
     sub_data_tk_index <- tk_index(var_data, timetk_idx = TRUE)
     
+    # selectedv <-  c("rgdp", "rpc", "emae_sa", "act_eco_bra")
+    # exoall <- c("ip_us", "ip_bra")
+    
+    endov <- selectedv[!selectedv %in% names_exogenous] 
+    exov <-  selectedv[selectedv %in% names_exogenous] 
+    
+    endodata <- sub_data[ , endov]
+    exodata <- sub_data[ , exov]
+    
+    if(is.null(dim(endodata))) {
+      names(endodata) <- endov
+    } else {
+      colnames(endodata) <- endov
+    }
+    
     if (is.character(vec_lags)) {
       lag_sel_method <- "info"
-      sel <- vars::VARselect(sub_data, type = "const", lag.max = 16)
+      info_lag_max <- 8
+
+      exo_and_lags <- make_exomat(exodata = exodata, exov = exov, exo_lag = info_lag_max)
+      
+      sel <- vars::VARselect(y = endodata, type = "const", lag.max = info_lag_max,
+                             exogen = exo_and_lags)
       sel_criteria <- sel$selection
       # print("sel_criteria")
       # print(sel_criteria)
@@ -1262,17 +1350,19 @@ search_var_one_size <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v,
         
         binding_max_p <- binding_max_p + 1
       }
-      
     }
-    
-    
     
     if (is.numeric(vec_lags)) {
       p_for_estimation <- unique(vec_lags)
       
       if (add_info_based_lags) {
         
-        sel <- vars::VARselect(sub_data, type = "const", lag.max = 16)
+        info_lag_max <- 8
+        
+        exo_and_lags <- make_exomat(exodata = exodata, exov = exov, exo_lag = info_lag_max)
+        
+        sel <- vars::VARselect(y = endodata, type = "const", lag.max = info_lag_max, 
+                               exogen = exo_and_lags)
         sel_criteria <- sel$selection
         print(sel_criteria)
         cri_names <- c(aic = "AIC(n)", hq = "HQ(n)", sc = "SC(n)",
@@ -1305,7 +1395,14 @@ search_var_one_size <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v,
       this_cv <- list()
       this_lag <- p_for_estimation[k]
       
-      full_sample_var <- vars::VAR(sub_data, type = "const", p = this_lag)
+      if (is.null(exo_lag)) {
+        exo_lag <- this_lag 
+      }
+      
+      exo_and_lags <- make_exomat(exodata = exodata, exov = exov, exo_lag = exo_lag)
+      
+      full_sample_var <- vars::VAR(y = endodata, type = "const", p = this_lag, 
+                                   exogen = exo_and_lags)
       model_number <- model_number + 1
       
       if(restrict_by_signif){
@@ -1344,8 +1441,6 @@ search_var_one_size <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v,
           is_stable <- all(this_root < 1)
         }
         
-        
-        
         if (!is_stable) {
           # print("Current VAR not stable. No CV analysis will be done")
           # print(paste("Roots are", paste(this_root, collapse = ", ")))
@@ -1370,7 +1465,12 @@ search_var_one_size <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v,
           # print(models_with_cv_excercises)
           # print("var_restrictions")
           # print(var_restrictions)
-          this_cv <- var_cv(var_data = sub_data, timetk_idx = FALSE,
+          
+          if (is.null(exo_lag)) {
+            exo_lag <- this_lag 
+          }
+          
+          this_cv <- var_cv(var_data = endodata, timetk_idx = FALSE,
                             external_idx = sub_data_tk_index, this_p = this_lag,
                             this_type = "const", h_max = h_max,
                             n_cv = n_cv, training_length = training_length, 
@@ -1387,25 +1487,6 @@ search_var_one_size <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v,
           if (keep_varest) {
             this_cv[["full_sample_varest"]] <- full_sample_var
           }
-          
-          
-          # full_sample_var_165 <- try(vars::restrict(full_sample_var, method = "ser", 
-          #                                       thresh = 1.65), silent = TRUE)
-          # var_restrictions_165 <- full_sample_var_165$restrictions
-          # this_cv_165 <- var_cv(var_data = sub_data, timetk_idx = FALSE,
-          #                   external_idx = sub_data_tk_index, this_p = this_lag,
-          #                   this_type = "const", h_max = h_max,
-          #                   n_cv = n_cv, training_length = training_length, 
-          #                   test_residuals = check_residuals_cv,
-          #                   full_sample_resmat = var_restrictions_165)
-          # cv_num_of_white_noises <- sum(this_cv[["cv_is_white_noise"]])
-          # ratio_of_white_noises <- cv_num_of_white_noises/n_cv
-          # overall_cv_white_noise <- ratio_of_white_noises >= white_noise_target_ratio
-          # this_cv_165[["overall_cv_white_noise"]] <- overall_cv_white_noise
-          # this_cv_165[["is_white_noise_fse"]] <- TRUE
-          # this_cv_165[["is_stable"]] <- TRUE
-          # this_cv_165[["t_treshold"]] <- 1.65
-          # this_cv_165[["lag_sel_method"]] <- lag_sel_method
           
           if (keep_varest) {
             this_cv[["full_sample_varest"]] <- full_sample_var
@@ -1437,28 +1518,15 @@ search_var_one_size <- function(var_data, rgdp_yoy_ts, rgdp_level_ts, target_v,
       }
       
       this_cv[["some_eqn_drop"]] <- some_eqn_drop
-      
-      # print(paste0("j = ", j, ", k = ", k))
-      # print("names(this_cv)")
-      # print(names(this_cv))
-      # print("this_cv")
-      # print(this_cv)
-      
+
       var_fixed_vset_all_lags[[k]] <- this_cv
-      
     }
     
     var_all_vset_all_lags[[j]] <- var_fixed_vset_all_lags
-    
   }
   
   results_all_models <- flatten(var_all_vset_all_lags)
-  
-  # print("pluck(results_all_models, cv_test_data) ... sort of")
-  # walk(results_all_models, ~ print(.x[["cv_test_data"]][[1]]))
-  # walk(results_all_models, ~ print(class(.x[["cv_test_data"]][[1]])))
-  # walk(results_all_models, ~ print(is.null(.x[["cv_test_data"]][[1]])))
-  
+
   results_all_models <- discard(results_all_models, 
                                 ~ is.null(.x[["cv_test_data"]][[1]]))
   
@@ -1647,7 +1715,9 @@ var_cv <- function(var_data, this_p, this_type = "const",
                    train_test_marks = NULL,
                    training_length = 20, timetk_idx = TRUE,
                    external_idx = NULL, test_residuals = TRUE,
-                   full_sample_resmat = NULL) {
+                   full_sample_resmat = NULL,
+                   names_exogenous = c(""),
+                   exo_lag = NULL) {
   
   if (is.null(train_test_marks)) {
     train_test_dates <- make_test_dates_list(ts_data = var_data, 
