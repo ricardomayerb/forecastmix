@@ -5,7 +5,7 @@ initial_time <- Sys.time()
 tic(msg = "Total time for this country")
 ##### data selection part -----
 # arguments
-country_name <- "Argentina"
+country_name <- "Uruguay"
 forecast_exercise_year <- 2018
 forecast_exercise_number <- 2
 
@@ -102,12 +102,12 @@ if (train_span + fc_horizon + number_of_cv > nrow(VAR_data_for_estimation)) {
   stop()
 }
 
-selectedv <-  c("rgdp", "rpc", "emae_sa", "act_eco_bra")
+selectedv <-  c("rgdp", "rpc", "emae_arg", "act_eco_bra")
 # selectedv <-  c("rgdp", "rpc", "emae_sa", "act_eco_bra", "ip_bra")
 
 
 # exoall <- c("act_eco_bra", "ip_us", "ip_bra")
-exoall <- c("ip_us", "ip_bra")
+exoall <- c( "emae_arg", "act_eco_bra")
 
 endov <- selectedv[!selectedv %in% exoall] 
 exov <-  selectedv[selectedv %in% exoall] 
@@ -116,7 +116,7 @@ this_vardata <- na.omit(VAR_data_for_estimation[, selectedv])
 endodata <- this_vardata[ , endov]
 exodata <- this_vardata[ , exov]
 
-if(is.null(dim(endodata))) {
+if (is.null(dim(endodata))) {
   names(endodata) <- endov
 } else {
   colnames(endodata) <- endov
@@ -131,20 +131,72 @@ if(is.null(dim(endodata))) {
 p <- 3
 exo_lag <- 1
 
-
+# exodatatrain <- 
 
 myexo <- make_exomat(exodata = exodata, exov = exov, exo_lag = exo_lag)
-goo <- vars::VAR(y = endodata, p = 2, type = "const", exogen = myexo)
-print(goo)
+
+# goo <- vars::VAR(y = endodata, p = 2, type = "const", exogen = myexo)
+# print(goo)
 
 
-foo <- vars::VAR(y = endodata, p = 2, type = "const", exogen = exodata)
+endodatatrain <-  window(endodata, end = c(2017, 1))
+myexotrain <-  window(myexo, end = c(2017, 1))
+
+endodatatest <-  window(endodata, start = c(2017, 2))
+myexotest <-  window(myexo, start = c(2017, 2))
+
+too <- vars::VAR(y = endodatatrain, p = 2, type = "const", exogen = myexotrain)
+print(too)
+
+rest <- vars::restrict(too, method = "ser", thresh = 1.65)
+print(rest)
+
+ftoo <- forecast(too, h = 5, dumvar = myexotest)
+frest <- forecast(rest, h = 5, dumvar = myexotest)
+
+ptoo <- predict(too, n.ahead = 5, dumvar = myexotest)
+prest <- predict(rest, n.ahead = 5, dumvar = myexotest)
 
 
-poo <- vars::VAR(y = endodata, p = 2, type = "const", exogen = NULL)
+foofore <- function(obj, h, dumvar) {
+  thisfore <- forecast(object = obj, h = h, dumvar = dumvar)
+  
+  return(thisfore)
+}
+
+funmoo <- foofore(obj = too, h = 5, dumvar = myexotest)
+funmoor <- foofore(obj = rest, h = 5, dumvar = myexotest)
+
+foofore2 <- function(vardata, h, exonames) {
+  
+  selectedv <- colnames(vardata)
+  endo_v <- selectedv[!selectedv %in% exonames] 
+  exo_v <-  selectedv[selectedv %in% exonames] 
+  endo_data <- vardata[ , endo_v]
+  exo_data <- vardata[ , exo_v]
+  
+  p <- 3
+  exo_lag <- 1
+  
+  my_exo <- make_exomat(exodata = exo_data, exov = exo_v, exo_lag = exo_lag)
+  endo_data_train <-  window(endo_data, end = c(2017, 1))
+  my_exo_train <-  window(my_exo, end = c(2017, 1))
+  endo_data_test <-  window(endo_data, start = c(2017, 2))
+  my_exo_test <-  window(my_exo, start = c(2017, 2))
+  
+  assign("my_exo_train", my_exo_train, envir = .GlobalEnv)
+  
+  fit <- vars::VAR(y = endo_data_train, p = 2, type = "const", 
+                   exogen = my_exo_train)
+  thisfore <- forecast(object = fit, h = 5, dumvar = my_exo_test)
+  # too <- vars::VAR(y = endodatatrain, p = 2, type = "const", exogen = myexotrain)
+  # ftoo <- forecast(too, h = 5, dumvar = myexotest)
+  
+  return(thisfore)
+}
 
 
-
+plis <- foofore2(vardata = this_vardata, h = 5, exonames = exoall)
 
 
 # if (n_exo == 0) {
