@@ -141,6 +141,126 @@ chl_1_3_0_mr <- chl_1_3_0_rds$consolidated_var_res
 chl_manual1_rds <- readRDS(chl_manual1_filename_new)
 chl_manual1_mr <- chl_manual1_rds$consolidated_var_res
 
+best_old_h7 <- chl_old %>% filter(rank_7 == 1)
+sort(best_old_h7$variables[[1]])
+best_old_h7$lags[[1]]
+best_old_h7
+
+this_short_name <- "copper_output___imp___imp_capital___ipec___rgdp__3"
+
+manualfoo <- chl_manual1_mr %>% mutate(short_name = unlist(short_name))
+
+manual_same_short <- manualfoo %>% filter(short_name == this_short_name)
+manual_same_short$t_treshold
+
+
+
+
+max_VAR_models_per_h <- 100
+models_and_accu_reasonable <- as.tibble(models_and_accu) %>% 
+  filter(rank_1 <= max_VAR_models_per_h | rank_2 <= max_VAR_models_per_h | 
+           rank_3 <= max_VAR_models_per_h | rank_4 <= max_VAR_models_per_h |
+           rank_5 <= max_VAR_models_per_h | rank_6 <= max_VAR_models_per_h | 
+           rank_7 <= max_VAR_models_per_h | rank_8 <= max_VAR_models_per_h) 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# best old model rmse 7
+selected_variables <- c("rgdp", "ipec", "imp", "imp_capital", "copper_output")	
+selected_lags <- 3
+# rmse_1 0.002612981 
+VAR_data_for_estimation <- readRDS("./analysis/VAR_output/edd_exercises/2018_exercise_2/VAR_data_Chile.rds")
+var_data <- na.omit(VAR_data_for_estimation)
+var_data <- var_data[, selected_variables]
+
+
+fit <- vars::VAR(y = var_data, p = selected_lags, type = "const")
+all(roots(fit) < 1)
+vars::serial.test(fit)
+vars::serial.test(fit, lags.pt = 12)
+vars::serial.test(fit, lags.pt = 8)
+
+fr0  <- vars::restrict(fit, method = "ser", thresh = 0)
+fr2 <- vars::restrict(fit, method = "ser", thresh = 2)
+fr165 <- vars::restrict(fit, method = "ser", thresh = 1.65)
+
+cv_r0 <- var_cv(var_data = var_data, this_p = 3, n_cv = 8,
+                h_max = 8, training_length = 32, full_sample_resmat = fr0$restrictions)
+
+cv_r2 <- var_cv(var_data = var_data, this_p = 3, n_cv = 8,
+                h_max = 8, training_length = 32, full_sample_resmat = fr2$restrictions)
+
+cv_r165 <- var_cv(var_data = var_data, this_p = 3, n_cv = 8,
+                  h_max = 8, training_length = 32, full_sample_resmat = fr165$restrictions)
+
+results_r0 <- cv_r0
+column_names <- names(results_r0)
+results_r0 <- as_tibble(results_r0)
+names(results_r0) <- column_names
+cv_errors0 <- results_r0[["cv_errors"]]
+mat_error0 <- reduce(cv_errors0, rbind)
+mse_all_h0 <- colMeans(mat_error0^2)
+rmse_all_h0 <- sqrt(mse_all_h0)
+rmse_all_h0[7]
+
+results_r2 <- cv_r2
+results_r2 <- as_tibble(results_r2)
+names(results_r2) <- column_names
+cv_errors2 <- results_r2[["cv_errors"]]
+mat_error2 <- reduce(cv_errors2, rbind)
+mse_all_h2 <- colMeans(mat_error2^2)
+rmse_all_h2 <- sqrt(mse_all_h2)
+rmse_all_h2[7]
+
+results_r165 <- cv_r165
+results_r165 <- as_tibble(results_r165)
+names(results_r165) <- column_names
+cv_errors165 <- results_r165[["cv_errors"]]
+mat_error165 <- reduce(cv_errors165, rbind)
+mse_all_h165 <- colMeans(mat_error165^2)
+rmse_all_h165 <- sqrt(mse_all_h165)
+rmse_all_h165[7]
+
+rmse_all_h0
+rmse_all_h165
+rmse_all_h2
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 chl_2_2_165_plot <- chl_2_2_165$plot_best_consolidated + ggtitle("Chile_2_2_165")
 print(chl_2_2_165_plot)
