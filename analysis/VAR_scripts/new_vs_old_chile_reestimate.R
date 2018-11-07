@@ -348,7 +348,6 @@ forecast_var_from_model_tbl <- function(models_tbl, var_data, fc_horizon,
       dplyr::select(-fit)
   }
   
-  
   if (!keep_fc_obj) {
     models_tbl <- models_tbl %>% 
       dplyr::select(-fc_object_raw)
@@ -357,10 +356,11 @@ forecast_var_from_model_tbl <- function(models_tbl, var_data, fc_horizon,
   return(models_tbl)
 }
 
-cv_var_from_model_tbl <- function(h, n_cv, training_span, models_tbl, var_data, 
+cv_var_from_model_tbl <- function(h, n_cv, training_length, models_tbl, var_data, 
                                   fc_horizon, new_t_treshold = NULL, 
                                   fit_column = NULL, target_transform = "yoy", 
-                                  target_level_ts = NULL) {
+                                  target_level_ts = NULL,
+                                  keep_fc_obj = FALSE, keep_varest_obj = FALSE) {
   
   starting_names <- names(models_tbl)
   has_short_name <- "short_name" %in% starting_names
@@ -378,9 +378,51 @@ cv_var_from_model_tbl <- function(h, n_cv, training_span, models_tbl, var_data,
       dplyr::select(short_name, everything())
   }
   
+  if (is.null(fit_column)) {
+    print("There is no column with fit varest objects, so we will estimate all VARs now")
+    models_tbl <- estimate_var_from_model_tbl(
+      models_tbl = models_tbl, var_data = var_data, new_t_treshold = new_t_treshold)
+    
+    print("Done estimating VARs, now we will compute the forecasts")
+    
+  } else {
+    print("Using previously estimates varest objects")
+  }
   
+  # models_tbl <- models_tbl %>% 
+  #   mutate(fc_object_raw = map(fit, ~ forecast_VAR_one_row(fit = .x, h = fc_horizon))
+  #   )
   
+ models_tbl <-  models_tbl %>% 
+   mutate(cv_obj = pmap(list(fit, variables, lags),
+                        ~ var_cv(var_data = var_data[, ..2], h_max = fc_horizon,
+                                 n_cv = n_cv, this_p = ..3, 
+                                 full_sample_resmat = ..1$restrictions,
+                                 names_exogenous = names_exogenous,
+                                 training_length = training_length,
+                                 this_type = "const")
+                        )
+          )
   
+  # this_cv <- var_cv(var_data = sub_data, timetk_idx = FALSE,
+  #                   external_idx = sub_data_tk_index, this_p = this_lag,
+  #                   this_type = "const", h_max = h_max,
+  #                   n_cv = n_cv, training_length = training_length, 
+  #                   test_residuals = check_residuals_cv,
+  #                   full_sample_resmat = var_restrictions, 
+  #                   names_exogenous = names_exogenous, exo_lag = exo_lag)
+  
+  if (!keep_varest_obj) {
+    models_tbl <- models_tbl %>% 
+      dplyr::select(-fit)
+  }
+  
+  if (!keep_fc_obj) {
+    models_tbl <- models_tbl %>% 
+      dplyr::select(-fc_object_raw)
+  }
+  
+  return(models_tbl)
 } 
 
 
