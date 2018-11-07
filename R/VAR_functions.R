@@ -763,14 +763,16 @@ var_search <- function(country,
                          var_data = VAR_data_for_estimation,
                          elapsed_time = elapsed_time, 
                          prechosen = all_prechosen_variables_at_each_step,
-                         cv_objects = cv_objects_list)
+                         cv_objects = cv_objects_list,
+                         target_variable_transform = rgdp_rec)
     
   } else {
     res_and_info <- list(consolidated_var_res = consolidated_var_res,
                          f_vbls_all_sizes = f_vbls_list,
                          var_data = VAR_data_for_estimation,
                          prechosen = all_prechosen_variables_at_each_step,
-                         elapsed_time = elapsed_time)
+                         elapsed_time = elapsed_time,
+                         target_variable_transform = rgdp_rec)
   }
   
   allsizes <- paste(n_steps, collapse = "")

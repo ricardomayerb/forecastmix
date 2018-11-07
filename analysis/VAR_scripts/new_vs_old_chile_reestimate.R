@@ -7,6 +7,12 @@ output_path <- paste0("./analysis/VAR_output/edd_exercises/",
                       forecast_exercise_year, 
                       "_exercise_", forecast_exercise_number, "/")
 
+
+data_ts <- get_raw_data_ts(country, data_path = "./data/edd_exercises/2018_exercise_2/")
+rgdp_level_ts <- data_ts[, "rgdp"]
+rgdp_level_ts <- na.omit(rgdp_level_ts)
+rgdp_yoy_ts <- make_yoy_ts(rgdp_level_ts)
+
 read_compare_var_res <- function(filename_new, filename_old, h_max = 7, 
                                  rank_h_max = 30) {
   
@@ -195,6 +201,20 @@ fit_VAR_rest <- function(var_data, variables, p,
   return(this_fit)
 }
 
+forecast_VAR_one_row <- function(fit, h)  {
+  
+  if (class(fit) == "varest") {
+    this_fc <- forecast(fit, h = h)
+  }
+  
+  if (!  class(fit) == "varest") {
+    this_fc <- NULL
+  }
+  
+  return(this_fc)
+}
+
+
 estimate_var_from_model_tbl <- function(models_tbl, var_data, new_t_treshold = NULL) {
   
   starting_names <- names(models_tbl)
@@ -247,54 +267,171 @@ estimate_var_from_model_tbl <- function(models_tbl, var_data, new_t_treshold = N
       
       this_tresh <- new_t_treshold[i]
       
-      # this_one_model_per_row <- one_model_per_row %>%
-      #   mutate(t_treshold = this_tresh,
-      #          short_name = map_chr(short_name, ~ paste0(.x, "_t", t_treshold*100)),
-      #          fit = pmap(list(variables, lags, t_treshold),
-      #                     ~ fit_VAR_rest(var_data = var_data, variables = ..1,
-      #                                    p = ..2, t_tresh = ..3))
-      #   )
-      
       this_one_model_per_row <- one_model_per_row %>%
         mutate(t_treshold = this_tresh,
+               short_name_t = map_chr(short_name, ~ paste0(.x, "_t", this_tresh*100)),
                fit = pmap(list(variables, lags, t_treshold),
                           ~ fit_VAR_rest(var_data = var_data, variables = ..1,
                                          p = ..2, t_tresh = ..3))
         )
-      
+
       all_one_model_per_row[[i]] <- this_one_model_per_row
     }
     one_model_per_row <- reduce(all_one_model_per_row, rbind)
   }
-  print(one_model_per_row)
+  
   return(one_model_per_row)
 }
 
+forecast_var_from_model_tbl <- function(models_tbl, var_data, fc_horizon, 
+                                        new_t_treshold = NULL, fit_column = NULL,
+                                        target_transform = "yoy", target_level_ts = NULL,
+                                        keep_fc_obj = FALSE, keep_varest_obj = FALSE) {
+  
+  starting_names <- names(models_tbl)
+  has_short_name <- "short_name" %in% starting_names
+  has_t_treshold <- "t_treshold" %in% starting_names
+  
+  if (!has_t_treshold) {
+    models_tbl <- models_tbl %>% mutate(t_treshold = FALSE)
+  }
+  
+  if (!has_short_name) {
+    models_tbl <- models_tbl %>% 
+      mutate(short_name = map2(variables, lags,
+                               ~ make_model_name(variables = .x, lags = .y)),
+             short_name = unlist(short_name))
+    
+    models_tbl <- models_tbl %>% dplyr::select(short_name, everything())
+  }
+  
+  if (is.null(fit_column)) {
+    print("There is no column with fit varest objects, so we will estimate all VARs now")
+    models_tbl <- estimate_var_from_model_tbl(
+      models_tbl = models_tbl, var_data = var_data, new_t_treshold = new_t_treshold)
+    
+    print("Done estimating VARs, now we will compute the forecasts")
+    
+  } else {
+    print("Using previously estimates varest objects")
+  }
+  
+  models_tbl <- models_tbl %>% 
+    mutate(fc_object_raw = map(fit, ~ forecast_VAR_one_row(fit = .x, h = fc_horizon))
+           )
+  
+  if (target_transform == "yoy") {
+    print("Target variable already in YoY form, so no transformation is needed")
+    models_tbl <- models_tbl %>% 
+      mutate(target_mean_fc_yoy = map(fc_object_raw,
+                                      ~ .x[["forecast"]][["rgdp"]][["mean"]]))
+  }
+
+  if (target_transform != "yoy") {
+    
+    print(paste0("Target variable is in ", target_transform, " form. Forecasts will be transformed to YoY."))
+    
+    models_tbl <- models_tbl %>% 
+      mutate(target_mean_fc = map(fc_object_raw,
+                                  ~ .x[["forecast"]][["rgdp"]][["mean"]]),
+             target_mean_fc_yoy = map(target_mean_fc, 
+                                      ~ any_fc_2_fc_yoy(
+                                        current_fc = .x, 
+                                        rgdp_transformation = target_transform,
+                                        rgdp_level_ts = rgdp_level_ts)
+                                      )
+             )
+  }
+  
+  if (!keep_varest_obj) {
+    models_tbl <- models_tbl %>% 
+      dplyr::select(-fit)
+  }
+  
+  
+  if (!keep_fc_obj) {
+    models_tbl <- models_tbl %>% 
+      dplyr::select(-fc_object_raw)
+  }
+  
+  return(models_tbl)
+}
+
+cv_var_from_model_tbl <- function(h, n_cv, training_span, models_tbl, var_data, 
+                                  fc_horizon, new_t_treshold = NULL, 
+                                  fit_column = NULL, target_transform = "yoy", 
+                                  target_level_ts = NULL) {
+  
+  starting_names <- names(models_tbl)
+  has_short_name <- "short_name" %in% starting_names
+  has_t_treshold <- "t_treshold" %in% starting_names
+  
+  if (!has_t_treshold) {
+    models_tbl <- models_tbl %>% mutate(t_treshold = FALSE)
+  }
+  
+  if (!has_short_name) {
+    models_tbl <- models_tbl %>% 
+      mutate(short_name = map2(variables, lags,
+                               ~ make_model_name(variables = .x, lags = .y)),
+             short_name = unlist(short_name)) %>% 
+      dplyr::select(short_name, everything())
+  }
+  
+  
+  
+  
+} 
 
 
 tic()
-fitold <- estimate_var_from_model_tbl(oldless, var_data = VAR_data_for_estimation)
+fcold_3t_from_scratch <- forecast_var_from_model_tbl(oldless, var_data = VAR_data_for_estimation,
+                                                     new_t_treshold = c(0, 1.65, 2), fc_horizon = 8)
 toc()
 
-tic()
-fitold_3t <- estimate_var_from_model_tbl(oldless, var_data = VAR_data_for_estimation, 
-                                         new_t_treshold = c(0, 1.65, 2))
-toc()
+print(object.size(fcold_3t_from_scratch), units = "auto")
 
 
-tic()
-fitauto <- estimate_var_from_model_tbl(auto13less, var_data = VAR_data_for_estimation)
-toc()
+# foo <- forecast_var_from_model_tbl(oldless, var_data = VAR_data_for_estimation,
+#                                    new_t_treshold = c(0, 1.65, 2), fc_horizon = 8,
+#                                    target_transform = "diff", target_level_ts = rgdp_level_ts)
 
-tic()
-fitauto_3t <- estimate_var_from_model_tbl(auto13less, var_data = VAR_data_for_estimation,
-                                          new_t_treshold = c(0, 1.65, 2))
-toc()
-
-
-print(object.size(fitold), units = "auto")
-print(object.size(fitauto), units = "auto")
-
+# tic()
+# fitold <- estimate_var_from_model_tbl(oldless, var_data = VAR_data_for_estimation)
+# toc()
+# 
+# tic()
+# fitold_3t <- estimate_var_from_model_tbl(oldless, var_data = VAR_data_for_estimation, 
+#                                          new_t_treshold = c(0, 1.65, 2))
+# toc()
+# 
+# 
+# tic()
+# fcold_3t <- forecast_var_from_model_tbl(fitold_3t, var_data = VAR_data_for_estimation,
+#                                         fit_column = "fit", fc_horizon = 8)
+# toc()
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# tic()
+# fitauto <- estimate_var_from_model_tbl(auto13less, var_data = VAR_data_for_estimation)
+# toc()
+# 
+# tic()
+# fitauto_3t <- estimate_var_from_model_tbl(auto13less, var_data = VAR_data_for_estimation,
+#                                           new_t_treshold = c(0, 1.65, 2))
+# toc()
+# 
+# 
+# print(object.size(fitold), units = "auto")
+# print(object.size(fitauto), units = "auto")
+# print(object.size(fitold_3t), units = "auto")
+# print(object.size(fitauto_3t), units = "auto")
 
 # 
 # 

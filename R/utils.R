@@ -15,6 +15,87 @@ library(ggthemes)
 
 
 
+
+any_fc_2_fc_yoy <- function(current_fc, rgdp_transformation, rgdp_level_ts) {
+  
+  if (is.null(current_fc)) {
+    yoy_fc <- NULL
+    return(yoy_fc)
+  }
+  
+  yq_pre_fc <- as.yearqtr(min(time(current_fc)) - 0.25)
+  
+  end_adjusted <- c(year(yq_pre_fc), quarter(yq_pre_fc))
+  
+  rgdp_level_end_adjusted  <- window(rgdp_level_ts, end = end_adjusted )
+  
+  
+  if (rgdp_transformation == "yoy") {
+    yoy_fc <- current_fc
+  }
+  
+  
+  if (rgdp_transformation == "log") {
+    level_fc <- exp(current_fc)
+    fc_and_data <- ts(c(rgdp_level_end_adjusted, level_fc), frequency = 4,
+                      start = start(rgdp_level_end_adjusted))
+    fc_and_data_transformed <- make_yoy_ts(fc_and_data)
+    yoy_fc <- window(fc_and_data_transformed, start = start(current_fc))
+  }
+  
+  
+  if (rgdp_transformation == "none") {
+    rgdp_data_transformed <- rgdp_level_end_adjusted 
+    fc_and_data <- ts(c(rgdp_level_end_adjusted, current_fc), frequency = 4,
+                      start = start(rgdp_level_end_adjusted))
+    
+    fc_and_data_transformed <- make_yoy_ts(fc_and_data)
+    
+    yoy_fc <- window(fc_and_data_transformed, start = start(current_fc))
+  }
+  
+  
+  if (rgdp_transformation == "diff_yoy") {
+    
+    rgdp_yoy_end_adjusted <- make_yoy_ts(rgdp_level_end_adjusted)
+    
+    last_data_undiff <- window(rgdp_yoy_end_adjusted, start = end_adjusted, 
+                               end = end_adjusted)
+    
+    # print("last_data_undiff")
+    # print(last_data_undiff)
+    # 
+    # print("current_fc")
+    # print(current_fc)
+    
+    yoy_fc <- un_diff_ts(last_undiffed = last_data_undiff, diffed_ts = current_fc)
+    
+    # print("yoy_fc")
+    # print(yoy_fc)
+    
+  }
+  
+  
+  if (rgdp_transformation == "diff") {
+    
+    last_data_undiff <- window(rgdp_level_end_adjusted, start = end_adjusted, 
+                               end = end_adjusted)
+    
+    level_fc <- un_diff_ts(last_undiffed = last_data_undiff, diffed_ts = current_fc)
+    
+    fc_and_data <- ts(c(rgdp_level_end_adjusted, level_fc), frequency = 4,
+                      start = start(rgdp_level_end_adjusted))
+    
+    fc_and_data_transformed <- make_yoy_ts(fc_and_data)
+    
+    yoy_fc <- window(fc_and_data_transformed, start = start(current_fc))
+    
+  }
+  
+  return(yoy_fc)
+  
+}
+
 comb_ndiffs <- function(this_series, return_4_seas = FALSE, 
                         do_other_seas = FALSE, seas_test = "seas") {
   
