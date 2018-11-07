@@ -185,8 +185,12 @@ fit_VAR_rest <- function(var_data, variables, p,
   this_fit <- vars::VAR(y = this_var_data, p = p, type = type)
   
   if (is.numeric(t_tresh)) {
-    this_fit <- vars::restrict(this_fit, method = "ser", 
-                   thresh = t_tresh)
+    this_fit <- try(vars::restrict(this_fit, method = "ser", 
+                   thresh = t_tresh), silent = TRUE)
+    
+    if (class(this_fit) == "try-error") {
+      this_fit <- "one_or_more_eqn_drops"
+    }
   }
   return(this_fit)
 }
@@ -267,24 +271,24 @@ estimate_var_from_model_tbl <- function(models_tbl, var_data, new_t_treshold = N
 }
 
 
-# if (restrict_by_signif) {
-#   full_sample_var <- try(vars::restrict(full_sample_var, method = "ser", 
-#                                         thresh = t_tresh), silent = TRUE)
-# }
-# 
-# if (class(full_sample_var) == "try-error") {
-
 
 tic()
 fitold <- estimate_var_from_model_tbl(oldless, var_data = VAR_data_for_estimation)
 toc()
 
 tic()
+fitold_3t <- estimate_var_from_model_tbl(oldless, var_data = VAR_data_for_estimation, 
+                                         new_t_treshold = c(0, 1.65, 2))
+toc()
+
+
+tic()
 fitauto <- estimate_var_from_model_tbl(auto13less, var_data = VAR_data_for_estimation)
 toc()
 
 tic()
-fitold_3t <- estimate_var_from_model_tbl(oldless, var_data = VAR_data_for_estimation, new_t_treshold = c(0, 1.65, 2))
+fitauto_3t <- estimate_var_from_model_tbl(auto13less, var_data = VAR_data_for_estimation,
+                                          new_t_treshold = c(0, 1.65, 2))
 toc()
 
 
@@ -292,18 +296,18 @@ print(object.size(fitold), units = "auto")
 print(object.size(fitauto), units = "auto")
 
 
-
-
-
-best_old_h7 <- chl_old %>% filter(rank_7 == 1)
-sort(best_old_h7$variables[[1]])
-best_old_h7$lags[[1]]
-best_old_h7
-
-this_short_name <- "copper_output___imp___imp_capital___ipec___rgdp__3"
-
-manualfoo <- chl_manual1_mr %>% mutate(short_name = unlist(short_name))
-
-manual_same_short <- manualfoo %>% filter(short_name == this_short_name)
-manual_same_short$t_treshold
-
+# 
+# 
+# 
+# best_old_h7 <- chl_old %>% filter(rank_7 == 1)
+# sort(best_old_h7$variables[[1]])
+# best_old_h7$lags[[1]]
+# best_old_h7
+# 
+# this_short_name <- "copper_output___imp___imp_capital___ipec___rgdp__3"
+# 
+# manualfoo <- chl_manual1_mr %>% mutate(short_name = unlist(short_name))
+# 
+# manual_same_short <- manualfoo %>% filter(short_name == this_short_name)
+# manual_same_short$t_treshold
+# 
