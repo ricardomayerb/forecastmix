@@ -334,7 +334,8 @@ var_search <- function(country,
                        max_small_rank = 3,
                        results_file_name = NULL,
                        names_exogenous = c(""),
-                       exo_lag = NULL
+                       exo_lag = NULL,
+                       combn_already_tried = NULL
 ) {
   
   initial_time <- Sys.time()
@@ -515,24 +516,25 @@ var_search <- function(country,
       
       current_consolidated_models <- current_consolidated_models_list[[i-1]]
       
-      print("before addig this step manual variables, we have:")
-      print(all_prechosen_variables_at_each_step)
-      
+
+      # print("before addig this step manual variables, we have:")
+      # print(all_prechosen_variables_at_each_step)
+
       updated_list_of_prechosen <- add_prechosen_for_this_step(
         search_plan = search_plan, step_index = i, 
         prechosen_so_far = all_prechosen_variables_at_each_step,
         max_rank_some_h_for_freq = max_rank_some_h_for_freq,
         models_table = current_consolidated_models)
       
-      print("And after add_prechosen_for_this_step, the updated version of it is")
-      print(updated_list_of_prechosen)
+      # print("And after add_prechosen_for_this_step, the updated version of it is")
+      # print(updated_list_of_prechosen)
       all_prechosen_variables_at_each_step <- updated_list_of_prechosen
       
       set_of_prechosen_to_use <- all_prechosen_variables_at_each_step[[i]]
       
-      print("And in this step we will add the following variables as prechosen, one at the time:")
-      print(set_of_prechosen_to_use)
-      
+      # print("And in this step we will add the following variables as prechosen, one at the time:")
+      # print(set_of_prechosen_to_use)
+
     }
     
     if (this_selection_type == "incremental_auto_prechosen") {
@@ -562,6 +564,54 @@ var_search <- function(country,
       
       # print("set_of_prechosen_to_use")
       # print(set_of_prechosen_to_use)
+    }
+    
+    add_augmented_models <- this_search_step[["add_augmented_models"]]
+    
+    if (is.null(add_augmented_models)) {
+      add_augmented_models <- FALSE
+    }
+    
+    if (add_augmented_models) {
+      
+      n_best_per_h <- 2
+      rmse_names <- paste("rmse", seq(fc_horizon), sep = "_")
+      
+      print(paste0(
+        "Also including one-extra-variable augmented versions of the best ",
+        n_best_per_h, " size-",search_plan[[i-1]]$size, "-VAR of each horizon",
+        " (including ties).")
+        )
+      
+      potential_models <- current_consolidated_models_list[[i-1]]
+      
+      potential_models <- potential_models %>% 
+        gather(key = "rmse_h", value = "rmse", rmse_names) %>% 
+        dplyr::select(vars_select(names(.), -starts_with("rank"))) %>% 
+        group_by(rmse_h) %>% 
+        arrange(rmse_h, rmse) %>% 
+        mutate(rank_h = rank(rmse),
+               nth_rmse = nth(rmse, n_best_per_h)) %>% 
+        ungroup()
+      
+      print("potential_models")
+      print(potential_models)
+      
+      vec_of_rmse_h <- sort(unique(potential_models$rmse_h))
+      
+      print("vec_of_rmse_h")
+      print(vec_of_rmse_h)
+      
+      list_best <- map(vec_of_rmse_h, 
+                       ~ potential_models %>% 
+                         filter(rmse_h == .x, rmse <= nth_rmse)
+                       ) 
+      
+      print("list_best")
+      print(list_best)
+      
+      break
+      
     }
     
     tic(msg = paste0("Finished VARs with ", this_size, " variables"))
@@ -675,6 +725,9 @@ var_search <- function(country,
     } else {
       current_consolidated_models <- stack_models(map(per_size_results, "accu_rankings_models"))
     }
+    
+    combn_already_tried <- c(combn_already_tried, 
+                             var_res[["combinations_of_variables_considered"]])
     
     file_suffix <- paste0("_size_", this_size,
                           "_t_", this_t_tresh, "mr", max_rank_some_h,
@@ -815,6 +868,8 @@ search_var_one_size <- function(var_data,
   
   var_all_vset_all_lags <- list_along(seq.int(1, len_sets_of_vars))
   
+  combinations_of_variables_considered <- list_along(seq.int(1, len_sets_of_vars))
+  
   messa1 <- paste0("This search: VARs with ", target_v, " as target variable, ",
                    n_pre_selected_v, " variables as pre-chosen variables and ",
                    len_other_vbls, " other free variables chosen among the ",
@@ -858,6 +913,7 @@ search_var_one_size <- function(var_data,
     # print(already_chosen)
     
     vbls_for_var <- c(already_chosen, vec_of_other_vbls)
+    combinations_of_variables_considered[[j]] <- vbls_for_var
     
     
     # print("vbls for var")
@@ -1130,6 +1186,9 @@ search_var_one_size <- function(var_data,
     var_all_vset_all_lags[[j]] <- var_fixed_vset_all_lags
   }
   
+  # print("combinations_of_variables_considered")
+  # print(combinations_of_variables_considered)
+  
   results_all_models <- flatten(var_all_vset_all_lags)
 
   results_all_models <- discard(results_all_models, 
@@ -1148,7 +1207,8 @@ search_var_one_size <- function(var_data,
                   models_with_eqn_dropping - models_unstable ))
     
     return(list(accu_rankings_models = list(),
-                cv_objects = list()
+                cv_objects = list(),
+                combinations_of_variables_considered = combinations_of_variables_considered
     )
     )
   }
@@ -1284,9 +1344,11 @@ search_var_one_size <- function(var_data,
   
   if (return_cv) {
     return(list(accu_rankings_models = accu_rankings_models,
-                cv_objects = cv_objects))
+                cv_objects = cv_objects,
+                combinations_of_variables_considered = combinations_of_variables_considered))
   } else {
-    return(list(accu_rankings_models = accu_rankings_models))
+    return(list(accu_rankings_models = accu_rankings_models,
+                combinations_of_variables_considered = combinations_of_variables_considered))
   }
 }
 
