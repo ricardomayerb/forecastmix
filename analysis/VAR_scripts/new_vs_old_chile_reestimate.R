@@ -117,69 +117,63 @@ chl_1_2_165_partial_filename_new <- "Chile_one4_two5.rds"
 chl_1_3_165_partial_filename_new <- "Chile_one4_three5.rds"
 chl_manual1_partial_filename_new <- "Chile_manual1.rds"
 
-chl_2_2_165_filename_new <- paste0(output_path, chl_2_2_165_partial_filename_new)
-chl_1_2_165_filename_new <- paste0(output_path, chl_1_2_165_partial_filename_new)
-chl_1_3_165_filename_new <- paste0(output_path, chl_1_3_165_partial_filename_new)
-chl_manual1_filename_new <- paste0(output_path, chl_manual1_partial_filename_new)
+chl_auto_1s4_3s5_partial_filename_new <- "Chile_auto_1s4_3s5.rds"
+chl_auto_2s4_3s5_partial_filename_new <- "Chile_auto_2s4_3s5.rds"
 
-chl_2_2_rds <- readRDS(chl_2_2_165_filename_new)
-chl_1_2_rds <- readRDS(chl_1_2_165_filename_new)
-chl_1_3_rds <- readRDS(chl_1_3_165_filename_new)
-chl_manual1_rds <- readRDS(chl_manual1_filename_new)
+chl_auto_1s4_3s5_filename_new <- paste0(output_path, chl_auto_1s4_3s5_partial_filename_new)
+chl_auto_2s4_3s5_filename_new <- paste0(output_path, chl_auto_2s4_3s5_partial_filename_new)
 
+chl_auto_1s4_3s5 <- readRDS(chl_auto_1s4_3s5_filename_new)
+chl_auto_2s4_3s5 <- readRDS(chl_auto_2s4_3s5_filename_new)
 chl_old <- readRDS(chl_filename_old)
-chl_2_2_mr <- chl_2_2_rds$consolidated_var_res
-chl_1_2_mr <- chl_1_2_rds$consolidated_var_res
-chl_1_3_mr <- chl_1_3_rds$consolidated_var_res
-chl_manual1_mr <- chl_manual1_rds$consolidated_var_res
 
-max_VAR_models_per_h <- 50
+chl_auto_1s4_3s5_mr <- chl_auto_1s4_3s5$consolidated_var_res
+chl_auto_2s4_3s5_mr <- chl_auto_2s4_3s5$consolidated_var_res
+chl_old_mr <- chl_old
+
+max_VAR_models_per_h <- chl_auto_1s4_3s5$max_rank_some_h
+print(paste0("max_VAR_models_per_h = ", max_VAR_models_per_h))
+
+n_cv <- chl_auto_1s4_3s5$number_of_cv
+print(paste0("n_cv = ", n_cv))
+
+training_length <- chl_auto_1s4_3s5$train_span
+print(paste0("training_length = ", training_length))
+
+names_exogenous <- chl_auto_2s4_3s5$names_exogenous
+print("names_exogenous = ")
+print(names_exogenous)
+
+fc_horizon <- chl_auto_2s4_3s5$fc_horizon
+print(paste0("fc_horizon = ", fc_horizon))
+
+rgdp_transformation <- chl_auto_2s4_3s5$target_variable_transform
+print(paste0("rgdp_transformation = ", rgdp_transformation))
+
+
+smaller_max_VAR_models_per_h <- 30
 
 oldless <- as_tibble(chl_old) %>% 
-  filter(rank_1 <= max_VAR_models_per_h | rank_2 <= max_VAR_models_per_h | 
-           rank_3 <= max_VAR_models_per_h | rank_4 <= max_VAR_models_per_h |
-           rank_5 <= max_VAR_models_per_h | rank_6 <= max_VAR_models_per_h | 
-           rank_7 <= max_VAR_models_per_h | rank_8 <= max_VAR_models_per_h) 
+  filter(rank_1 <= smaller_max_VAR_models_per_h | rank_2 <= smaller_max_VAR_models_per_h | 
+           rank_3 <= smaller_max_VAR_models_per_h | rank_4 <= smaller_max_VAR_models_per_h |
+           rank_5 <= smaller_max_VAR_models_per_h | rank_6 <= smaller_max_VAR_models_per_h | 
+           rank_7 <= smaller_max_VAR_models_per_h | rank_8 <= smaller_max_VAR_models_per_h) 
 
-auto13less <- as_tibble(chl_1_3_mr) %>% 
-  filter(rank_1 <= max_VAR_models_per_h | rank_2 <= max_VAR_models_per_h | 
-           rank_3 <= max_VAR_models_per_h | rank_4 <= max_VAR_models_per_h |
-           rank_5 <= max_VAR_models_per_h | rank_6 <= max_VAR_models_per_h | 
-           rank_7 <= max_VAR_models_per_h | rank_8 <= max_VAR_models_per_h) 
+auto13less <- as_tibble(chl_auto_1s4_3s5_mr) %>% 
+  filter(rank_1 <= smaller_max_VAR_models_per_h | rank_2 <= smaller_max_VAR_models_per_h | 
+           rank_3 <= smaller_max_VAR_models_per_h | rank_4 <= smaller_max_VAR_models_per_h |
+           rank_5 <= smaller_max_VAR_models_per_h | rank_6 <= smaller_max_VAR_models_per_h | 
+           rank_7 <= smaller_max_VAR_models_per_h | rank_8 <= smaller_max_VAR_models_per_h) 
 
-manual1less <- as_tibble(chl_manual1_mr) %>% 
-  filter(rank_1 <= max_VAR_models_per_h | rank_2 <= max_VAR_models_per_h | 
-           rank_3 <= max_VAR_models_per_h | rank_4 <= max_VAR_models_per_h |
-           rank_5 <= max_VAR_models_per_h | rank_6 <= max_VAR_models_per_h | 
-           rank_7 <= max_VAR_models_per_h | rank_8 <= max_VAR_models_per_h) 
+auto23less <- as_tibble(chl_auto_2s4_3s5_mr) %>% 
+  filter(rank_1 <= smaller_max_VAR_models_per_h | rank_2 <= smaller_max_VAR_models_per_h | 
+           rank_3 <= smaller_max_VAR_models_per_h | rank_4 <= smaller_max_VAR_models_per_h |
+           rank_5 <= smaller_max_VAR_models_per_h | rank_6 <= smaller_max_VAR_models_per_h | 
+           rank_7 <= smaller_max_VAR_models_per_h | rank_8 <= smaller_max_VAR_models_per_h) 
 
-names(manual1less)
 names(auto13less)
+names(auto23less)
 names(oldless)
-
-
-auto_tbl <- auto13less
-rmse_names <- names(auto_tbl)[str_detect(names(auto_tbl), "rmse")]
-rmse_names 
-auto_tbl <- auto_tbl %>% 
-  gather(key = "rmse_h", value = "rmse", rmse_names) %>% 
-  dplyr::select(vars_select(names(.), -starts_with("rank"))) %>% 
-  group_by(rmse_h) %>% 
-  arrange(rmse_h, rmse) %>% 
-  mutate(rank_h = rank(rmse)) %>% 
-  ungroup()
-auto_tbl
-
-
-old_tbl <- oldless
-old_tbl <- old_tbl %>% 
-  gather(key = "rmse_h", value = "rmse", rmse_names) %>% 
-  dplyr::select(vars_select(names(.), -starts_with("rank"))) %>% 
-  group_by(rmse_h) %>% 
-  arrange(rmse_h, rmse) %>% 
-  mutate(rank_h = rank(rmse)) %>% 
-  ungroup()
-old_tbl
 
 
 fit_VAR_rest <- function(var_data, variables, p,
@@ -214,6 +208,30 @@ forecast_VAR_one_row <- function(fit, h)  {
   return(this_fc)
 }
 
+cv_var_from_one_row <- function(var_data, fit, variables, lags, h, 
+                                names_exogenous, training_length, 
+                                n_cv, this_type = "const") {
+  
+  # print(1)
+
+  this_restriction_mat <- try(fit$restrictions) 
+  # print(2)
+  
+  if (class(this_restriction_mat) == "try-error") {
+    this_restriction_mat <-  NULL
+  }
+  # print(3)
+  
+  this_cv <- var_cv(var_data = var_data[, variables], h_max = h,
+                    n_cv = n_cv, this_p = lags, 
+                    full_sample_resmat = this_restriction_mat,
+                    names_exogenous = names_exogenous,
+                    training_length = training_length,
+                    this_type = this_type)
+  # print(4)
+  
+  return(this_cv)
+}
 
 estimate_var_from_model_tbl <- function(models_tbl, var_data, new_t_treshold = NULL) {
   
@@ -356,11 +374,16 @@ forecast_var_from_model_tbl <- function(models_tbl, var_data, fc_horizon,
   return(models_tbl)
 }
 
-cv_var_from_model_tbl <- function(h, n_cv, training_length, models_tbl, var_data, 
-                                  fc_horizon, new_t_treshold = NULL, 
-                                  fit_column = NULL, target_transform = "yoy", 
+
+
+
+cv_var_from_model_tbl <- function(h, n_cv, training_length, 
+                                  models_tbl, var_data, 
+                                  new_t_treshold = NULL, 
+                                  fit_column = NULL, 
+                                  target_transform = "yoy", 
                                   target_level_ts = NULL,
-                                  keep_fc_obj = FALSE, keep_varest_obj = FALSE) {
+                                  keep_varest_obj = FALSE) {
   
   starting_names <- names(models_tbl)
   has_short_name <- "short_name" %in% starting_names
@@ -389,41 +412,190 @@ cv_var_from_model_tbl <- function(h, n_cv, training_length, models_tbl, var_data
     print("Using previously estimates varest objects")
   }
   
-  # models_tbl <- models_tbl %>% 
-  #   mutate(fc_object_raw = map(fit, ~ forecast_VAR_one_row(fit = .x, h = fc_horizon))
-  #   )
+  print("Starting cv")
+
+  models_tbl <-  models_tbl %>% 
+    mutate(cv_obj = pmap(list(fit, variables, lags),
+                         ~ cv_var_from_one_row(var_data = var_data, fit = ..1, 
+                                               variables = ..2, lags = ..3,
+                                               h = h, n_cv = n_cv,
+                                               names_exogenous = names_exogenous,
+                                               training_length = training_length,
+                                               this_type = "const")
+                         )
+           )
   
- models_tbl <-  models_tbl %>% 
-   mutate(cv_obj = pmap(list(fit, variables, lags),
-                        ~ var_cv(var_data = var_data[, ..2], h_max = fc_horizon,
-                                 n_cv = n_cv, this_p = ..3, 
-                                 full_sample_resmat = ..1$restrictions,
-                                 names_exogenous = names_exogenous,
-                                 training_length = training_length,
-                                 this_type = "const")
-                        )
-          )
   
-  # this_cv <- var_cv(var_data = sub_data, timetk_idx = FALSE,
-  #                   external_idx = sub_data_tk_index, this_p = this_lag,
-  #                   this_type = "const", h_max = h_max,
-  #                   n_cv = n_cv, training_length = training_length, 
-  #                   test_residuals = check_residuals_cv,
-  #                   full_sample_resmat = var_restrictions, 
-  #                   names_exogenous = names_exogenous, exo_lag = exo_lag)
+  if (target_transform != "yoy") {
+    
+    rgdp_yoy_ts <- make_yoy_ts(target_level_ts)
+    
+    if (target_transform == "diff_yoy") {
+      
+      auxiliary_ts <-  rgdp_yoy_ts
+      
+      results_all_models <- results_all_models %>% 
+        rename(cv_test_data_diff_yoy = cv_test_data,
+               cv_fcs_diff_yoy = cv_fcs)
+      
+      results_all_models <- results_all_models %>% 
+        mutate(cv_test_data = map(
+          cv_test_data_diff_yoy, ~ transform_cv(list_series  = ., 
+                                                series_name = "cv_test_data",
+                                                current_form = rgdp_current_form,
+                                                auxiliary_ts = auxiliary_ts,
+                                                n_cv = n_cv) ),
+          cv_fcs = map(
+            cv_fcs_diff_yoy,  ~ transform_cv(list_series  = .,
+                                             series_name = "cv_fcs",
+                                             current_form = rgdp_current_form,
+                                             auxiliary_ts = auxiliary_ts,
+                                             n_cv = n_cv) ),
+          cv_errors = map2(cv_test_data, cv_fcs, ~ map2(.x, .y, ~ .x - .y) )
+        )
+    }
+    
+    if (target_transform == "diff") {
+      auxiliary_ts <-  target_level_ts
+      
+      results_all_models <- results_all_models %>% 
+        rename(cv_test_data_diff = cv_test_data,
+               cv_fcs_diff = cv_fcs)
+      
+      results_all_models <- results_all_models %>% 
+        mutate(cv_test_data = map(
+          cv_test_data_diff, ~ transform_cv(list_series  = ., 
+                                            series_name = "cv_test_data",
+                                            current_form = rgdp_current_form,
+                                            auxiliary_ts = auxiliary_ts,
+                                            n_cv = n_cv) ),
+          cv_fcs = map(
+            cv_fcs_diff,  ~ transform_cv(list_series  = .,
+                                         series_name = "cv_fcs",
+                                         current_form = rgdp_current_form,
+                                         auxiliary_ts = auxiliary_ts,
+                                         n_cv = n_cv) ),
+          cv_errors = map2(cv_test_data, cv_fcs, ~ map2(.x, .y, ~ .x - .y) )
+        )
+      
+    }
+    
+  }
+  
+
   
   if (!keep_varest_obj) {
     models_tbl <- models_tbl %>% 
       dplyr::select(-fit)
   }
-  
-  if (!keep_fc_obj) {
-    models_tbl <- models_tbl %>% 
-      dplyr::select(-fc_object_raw)
-  }
-  
+
   return(models_tbl)
 } 
+
+
+new_transform_cv <- function(list_series, series_name, current_form,
+                         auxiliary_ts, n_cv) {
+  
+  # print("list_series")
+  # print(list_series)
+  # print("unlist(list_series)")
+  # print(unlist(list_series))
+  # print("is.null(unlist(list_series))")
+  # print(is.null(unlist(list_series)))
+  
+  if (is.null(unlist(list_series))) {
+    new_series_list <- list_series
+    return(new_series_list)
+  }
+  
+  
+  series_name <- series_name
+  new_series_list <- list_along(1:n_cv)
+  
+  if (current_form == "diff_yoy") {
+    len_initial_cond <- 1
+    
+    for (td in seq_along(1:n_cv)) {
+      
+      this_test_data <- list_series[[td]]
+      test_time <- time(this_test_data)
+      start_test <- min(test_time)
+      end_initial_cond <- start_test - 0.25
+      start_initial_cond <- start_test - 0.25*len_initial_cond
+      end_initial_cond_y_q <- c(year(as.yearqtr(end_initial_cond)),
+                                quarter(as.yearqtr(end_initial_cond))
+      )
+      start_initial_cond_y_q <- c(year(as.yearqtr(start_initial_cond)),
+                                  quarter(as.yearqtr(start_initial_cond))
+      )
+      initial_cond_ts <- window(auxiliary_ts, start = start_initial_cond_y_q,
+                                end = end_initial_cond_y_q)
+      
+      new_test_data <- un_diff_ts(initial_cond_ts, this_test_data)
+      
+      
+      new_series_list[[td]] <- new_test_data
+      
+    }
+    
+  }
+  
+  if (current_form == "diff") {
+    len_initial_cond <- 1
+    
+    for (td in seq_along(1:n_cv)) {
+      
+      this_test_data <- list_series[[td]]
+      test_time <- time(this_test_data)
+      start_test <- min(test_time)
+      end_initial_cond <- start_test - 0.25
+      start_initial_cond <- start_test - 0.25*len_initial_cond
+      end_initial_cond_y_q <- c(year(as.yearqtr(end_initial_cond)),
+                                quarter(as.yearqtr(end_initial_cond))
+      )
+      start_initial_cond_y_q <- c(year(as.yearqtr(start_initial_cond)),
+                                  quarter(as.yearqtr(start_initial_cond))
+      )
+      initial_cond_ts <- window(auxiliary_ts, start = start_initial_cond_y_q,
+                                end = end_initial_cond_y_q)
+      level_test_data <- un_diff_ts(initial_cond_ts, this_test_data)
+      pre_test_level_data <- window(auxiliary_ts, end = end_initial_cond_y_q)
+      data_and_test_level <- ts(c(pre_test_level_data, level_test_data),
+                                frequency = 4, start = start(auxiliary_ts))
+      
+      data_and_test_yoy <- make_yoy_ts(data_and_test_level, freq = 4, 
+                                       is_log = FALSE)
+      
+      new_test_data <- window(data_and_test_yoy, start = start(this_test_data),
+                              end = end(this_test_data))
+      
+      new_series_list[[td]] <- new_test_data
+    }
+    
+  }
+  return(new_series_list)
+}
+
+# return(list(cv_errors = cv_errors,
+#             cv_test_data = cv_test_data,
+#             cv_fcs = cv_fcs,
+#             mean_cv_rmse = mean_cv_rmse,
+#             cv_vbl_names = cv_vbl_names,
+#             cv_lag = cv_lag,
+#             cv_is_white_noise = cv_is_white_noise))
+
+
+# cv_test_data_diff_yoy, ~ transform_cv(list_series  = ., 
+#                                       series_name = "cv_test_data",
+#                                       current_form = rgdp_current_form,
+#                                       auxiliary_ts = auxiliary_ts,
+#                                       n_cv = n_cv) ),
+# cv_fcs = map(
+#   cv_fcs_diff_yoy,  ~ transform_cv(list_series  = .,
+#                                    series_name = "cv_fcs",
+#                                    current_form = rgdp_current_form,
+#                                    auxiliary_ts = auxiliary_ts,
+#                                    n_cv = n_cv) ),
 
 
 tic()
@@ -433,6 +605,34 @@ toc()
 
 print(object.size(fcold_3t_from_scratch), units = "auto")
 
+
+
+tic()
+fc13_3t_from_scratch <- forecast_var_from_model_tbl(auto13less, var_data = VAR_data_for_estimation,
+                                                     new_t_treshold = c(0, 1.65, 2), fc_horizon = 8)
+toc()
+
+print(object.size(fc13_3t_from_scratch), units = "auto")
+
+
+tic()
+cv_old_3t_from_scratch <- cv_var_from_model_tbl(h = fc_horizon, 
+                                                n_cv = n_cv, 
+                                                training_length = training_length,
+                                                models_tbl = oldless, 
+                                                var_data = VAR_data_for_estimation, 
+                                                new_t_treshold = c(0, 1.65, 2), 
+                                                target_level_ts = rgdp_level_ts,
+                                                target_transform = rgdp_transformation)
+toc()
+
+
+
+# cv_var_from_model_tbl <- function(h, n_cv, training_length, models_tbl, var_data, 
+#                                   fc_horizon, new_t_treshold = NULL, 
+#                                   fit_column = NULL, target_transform = "yoy", 
+#                                   target_level_ts = NULL,
+#                                   keep_fc_obj = FALSE, keep_varest_obj = FALSE)
 
 # foo <- forecast_var_from_model_tbl(oldless, var_data = VAR_data_for_estimation,
 #                                    new_t_treshold = c(0, 1.65, 2), fc_horizon = 8,

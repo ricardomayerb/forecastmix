@@ -764,7 +764,12 @@ var_search <- function(country,
                          elapsed_time = elapsed_time, 
                          prechosen = all_prechosen_variables_at_each_step,
                          cv_objects = cv_objects_list,
-                         target_variable_transform = rgdp_rec)
+                         target_variable_transform = rgdp_rec,
+                         names_exogenous = names_exogenous,
+                         fc_horizon = fc_horizon,
+                         train_span = train_span,
+                         number_of_cv = number_of_cv,
+                         max_rank_some_h = max_rank_some_h)
     
   } else {
     res_and_info <- list(consolidated_var_res = consolidated_var_res,
@@ -772,7 +777,12 @@ var_search <- function(country,
                          var_data = VAR_data_for_estimation,
                          prechosen = all_prechosen_variables_at_each_step,
                          elapsed_time = elapsed_time,
-                         target_variable_transform = rgdp_rec)
+                         target_variable_transform = rgdp_rec,
+                         names_exogenous,
+                         fc_horizon = fc_horizon,
+                         train_span = train_span,
+                         number_of_cv = number_of_cv,
+                         max_rank_some_h = max_rank_some_h)
   }
   
   allsizes <- paste(n_steps, collapse = "")
@@ -1395,6 +1405,9 @@ var_cv <- function(var_data, this_p, this_type = "const",
                    exo_lag = NULL) {
   
   # print("inside var_cv")
+  # print(colnames(var_data))
+  # print("firts full_sample_resmat")
+  # print(full_sample_resmat)
   
   if (is.null(train_test_marks)) {
     train_test_dates <- make_test_dates_list(ts_data = var_data, 
@@ -1406,13 +1419,20 @@ var_cv <- function(var_data, this_p, this_type = "const",
     train_test_dates <- train_test_dates[["list_of_year_quarter"]]
   }
   
+
+  
   vbls_for_var <- colnames(var_data)
   
   endov <- vbls_for_var[!vbls_for_var %in% names_exogenous] 
+
+  
   exov <- vbls_for_var[vbls_for_var %in% names_exogenous] 
+
   
   endodata <- var_data[ , endov]
+
   exodata <- var_data[ , exov]
+
   
   if (is.null(dim(endodata))) {
     names(endodata) <- endov
@@ -1425,8 +1445,7 @@ var_cv <- function(var_data, this_p, this_type = "const",
   }
   
   exo_and_lags <- make_exomat(exodata = exodata, exov = exov, exo_lag = exo_lag)
-  
-  
+
   n <- nrow(var_data)
   
   cv_errors <- list_along(1:n_cv)
@@ -1464,13 +1483,10 @@ var_cv <- function(var_data, this_p, this_type = "const",
     # training_y <- window(var_data, 
     #                      start = this_tra_s,
     #                      end = this_tra_e)
-    
+
     training_y <- window(endodata, 
                          start = this_tra_s,
                          end = this_tra_e)
-    
-    
-    
     
     training_rgdp <- training_y[ , "rgdp"]
     
@@ -1481,8 +1497,7 @@ var_cv <- function(var_data, this_p, this_type = "const",
     test_y <- window(endodata, 
                      start = this_tes_s,
                      end = this_tes_e)
-    
-    
+
     if (is.null(exo_and_lags)) {
       training_exo <- NULL
       
@@ -1512,9 +1527,7 @@ var_cv <- function(var_data, this_p, this_type = "const",
                                   end = this_tes_e)
       
     }
-    
-    
-        
+
     test_rgdp <- test_y[ , "rgdp"]
     
     # this_var <- vars::VAR(y = training_y, p = this_p, type = this_type) 
@@ -1526,39 +1539,17 @@ var_cv <- function(var_data, this_p, this_type = "const",
       this_var <- vars::VAR(y = training_y, p = this_p, type = this_type) 
       
     } else {
-      
-      # print("Foooooo")
-      # print(training_exo)
-      # print(names_exogenous)
-      # print("training_exo_and_lags")
-      # print(training_exo_and_lags)
-      
-      # print("test_exo_and_lags")
-      # print(test_exo_and_lags)
-      
-      # training_exo_and_lags <- make_exomat(exodata = training_exo,
-      #                                      exov = names_exogenous,
-      #                                      exo_lag = exo_lag)
-      # test_exo_and_lags <- make_exomat(exodata = test_exo,
-      #                                  exov = names_exogenous,
-      #                                  exo_lag = exo_lag)
-    
       this_var <- vars::VAR(y = training_y, p = this_p, type = this_type, 
                             exogen = training_exo_and_lags)
-      # print(66)
-      
-      
-      # this_fc <- forecast(this_var, h = h_max, dumvar = test_exo_and_lags)
-      # print(69)
+
     }
     
-    
-    # print("training_exo_and_lags")
-    # print(training_exo_and_lags)
-    
-    this_var <- vars::restrict(this_var, method = "manual", 
-                               resmat = full_sample_resmat)
-  
+
+    if (! is.null(full_sample_resmat)) {
+      this_var <- vars::restrict(this_var, method = "manual", 
+                                 resmat = full_sample_resmat)
+    }
+
     this_effective_lag <- max_effective_lag(this_var)
     
     # print(paste("nrow(training_y):", nrow(training_y), ", nom lag:", this_p, 
@@ -1572,8 +1563,7 @@ var_cv <- function(var_data, this_p, this_type = "const",
     
     
     # print(this_var)
-    
-    
+
     if (test_residuals) {
       resid_result <- check_resid_VAR(this_var)
       if (is.na(resid_result)) {
@@ -1607,7 +1597,6 @@ var_cv <- function(var_data, this_p, this_type = "const",
     cv_fcs[[i]] <- this_rgdp_fc_mean
     # cv_fc_object[[i]] <- this_fc
     cv_is_white_noise[[i]] <- is_white_noise
-    
   }
   
   cv_test_data_mat <- reduce(cv_test_data, rbind)
@@ -1619,7 +1608,7 @@ var_cv <- function(var_data, this_p, this_type = "const",
   
   mean_cv_rmse <- fcs_accu(cv_fcs_mat, cv_test_data_mat)
   # if(is.na(mean_cv_rmse)) {mean_cv_rmse <- Inf}
-  
+
   return(list(cv_errors = cv_errors,
               cv_test_data = cv_test_data,
               cv_fcs = cv_fcs,
