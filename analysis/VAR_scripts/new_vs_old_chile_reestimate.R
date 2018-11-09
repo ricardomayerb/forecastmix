@@ -214,7 +214,7 @@ cv_var_from_one_row <- function(var_data, fit, variables, lags, h,
   
   # print(1)
 
-  this_restriction_mat <- try(fit$restrictions) 
+  this_restriction_mat <- try(fit$restrictions, silent = TRUE) 
   # print(2)
   
   if (class(this_restriction_mat) == "try-error") {
