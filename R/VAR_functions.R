@@ -1545,24 +1545,25 @@ var_cv <- function(var_data, this_p, this_type = "const",
     }
     
 
-    if (! is.null(full_sample_resmat)) {
-      this_var <- vars::restrict(this_var, method = "manual", 
-                                 resmat = full_sample_resmat)
+    if (!is.null(full_sample_resmat)) {
+      this_var_r <- try(vars::restrict(this_var, method = "manual", 
+                                 resmat = full_sample_resmat))
+      
+      if (class(this_var_r) == "try-error") {
+        print("keeping the unrestricted")
+        
+      } else {
+        print("keeping the unrestricted")
+        this_var <- this_var_r
+      }
     }
+    
+    
+    
+
+    
 
     this_effective_lag <- max_effective_lag(this_var)
-    
-    # print(paste("nrow(training_y):", nrow(training_y), ", nom lag:", this_p, 
-    #             ", eff lag:", this_effective_lag ,
-    #             ". Start:", paste(start(training_y), collapse = "_"),
-    #             ". End:", paste(end(training_y), collapse = "_")))
-    # 
-    # print(paste("nrow(test_y):", nrow(test_y),
-    #             ". Start:", paste(start(test_y), collapse = "_"),
-    #             ". End:", paste(end(test_y), collapse = "_")))
-    
-    
-    # print(this_var)
 
     if (test_residuals) {
       resid_result <- check_resid_VAR(this_var)
