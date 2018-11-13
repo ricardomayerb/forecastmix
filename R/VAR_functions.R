@@ -1407,7 +1407,9 @@ var_cv <- function(var_data, this_p, this_type = "const",
   # print("inside var_cv")
   # print(colnames(var_data))
   # print("firts full_sample_resmat")
-  # print(full_sample_resmat)
+  # print(full_sample_resmat)}
+  
+  cv_restriction_status <- NULL
   
   if (is.null(train_test_marks)) {
     train_test_dates <- make_test_dates_list(ts_data = var_data, 
@@ -1547,21 +1549,16 @@ var_cv <- function(var_data, this_p, this_type = "const",
 
     if (!is.null(full_sample_resmat)) {
       this_var_r <- try(vars::restrict(this_var, method = "manual", 
-                                 resmat = full_sample_resmat))
+                                 resmat = full_sample_resmat), silent = TRUE)
       
       if (class(this_var_r) == "try-error") {
-        print("keeping the unrestricted")
+        cv_restriction_status <- 0
         
       } else {
-        print("keeping the unrestricted")
+        cv_restriction_status <- 0
         this_var <- this_var_r
       }
     }
-    
-    
-    
-
-    
 
     this_effective_lag <- max_effective_lag(this_var)
 
@@ -1616,7 +1613,8 @@ var_cv <- function(var_data, this_p, this_type = "const",
               mean_cv_rmse = mean_cv_rmse,
               cv_vbl_names = cv_vbl_names,
               cv_lag = cv_lag,
-              cv_is_white_noise = cv_is_white_noise))
+              cv_is_white_noise = cv_is_white_noise,
+              cv_restriction_status = cv_restriction_status))
 }
 
 

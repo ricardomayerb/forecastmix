@@ -11,7 +11,7 @@ fc_horizon <- 8
 add_aic_bic_hq_fpe_lags <- FALSE # default value, can be omitted for shorter code
 # vec_lags <-  c(5) # default value, can be omitted for shorter code
 
-default_vec_lag <-  c(3:5)
+default_vec_lag <-  c(3)
 default_treshold <- 1.65
 
 Search_step_1 <- list(size = 2, vbl_selection_type = "none", lags = default_vec_lag)

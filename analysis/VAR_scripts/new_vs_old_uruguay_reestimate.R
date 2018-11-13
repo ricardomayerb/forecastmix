@@ -145,7 +145,7 @@ rgdp_transformation <- ury_auto_2s4_3s5$target_variable_transform
 print(paste0("rgdp_transformation = ", rgdp_transformation))
 
 
-smaller_max_VAR_models_per_h <- 30
+smaller_max_VAR_models_per_h <- 20
 
 oldless <- as_tibble(ury_old) %>% 
   filter(rank_1 <= smaller_max_VAR_models_per_h | rank_2 <= smaller_max_VAR_models_per_h | 
@@ -216,17 +216,17 @@ cv_var_from_one_row <- function(var_data, fit, variables, lags, h,
     this_restriction_mat <-  NULL
   }
   
-  print("this_restriction_mat")
-  print(this_restriction_mat)
+  # print("this_restriction_mat")
+  # print(this_restriction_mat)
   
   sub_data <- na.omit(var_data[, variables])
   
-  print(sub_data)
-  print("variables")
-  print(variables)
+  # print(sub_data)
+  # print("variables")
+  # print(variables)
   
-  print("colnames(sub_data)")
-  print(colnames(sub_data))
+  # print("colnames(sub_data)")
+  # print(colnames(sub_data))
   
   sub_data_tk_index <- tk_index(var_data, timetk_idx = TRUE)
   
@@ -435,18 +435,15 @@ cv_var_from_model_tbl <- function(h, n_cv, training_length,
     rgdp_yoy_ts <- make_yoy_ts(target_level_ts)
     
     if (target_transform == "diff_yoy") {
-      
-      auxiliary_ts <-  rgdp_yoy_ts
-      
+
       models_tbl <- models_tbl %>% 
         rename(cv_obj_diff_yoy = cv_obj)
       
       models_tbl <- models_tbl %>% 
         mutate(cv_obj_yoy = map(cv_obj_diff_yoy,
-                                ~ new_transform_cv(cv_object  = ., 
-                                                series_name = "cv_test_data",
-                                                current_form = rgdp_current_form,
-                                                auxiliary_ts = auxiliary_ts,
+                                ~ transform_all_cv( ., 
+                                                current_form = rgdp_transformation,
+                                                target_level_ts =  rgdp_level_ts,
                                                 n_cv = n_cv) 
                                 )
         )
@@ -460,10 +457,9 @@ cv_var_from_model_tbl <- function(h, n_cv, training_length,
       
       results_all_models <- results_all_models %>% 
         mutate(cv_obj_yoy = map(cv_obj_diff,
-                                ~ new_transform_cv(cv_object  = .,
-                                               series_name = "cv_test_data",
-                                               current_form = rgdp_current_form,
-                                               auxiliary_ts = auxiliary_ts,
+                                ~ transform_all_cv(cv_object  = .,
+                                               current_form = rgdp_transformation,
+                                               auxiliary_ts = target_level_ts,
                                                n_cv = n_cv)
                                 )
                )
@@ -481,37 +477,31 @@ cv_var_from_model_tbl <- function(h, n_cv, training_length,
   return(models_tbl)
 } 
 
-new_transform_cv <- function(series_name, current_form,
-                         auxiliary_ts, n_cv, list_series = NULL,
-                         cv_object = NULL) {
-  
-  # print("list_series")
-  # print(list_series)
-  # print("unlist(list_series)")
-  # print(unlist(list_series))
-  # print("is.null(unlist(list_series))")
-  # print(is.null(unlist(list_series)))
-  
-  if (is.null(unlist(list_series))) {
-    new_series_list <- list_series
-    return(new_series_list)
-  }
-  
+transform_all_cv <- function(cv_object, current_form,
+                         target_level_ts, n_cv) {
   
   if (current_form == "yoy") {
     #noting to transform
-    return(list_series)
+    return(cv_object)
   }
   
-  series_name <- series_name
-  new_series_list <- list_along(1:n_cv)
+  old_test_data_list <- cv_object[["cv_test_data"]]
+  old_fcs_list <- cv_object[["cv_fcs"]]
+  
+  new_test_data_list <- list_along(1:n_cv)
+  new_fcs_list <- list_along(1:n_cv)
+  new_fcs_errors_list  <- list_along(1:n_cv)
   
   if (current_form == "diff_yoy") {
+    
     len_initial_cond <- 1
+    auxiliary_ts <- make_yoy_ts(target_level_ts)
     
     for (td in seq_along(1:n_cv)) {
       
-      this_test_data <- list_series[[td]]
+      this_test_data <- old_test_data_list[[td]]
+      this_fcs <- old_fcs_list[[td]]
+      
       test_time <- time(this_test_data)
       start_test <- min(test_time)
       end_initial_cond <- start_test - 0.25
@@ -526,20 +516,26 @@ new_transform_cv <- function(series_name, current_form,
                                 end = end_initial_cond_y_q)
       
       new_test_data <- un_diff_ts(initial_cond_ts, this_test_data)
+      new_fcs <- un_diff_ts(initial_cond_ts, this_fcs)
       
+      new_fcs_errors <-  new_test_data - new_fcs
+      new_fcs_errors_list[[td]] <- new_fcs_errors
       
-      new_series_list[[td]] <- new_test_data
-      
+      new_test_data_list[[td]] <- new_test_data
+      new_fcs_list[[td]] <- new_fcs
     }
     
   }
   
   if (current_form == "diff") {
     len_initial_cond <- 1
+    auxiliary_ts <- target_level_ts
     
     for (td in seq_along(1:n_cv)) {
       
-      this_test_data <- list_series[[td]]
+      this_test_data <- old_test_data_list[[td]]
+      this_fcs <- old_fcs_list[[td]]
+      
       test_time <- time(this_test_data)
       start_test <- min(test_time)
       end_initial_cond <- start_test - 0.25
@@ -552,22 +548,42 @@ new_transform_cv <- function(series_name, current_form,
       )
       initial_cond_ts <- window(auxiliary_ts, start = start_initial_cond_y_q,
                                 end = end_initial_cond_y_q)
+      
       level_test_data <- un_diff_ts(initial_cond_ts, this_test_data)
+      level_fcs <- un_diff_ts(initial_cond_ts, this_fcs)
+      
       pre_test_level_data <- window(auxiliary_ts, end = end_initial_cond_y_q)
+
       data_and_test_level <- ts(c(pre_test_level_data, level_test_data),
+                                frequency = 4, start = start(auxiliary_ts))
+      data_and_fcs_level <- ts(c(pre_test_level_data, level_fcs),
                                 frequency = 4, start = start(auxiliary_ts))
       
       data_and_test_yoy <- make_yoy_ts(data_and_test_level, freq = 4, 
                                        is_log = FALSE)
+      data_and_fcs_yoy <- make_yoy_ts(data_and_fcs_level, freq = 4, 
+                                       is_log = FALSE)
       
       new_test_data <- window(data_and_test_yoy, start = start(this_test_data),
                               end = end(this_test_data))
+      new_fcs <- window(data_and_fcs_yoy, start = start(this_fcs),
+                              end = end(this_fcs))
       
-      new_series_list[[td]] <- new_test_data
+      new_fcs_errors <-  new_test_data - new_fcs
+      new_fcs_errors_list[[td]] <- new_fcs_errors
+      
+      new_fcs_list[[td]] <- new_fcs
+      new_test_data_list[[td]] <- new_test_data
+      
     }
     
   }
-  return(new_series_list)
+  
+  new_cv_object = list(cv_test_data = new_test_data_list, 
+                       cv_fcs = new_fcs_list,
+                       cv_errors = new_fcs_errors_list)
+  
+  return(new_cv_object)
 }
 
 # return(list(cv_errors = cv_errors,
@@ -594,7 +610,9 @@ new_transform_cv <- function(series_name, current_form,
 
 tic()
 fcold_3t_from_scratch <- forecast_var_from_model_tbl(oldless, var_data = VAR_data_for_estimation,
-                                                     new_t_treshold = c(0, 1.65, 2), fc_horizon = 8)
+                                                     new_t_treshold = c(0, 1.65, 2),
+                                                     fc_horizon = 8, 
+                                                     target_transform = rgdp_transformation)
 toc()
 
 print(object.size(fcold_3t_from_scratch), units = "auto")
@@ -603,7 +621,8 @@ print(object.size(fcold_3t_from_scratch), units = "auto")
 
 tic()
 fc13_3t_from_scratch <- forecast_var_from_model_tbl(auto13less, var_data = VAR_data_for_estimation,
-                                                     new_t_treshold = c(0, 1.65, 2), fc_horizon = 8)
+                                                     new_t_treshold = c(0, 1.65, 2), 
+                                                    fc_horizon = 8, target_transform = rgdp_transformation)
 toc()
 
 print(object.size(fc13_3t_from_scratch), units = "auto")
@@ -625,9 +644,9 @@ remoo <- cv_old_3t_from_scratch[1,]
 moo <- remoo$cv_obj[[1]]
 moo
 names(moo)
-
-troo <- new_transform_cv(list_series = moo[["cv_test_data"]], series_name = "cv_test_data", 
-                         current_form = "diff_yoy", auxiliary_ts = rgdp_yoy_ts, n_cv = n_cv)
+# 
+# troo <- new_transform_cv(list_series = moo[["cv_test_data"]], series_name = "cv_test_data", 
+#                          current_form = "diff_yoy", auxiliary_ts = rgdp_yoy_ts, n_cv = n_cv)
 
 # cv_var_from_model_tbl <- function(h, n_cv, training_length, models_tbl, var_data, 
 #                                   fc_horizon, new_t_treshold = NULL, 
