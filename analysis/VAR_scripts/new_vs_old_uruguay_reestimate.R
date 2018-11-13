@@ -387,7 +387,8 @@ cv_var_from_model_tbl <- function(h, n_cv, training_length,
                                   fit_column = NULL, 
                                   target_transform = "yoy", 
                                   target_level_ts = NULL,
-                                  keep_varest_obj = FALSE) {
+                                  keep_varest_obj = FALSE,
+                                  keep_cv_objects = FALSE) {
   
   starting_names <- names(models_tbl)
   has_short_name <- "short_name" %in% starting_names
@@ -432,7 +433,7 @@ cv_var_from_model_tbl <- function(h, n_cv, training_length,
   
   if (target_transform != "yoy") {
     
-    rgdp_yoy_ts <- make_yoy_ts(target_level_ts)
+    # rgdp_yoy_ts <- make_yoy_ts(target_level_ts)
     
     if (target_transform == "diff_yoy") {
 
@@ -467,15 +468,54 @@ cv_var_from_model_tbl <- function(h, n_cv, training_length,
     
   }
   
-
+  if (target_transform == "yoy") {
+    models_tbl <- models_tbl %>% 
+      rename(cv_obj_yoy = cv_obj)
+  }
+  
+  models_tbl <- models_tbl %>% 
+    mutate(rmse_yoy_all_h = map(cv_obj_yoy, all_rmse_from_cv_obj))
+  
+  rmse_tibble <- as_tibble(reduce(models_tbl$rmse_yoy_all_h, rbind))
+  names(rmse_tibble) <- paste0("rmse_", seq(1, ncol(rmse_tibble)))
+  
+  models_tbl <- models_tbl %>% 
+    dplyr::select(-rmse_yoy_all_h) %>% 
+    cbind(rmse_tibble)
+  
   
   if (!keep_varest_obj) {
     models_tbl <- models_tbl %>% 
       dplyr::select(-fit)
   }
+  
+  if (!keep_cv_objects) {
+    models_tbl <- models_tbl %>% 
+      dplyr::select(vars_select(names(.), -starts_with("cv_ob")))
+  }
 
   return(models_tbl)
 } 
+
+
+all_rmse_from_cv_obj <- function(cv_obj) {
+  cv_errors <- cv_obj[["cv_errors"]]
+  # print(cv_errors)
+  n_cv <- length(cv_errors)
+  # print(n_cv)
+  # print(cv_errors[[1]])
+  t_periods <-  length(cv_errors[[1]])
+  # print(t_periods)
+  
+  # matrix is n_cv x t_periods, i.e. a column represent fixed period, varying cv
+  matrix_errors <- reduce(cv_errors, rbind) 
+  rownames(matrix_errors) <- NULL
+  rmse <- sqrt(colMeans(matrix_errors^2))
+
+  return(rmse)
+}
+
+
 
 transform_all_cv <- function(cv_object, current_form,
                          target_level_ts, n_cv) {
@@ -640,10 +680,16 @@ cv_old_3t_from_scratch <- cv_var_from_model_tbl(h = fc_horizon,
 toc()
 
 
+rmseall <- cv_old_3t_from_scratch$rmse_yoy_all_h
+
+rmse_tibble <- as_tibble(reduce(rmseall, rbind))
+names(rmse_tibble) <- paste0("rmse_", seq(1, ncol(rmse_tibble)))
+rmse_tibble
 remoo <- cv_old_3t_from_scratch[1,]
-moo <- remoo$cv_obj[[1]]
-moo
-names(moo)
+
+
+
+
 # 
 # troo <- new_transform_cv(list_series = moo[["cv_test_data"]], series_name = "cv_test_data", 
 #                          current_form = "diff_yoy", auxiliary_ts = rgdp_yoy_ts, n_cv = n_cv)
