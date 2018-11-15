@@ -725,42 +725,21 @@ toc()
 
 print(object.size(cv_old_3t_from_scratch), units = "auto")
 
-mooyoy <- cv_old_3t_from_scratch$fc_target_mean_yoy
-mooyoy[map_lgl(mooyoy, is.null)] <- NA 
-fc_tibble <- as_tibble(reduce(mooyoy, rbind))
-names(fc_tibble) <- paste0("fc_yoy_", seq(1, ncol(fc_tibble)))
-fc_tibble
-
-
-
-newfoo <- cv_old_3t_from_scratch %>% 
-  cbind(fc_tibble)
-
-print(object.size(newfoo), units = "auto")
-
-
-fc_tibble_long <- fc_tibble %>% 
-  gather(key = "fc_yoy_h", value = "fc_yoy")
-
-cv_long <- cv_old_3t_from_scratch %>% 
-  dplyr::select(-c(fc_target_mean, fc_target_mean_yoy)) %>% 
-  gather(key = "rmse_h", value = "rmse", vars_select(names(.), starts_with("rmse")))
-
-newfoolong <- cv_long %>% cbind(fc_tibble_long)
-
-print(object.size(newfoolong), units = "auto")
-
-newfoolong2 <- newfoolong %>% 
-  filter(!is.na(fc_yoy)) %>% 
-  mutate(mse = rmse*rmse) %>% 
-  group_by(rmse_h) %>% 
-  mutate(inv_mse = 1/mse,
-         model_weight_h = inv_mse/sum(inv_mse),
-         weighted_fc_h = fc_yoy*model_weight_h,
-         average_fc_h = sum(weighted_fc_h)
-         ) %>% 
-  ungroup()
+ave_fc_from_cv <- function(cv_tbl, best_n_to_keep = "all") {
   
+  if (best_n_to_keep == "all") {
+    cv_tbl <- cv_tbl
+  }
+  
+  ave_fc <- cv_tbl %>% 
+    group_by(rmse_h) %>% 
+    summarise(ave_fc_h = sum(weighted_fc_h))
+  
+  return(ave_fc)
+}
+
+ave_fc_from_cv(cv_tbl = cv_old_3t_from_scratch)
+
 
 poo <- newfoolong2 %>% 
   group_by(rmse_h) %>% 
