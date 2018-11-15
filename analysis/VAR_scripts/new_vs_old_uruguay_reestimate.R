@@ -713,7 +713,7 @@ print(object.size(fc13_3t_from_scratch), units = "auto")
 
 
 tic()
-cv_old_3t_from_scratch <- cv_var_from_model_tbl(h = fc_horizon, 
+cv_oldless_3t_from_scratch <- cv_var_from_model_tbl(h = fc_horizon, 
                                                 n_cv = n_cv, 
                                                 training_length = training_length,
                                                 models_tbl = oldless, 
@@ -723,12 +723,63 @@ cv_old_3t_from_scratch <- cv_var_from_model_tbl(h = fc_horizon,
                                                 target_transform = rgdp_transformation)
 toc()
 
+print(object.size(cv_oldless_3t_from_scratch), units = "auto")
+
+
+smaller_max_VAR_models_per_h <- 30
+
+old30 <- as_tibble(ury_old) %>% 
+  filter(rank_1 <= smaller_max_VAR_models_per_h | rank_2 <= smaller_max_VAR_models_per_h | 
+           rank_3 <= smaller_max_VAR_models_per_h | rank_4 <= smaller_max_VAR_models_per_h |
+           rank_5 <= smaller_max_VAR_models_per_h | rank_6 <= smaller_max_VAR_models_per_h | 
+           rank_7 <= smaller_max_VAR_models_per_h | rank_8 <= smaller_max_VAR_models_per_h) 
+
+
+tic()
+cv_old30_3t_from_scratch <- cv_var_from_model_tbl(h = fc_horizon, 
+                                                n_cv = n_cv, 
+                                                training_length = training_length,
+                                                models_tbl = old30, 
+                                                var_data = VAR_data_for_estimation, 
+                                                new_t_treshold = c(0, 1.65, 2), 
+                                                target_level_ts = rgdp_level_ts,
+                                                target_transform = rgdp_transformation)
+toc()
+
+
+
+tic()
+cv_old_3t_from_scratch <- cv_var_from_model_tbl(h = fc_horizon, 
+                                                n_cv = n_cv, 
+                                                training_length = training_length,
+                                                models_tbl = ury_old, 
+                                                var_data = VAR_data_for_estimation, 
+                                                new_t_treshold = c(0, 1.65, 2), 
+                                                target_level_ts = rgdp_level_ts,
+                                                target_transform = rgdp_transformation)
+toc()
+
 print(object.size(cv_old_3t_from_scratch), units = "auto")
+
 
 ave_fc_from_cv <- function(cv_tbl, best_n_to_keep = "all") {
   
   if (best_n_to_keep == "all") {
     cv_tbl <- cv_tbl
+  }
+
+  if (is.numeric(best_n_to_keep)) {
+    cv_tbl <- cv_tbl %>% 
+      arrange(rmse_h, rmse) %>%
+      group_by(rmse_h) %>% 
+      mutate(rank_h = rank(rmse)) %>% 
+      filter(rank_h <= best_n_to_keep) %>% 
+      mutate(inv_mse = 1/(rmse*rmse),
+             model_weight_h = inv_mse/sum(inv_mse),
+             weighted_fc_h = fc_yoy*model_weight_h,
+             average_fc_h = sum(weighted_fc_h)
+      ) %>% 
+      ungroup()
   }
   
   ave_fc <- cv_tbl %>% 
@@ -738,12 +789,12 @@ ave_fc_from_cv <- function(cv_tbl, best_n_to_keep = "all") {
   return(ave_fc)
 }
 
-ave_fc_from_cv(cv_tbl = cv_old_3t_from_scratch)
+ave_fc_from_cv(cv_tbl = cv_oldless_3t_from_scratch)
 
+ave_fc_from_cv(cv_tbl = cv_old30_3t_from_scratch)
 
-poo <- newfoolong2 %>% 
-  group_by(rmse_h) %>% 
-  summarise(ave_fc_h = sum(weighted_fc_h))
+ave_fc_from_cv(cv_tbl = cv_old30_3t_from_scratch, best_n_to_keep = 15)
+
 
 # rmseall <- cv_old_3t_from_scratch$rmse_yoy_all_h
 
