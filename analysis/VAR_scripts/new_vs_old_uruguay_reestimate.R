@@ -793,8 +793,9 @@ ave_fc_from_cv(cv_tbl = cv_oldless_3t_from_scratch)
 
 ave_fc_from_cv(cv_tbl = cv_old30_3t_from_scratch)
 
-ave_fc_from_cv(cv_tbl = cv_old30_3t_from_scratch, best_n_to_keep = 15)
+ave_fc_from_cv(cv_tbl = cv_old30_3t_from_scratch, best_n_to_keep = 20)
 
+ave_fc_from_cv(cv_tbl = cv_old30_3t_from_scratch, best_n_to_keep = 10)
 
 # rmseall <- cv_old_3t_from_scratch$rmse_yoy_all_h
 
