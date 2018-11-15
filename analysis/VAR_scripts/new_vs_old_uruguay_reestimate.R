@@ -195,10 +195,10 @@ forecast_VAR_one_row <- function(fit, h)  {
     this_fc <- forecast(fit, h = h)
   }
   
-  if (!  class(fit) == "varest") {
-    this_fc <- NULL
+  if (!class(fit) == "varest") {
+    this_fc <- NA
   }
-  
+  # print(this_fc)
   return(this_fc)
 }
 
@@ -388,7 +388,8 @@ cv_var_from_model_tbl <- function(h, n_cv, training_length,
                                   target_transform = "yoy", 
                                   target_level_ts = NULL,
                                   keep_varest_obj = FALSE,
-                                  keep_cv_objects = FALSE) {
+                                  keep_cv_objects = FALSE,
+                                  keep_fc_objects = FALSE) {
   
   starting_names <- names(models_tbl)
   has_short_name <- "short_name" %in% starting_names
@@ -417,6 +418,17 @@ cv_var_from_model_tbl <- function(h, n_cv, training_length,
     print("Using previously estimates varest objects")
   }
   
+  models_tbl <- models_tbl %>% 
+    mutate(fc_obj = map(fit, ~ forecast_VAR_one_row(fit = .x, h = h)),
+           fc_target_mean = map(fc_obj, c("forecast", "rgdp", "mean")),
+           fc_target_mean_yoy = map(fc_target_mean,
+                                    ~ any_fc_2_fc_yoy(
+                                      current_fc = .x,
+                                      rgdp_transformation = target_transform,
+                                      rgdp_level_ts = rgdp_level_ts)
+                                    )
+           )
+    
   print("Starting cv")
 
   models_tbl <-  models_tbl %>% 
@@ -488,12 +500,44 @@ cv_var_from_model_tbl <- function(h, n_cv, training_length,
     models_tbl <- models_tbl %>% 
       dplyr::select(-fit)
   }
+
+  if (!keep_fc_objects) {
+    models_tbl <- models_tbl %>% 
+      dplyr::select(vars_select(names(.), -starts_with("fc_ob")))
+  }
   
   if (!keep_cv_objects) {
     models_tbl <- models_tbl %>% 
       dplyr::select(vars_select(names(.), -starts_with("cv_ob")))
   }
-
+  
+  
+  mean_yoy <- models_tbl$fc_target_mean_yoy
+  mean_yoy[map_lgl(mean_yoy, is.null)] <- NA 
+  fc_tibble <- as_tibble(reduce(mean_yoy, rbind))
+  names(fc_tibble) <- paste0("fc_yoy_", seq(1, ncol(fc_tibble)))
+  # fc_tibble
+  
+  fc_tibble_long <- fc_tibble %>% 
+    gather(key = "fc_yoy_h", value = "fc_yoy")
+  
+  models_tbl <- models_tbl %>% 
+    dplyr::select(-c(fc_target_mean, fc_target_mean_yoy)) %>% 
+    gather(key = "rmse_h", value = "rmse", vars_select(names(.), starts_with("rmse")))
+  
+  models_tbl <- models_tbl %>% cbind(fc_tibble_long)
+  
+  models_tbl <- models_tbl %>% 
+    filter(!is.na(fc_yoy)) %>% 
+    mutate(mse = rmse*rmse) %>% 
+    group_by(rmse_h) %>% 
+    mutate(inv_mse = 1/mse,
+           model_weight_h = inv_mse/sum(inv_mse),
+           weighted_fc_h = fc_yoy*model_weight_h,
+           average_fc_h = sum(weighted_fc_h)
+    ) %>% 
+    ungroup()
+  
   return(models_tbl)
 } 
 
@@ -679,13 +723,55 @@ cv_old_3t_from_scratch <- cv_var_from_model_tbl(h = fc_horizon,
                                                 target_transform = rgdp_transformation)
 toc()
 
+print(object.size(cv_old_3t_from_scratch), units = "auto")
 
-rmseall <- cv_old_3t_from_scratch$rmse_yoy_all_h
+mooyoy <- cv_old_3t_from_scratch$fc_target_mean_yoy
+mooyoy[map_lgl(mooyoy, is.null)] <- NA 
+fc_tibble <- as_tibble(reduce(mooyoy, rbind))
+names(fc_tibble) <- paste0("fc_yoy_", seq(1, ncol(fc_tibble)))
+fc_tibble
 
-rmse_tibble <- as_tibble(reduce(rmseall, rbind))
-names(rmse_tibble) <- paste0("rmse_", seq(1, ncol(rmse_tibble)))
-rmse_tibble
-remoo <- cv_old_3t_from_scratch[1,]
+
+
+newfoo <- cv_old_3t_from_scratch %>% 
+  cbind(fc_tibble)
+
+print(object.size(newfoo), units = "auto")
+
+
+fc_tibble_long <- fc_tibble %>% 
+  gather(key = "fc_yoy_h", value = "fc_yoy")
+
+cv_long <- cv_old_3t_from_scratch %>% 
+  dplyr::select(-c(fc_target_mean, fc_target_mean_yoy)) %>% 
+  gather(key = "rmse_h", value = "rmse", vars_select(names(.), starts_with("rmse")))
+
+newfoolong <- cv_long %>% cbind(fc_tibble_long)
+
+print(object.size(newfoolong), units = "auto")
+
+newfoolong2 <- newfoolong %>% 
+  filter(!is.na(fc_yoy)) %>% 
+  mutate(mse = rmse*rmse) %>% 
+  group_by(rmse_h) %>% 
+  mutate(inv_mse = 1/mse,
+         model_weight_h = inv_mse/sum(inv_mse),
+         weighted_fc_h = fc_yoy*model_weight_h,
+         average_fc_h = sum(weighted_fc_h)
+         ) %>% 
+  ungroup()
+  
+
+poo <- newfoolong2 %>% 
+  group_by(rmse_h) %>% 
+  summarise(ave_fc_h = sum(weighted_fc_h))
+
+# rmseall <- cv_old_3t_from_scratch$rmse_yoy_all_h
+
+# rmse_tibble <- as_tibble(reduce(rmseall, rbind))
+# names(rmse_tibble) <- paste0("rmse_", seq(1, ncol(rmse_tibble)))
+# rmse_tibble
+# remoo <- cv_old_3t_from_scratch[1,]
 
 
 
