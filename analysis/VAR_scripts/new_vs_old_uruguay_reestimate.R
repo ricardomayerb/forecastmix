@@ -108,6 +108,9 @@ read_compare_var_res <- function(filename_new, filename_old, h_max = 7,
 
 VAR_data_for_estimation <- readRDS("./analysis/VAR_output/edd_exercises/2018_exercise_2/VAR_data_Uruguay.rds")
 
+target_used_in_VAR <- VAR_data_for_estimation[, "rgdp"]
+start_target_in_VAR <- start(na.omit(target_used_in_VAR))
+end_target_in_VAR <- end(na.omit(target_used_in_VAR))
 
 ury_filename_old <- "./analysis/VAR_output/edd_exercises/2018_exercise_2/from_older_version_code/Uruguay_by_step_12345.rds"
 
@@ -143,6 +146,65 @@ print(paste0("fc_horizon = ", fc_horizon))
 
 rgdp_transformation <- ury_auto_2s4_3s5$target_variable_transform
 print(paste0("rgdp_transformation = ", rgdp_transformation))
+
+
+exodata_fullsample <- VAR_data_for_estimation[,names_exogenous]
+
+
+extending_exogenous <- function(exodata, h, endo_end, n_cv = 1) {
+  
+  if(is.null(dim(exodata))) {
+    nexo <- 1
+  } else {
+    nexo <- ncol(exodata)
+  }
+  
+  extended_exo_list_of_cv <- list_along(seq(1, n_cv))
+  
+  extended_exo_list <- list_along(seq(1, nexo))
+  arima_models_list <- list_along(seq(1, nexo))
+  
+  for (i in seq(1, nexo)) {
+    
+    print(paste0("i = ", i))
+    
+    if(nexo == 1) {
+      this_series <- exodata
+    } else {
+      this_series <- exodata[,i]
+    }
+    
+    this_series <- na.omit(this_series)
+    this_series <- window(this_series, end = endo_end)
+
+    this_ari <- auto.arima(y = this_series, stepwise = FALSE, 
+                           approximation = FALSE, allowdrift = TRUE)
+    this_fc <- forecast(this_ari, h = h)
+    
+    extended_exo <-  this_fc$mean
+    extended_exo_list[[i]] <- extended_exo
+    arima_models_list[[i]] <- this_ari
+  }
+  
+  extended_exo_mts <- reduce(extended_exo_list, ts.union)
+  colnames(extended_exo_mts) <- colnames(exodata)
+  
+  return(list(future_exo = extended_exo_mts,
+              arima_models = arima_models_list))
+}
+
+
+tic()
+shoo <- extending_exogenous(exodata = exodata_fullsample, h = 8, 
+                            endo_end = end_target_in_VAR, n_cv = 1)
+toc()
+
+shoo[["future_exo"]]
+shoo[["arima_models"]]
+
+
+
+
 
 
 smaller_max_VAR_models_per_h <- 20
@@ -182,8 +244,12 @@ fit_VAR_rest <- function(var_data, variables, p,
   endov <- vbls_for_var[!vbls_for_var %in% names_exogenous] 
   exov <- vbls_for_var[vbls_for_var %in% names_exogenous] 
   
+  # print("endov")
+  # print(endov)
+  
   if (length(endov) == 1) {
     this_fit <- NA
+    print("only one endogenous variable, not a real VAR, returning NA")
     return(this_fit)
   }
   
@@ -206,12 +272,12 @@ fit_VAR_rest <- function(var_data, variables, p,
   exo_and_lags <- make_exomat(exodata = exodata, exov = exov, exo_lag = exo_lag)
   n <- nrow(var_data)
   
-  if (is.null(training_exo_and_lags)) {
+  if (is.null(exo_and_lags)) {
     this_fit <- vars::VAR(y = endodata, p = p, type = type) 
     
   } else {
     this_fit <- vars::VAR(y = endodata, p = p, type = type, 
-                          exogen = training_exo_and_lags)
+                          exogen = exo_and_lags)
     
   }
   # this_fit <- vars::VAR(y = this_var_data, p = p, type = type)
@@ -242,10 +308,16 @@ fit_VAR_rest <- function(var_data, variables, p,
   return(this_fit)
 }
 
-forecast_VAR_one_row <- function(fit, h)  {
+forecast_VAR_one_row <- function(fit, h, exo_and_lags = NULL)  {
   
   if (class(fit) == "varest") {
-    this_fc <- forecast(fit, h = h)
+    if (is.null(exo_and_lags)) {
+      this_fc <- forecast(fit, h = h)
+    } else {
+      this_fc <- forecast(fit, h = h, dumvar = exo_and_lags,
+                          exogen = exo_and_lags)
+    }
+    
   }
   
   if (!class(fit) == "varest") {
@@ -295,7 +367,9 @@ cv_var_from_one_row <- function(var_data, fit, variables, lags, h,
   return(this_cv)
 }
 
-estimate_var_from_model_tbl <- function(models_tbl, var_data, new_t_treshold = NULL) {
+estimate_var_from_model_tbl <- function(models_tbl, var_data, new_t_treshold = NULL, 
+                                        names_exogenous = c(""),
+                                        exo_lag = NULL) {
   
   starting_names <- names(models_tbl)
   has_short_name <- "short_name" %in% starting_names
@@ -335,7 +409,9 @@ estimate_var_from_model_tbl <- function(models_tbl, var_data, new_t_treshold = N
     one_model_per_row <- one_model_per_row %>%
       mutate(fit = pmap(list(variables, lags, t_treshold),
                         ~ fit_VAR_rest(var_data = var_data, variables = ..1,
-                                       p = ..2, t_tresh = ..3))
+                                       p = ..2, t_tresh = ..3, 
+                                       names_exogenous = names_exogenous, 
+                                       exo_lag = exo_lag))
       )
   } 
   
@@ -352,7 +428,9 @@ estimate_var_from_model_tbl <- function(models_tbl, var_data, new_t_treshold = N
                short_name_t = map_chr(short_name, ~ paste0(.x, "_t", this_tresh*100)),
                fit = pmap(list(variables, lags, t_treshold),
                           ~ fit_VAR_rest(var_data = var_data, variables = ..1,
-                                         p = ..2, t_tresh = ..3))
+                                         p = ..2, t_tresh = ..3, 
+                                         names_exogenous = names_exogenous, 
+                                         exo_lag = exo_lag))
         )
 
       all_one_model_per_row[[i]] <- this_one_model_per_row
@@ -755,7 +833,6 @@ ave_fc_from_cv <- function(cv_tbl, best_n_to_keep = "all") {
   return(ave_fc)
 }
 
-
 # return(list(cv_errors = cv_errors,
 #             cv_test_data = cv_test_data,
 #             cv_fcs = cv_fcs,
@@ -811,18 +888,23 @@ print(object.size(cv_oldless_3t_from_scratch), units = "auto")
 
 
 cv_var_from_1 <- function(h, n_cv, training_length, 
-                                  models_tbl, var_data, 
-                                  new_t_treshold = NULL, 
-                                  fit_column = NULL, 
-                                  target_transform = "yoy", 
-                                  target_level_ts = NULL,
-                                  keep_varest_obj = FALSE,
-                                  keep_cv_objects = FALSE,
-                                  keep_fc_objects = FALSE) {
+                          models_tbl, var_data, 
+                          new_t_treshold = NULL, 
+                          fit_column = NULL, 
+                          target_transform = "yoy", 
+                          target_level_ts = NULL,
+                          keep_varest_obj = FALSE,
+                          keep_cv_objects = FALSE,
+                          keep_fc_objects = FALSE,
+                          names_exogenous = c(""),
+                          exo_lag = NULL) {
   
   starting_names <- names(models_tbl)
   has_short_name <- "short_name" %in% starting_names
   has_t_treshold <- "t_treshold" %in% starting_names
+  
+  print("names_exogenous")
+  print(names_exogenous)
   
   if (!has_t_treshold) {
     models_tbl <- models_tbl %>% mutate(t_treshold = FALSE)
@@ -839,7 +921,8 @@ cv_var_from_1 <- function(h, n_cv, training_length,
   if (is.null(fit_column)) {
     print("There is no column with fit varest objects, so we will estimate all VARs now")
     models_tbl <- estimate_var_from_model_tbl(
-      models_tbl = models_tbl, var_data = var_data, new_t_treshold = new_t_treshold)
+      models_tbl = models_tbl, var_data = var_data, new_t_treshold = new_t_treshold, 
+      names_exogenous = names_exogenous, exo_lag = exo_lag)
     
     print("Done estimating VARs, now we will compute the forecasts")
     
@@ -847,17 +930,17 @@ cv_var_from_1 <- function(h, n_cv, training_length,
     print("Using previously estimates varest objects")
   }
   
-  # models_tbl <- models_tbl %>% 
-  #   mutate(fc_obj = map(fit, ~ forecast_VAR_one_row(fit = .x, h = h)),
-  #          fc_target_mean = map(fc_obj, c("forecast", "rgdp", "mean")),
-  #          fc_target_mean_yoy = map(fc_target_mean,
-  #                                   ~ any_fc_2_fc_yoy(
-  #                                     current_fc = .x,
-  #                                     rgdp_transformation = target_transform,
-  #                                     rgdp_level_ts = rgdp_level_ts)
-  #          )
-  #   )
-  # 
+  models_tbl <- models_tbl %>%
+    mutate(fc_obj = map(fit, ~ forecast_VAR_one_row(fit = .x, h = h)),
+           fc_target_mean = map(fc_obj, c("forecast", "rgdp", "mean")),
+           fc_target_mean_yoy = map(fc_target_mean,
+                                    ~ any_fc_2_fc_yoy(
+                                      current_fc = .x,
+                                      rgdp_transformation = target_transform,
+                                      rgdp_level_ts = rgdp_level_ts)
+           )
+    )
+
   # print("Starting cv")
   # 
   # print(1)
@@ -976,16 +1059,16 @@ cv_var_from_1 <- function(h, n_cv, training_length,
 
 
 tic()
-cv_old1 <- cv_var_from_1(h = fc_horizon, 
-                                                n_cv = n_cv, 
-                                                training_length = training_length,
-                                                models_tbl = ury_old, 
-                                                var_data = VAR_data_for_estimation, 
-                                                new_t_treshold = c(0, 1.65, 2), 
-                                                target_level_ts = rgdp_level_ts,
-                                                target_transform = rgdp_transformation)
+cv_old1 <- cv_var_from_1(h = fc_horizon,
+                         n_cv = n_cv, 
+                         training_length = training_length,
+                         models_tbl = ury_old, 
+                         var_data = VAR_data_for_estimation, 
+                         new_t_treshold = c(0, 1.65, 2), 
+                         target_level_ts = rgdp_level_ts,
+                         target_transform = rgdp_transformation, 
+                         names_exogenous = names_exogenous)
 toc()
-print
 
 
 cv_old1 <- cv_old1 %>% 

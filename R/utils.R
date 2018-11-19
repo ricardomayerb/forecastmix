@@ -14,8 +14,6 @@ library(ggplot2)
 library(ggthemes)
 
 
-
-
 any_fc_2_fc_yoy <- function(current_fc, rgdp_transformation, rgdp_level_ts) {
   
   if (is.null(current_fc)) {
