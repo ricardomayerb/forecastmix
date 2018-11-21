@@ -151,22 +151,21 @@ print(paste0("rgdp_transformation = ", rgdp_transformation))
 exodata_fullsample <- VAR_data_for_estimation[,names_exogenous]
 
 
-extending_exogenous <- function(exodata, h, endo_end, n_cv = 1) {
+extending_exogenous <- function(exodata, h, endo_end, list_of_models = NULL) {
   
   if(is.null(dim(exodata))) {
     nexo <- 1
   } else {
     nexo <- ncol(exodata)
   }
-  
-  extended_exo_list_of_cv <- list_along(seq(1, n_cv))
-  
+
   extended_exo_list <- list_along(seq(1, nexo))
+  future_exo_list <- list_along(seq(1, nexo))
   arima_models_list <- list_along(seq(1, nexo))
   
   for (i in seq(1, nexo)) {
     
-    print(paste0("i = ", i))
+    print(paste0("exo_variable = ", i))
     
     if(nexo == 1) {
       this_series <- exodata
@@ -174,37 +173,133 @@ extending_exogenous <- function(exodata, h, endo_end, n_cv = 1) {
       this_series <- exodata[,i]
     }
     
+    
+    # print("in inner fun")
+    # print(endo_end)
     this_series <- na.omit(this_series)
     this_series <- window(this_series, end = endo_end)
-
-    this_ari <- auto.arima(y = this_series, stepwise = FALSE, 
-                           approximation = FALSE, allowdrift = TRUE)
+    # print(this_series)
+    
+    if (is.null(list_of_models)) {
+      this_ari <- auto.arima(y = this_series, stepwise = FALSE, 
+                             approximation = FALSE, allowdrift = TRUE)
+    } else {
+      this_ari <- list_of_models[[i]]
+    }
+    
     this_fc <- forecast(this_ari, h = h)
     
-    extended_exo <-  this_fc$mean
+    future_exo <-  this_fc$mean
+    extended_exo <- ts(data = c(this_series, future_exo), 
+                       frequency = frequency(this_series),
+                       start = start(this_series))
+    
+    future_exo_list[[i]] <- future_exo
     extended_exo_list[[i]] <- extended_exo
     arima_models_list[[i]] <- this_ari
   }
   
   extended_exo_mts <- reduce(extended_exo_list, ts.union)
+  future_exo_mts <- reduce(future_exo_list, ts.union)
   colnames(extended_exo_mts) <- colnames(exodata)
   
-  return(list(future_exo = extended_exo_mts,
+  return(list(extended_exo = extended_exo_mts,
+              future_exo = future_exo_mts,
               arima_models = arima_models_list))
 }
 
 
+
+extending_exogenous_for_cv <- function(exodata, h, endo_end, n_cv, 
+                                       list_of_models = NULL, 
+                                       same_model_across_cv = TRUE,
+                                       fixed_window = FALSE,
+                                       training_length = NULL) {
+  
+  exodata <- window(exodata, end = endo_end)
+  
+  if(is.null(dim(exodata))) {
+    full_sample_length <- length(exodata)
+  } else {
+    full_sample_length <- nrow(exodata)
+  }
+  
+  # print(paste0("full_sample_length = ", full_sample_length))
+  
+  if(is.null(list_of_models)) {
+    if (same_model_across_cv) {
+      full_sample_results <- extending_exogenous(exodata = exodata, h = h, 
+                                                 endo_end = endo_end)
+      full_sample_models <- full_sample_results[["arima_models"]]
+    }
+  }
+ 
+  fcs_per_cv <- list_along(seq(1, n_cv))
+  models_per_cv <- list_along(seq(1, n_cv))
+  
+  for (i  in seq(1, n_cv)) {
+    print(paste0("cv = ", i))
+    test_offset <- h + i - 1
+    end_index <- full_sample_length - test_offset
+    # print(paste0("end_index = ", end_index))
+    exodata_train <- subset(exodata, end = end_index)
+    
+    if (fixed_window) {
+      print("it is fixed window")
+      start_index <- end_index - training_length + 1
+      exodata_train <- subset(exodata_train, start = start_index)
+    }
+    
+    # print(exodata_train)
+    
+    cv_endo_date = end(exodata_train)
+    # print(cv_endo_date)
+    
+    if (same_model_across_cv) {
+      this_cv_results <-  extending_exogenous(exodata = exodata_train, h = h, 
+                                              endo_end = cv_endo_date, 
+                                              list_of_models = full_sample_models)
+      this_cv_models <- this_cv_results[["arima_models"]]
+    } else {
+      this_cv_results <-  extending_exogenous(exodata = exodata_train, h = h, 
+                                              endo_end = cv_endo_date, 
+                                              list_of_models = NULL)
+      this_cv_models <- this_cv_results[["arima_models"]]
+    }
+    
+    # print(this_cv_results[["future_exo"]])
+    
+    this_cv_fcs_mts <- this_cv_results[["future_exo"]]
+    fcs_per_cv[[i]] <- this_cv_fcs_mts
+    models_per_cv[[i]] <- this_cv_models
+    
+    
+  }
+  
+  return(list(future_exo_cv = fcs_per_cv,
+              arima_models_cv = models_per_cv))
+}
+
+
 tic()
-shoo <- extending_exogenous(exodata = exodata_fullsample, h = 8, 
-                            endo_end = end_target_in_VAR, n_cv = 1)
+extension_of_exo <- extending_exogenous(exodata = exodata_fullsample, h = 8, 
+                            endo_end = end_target_in_VAR)
 toc()
 
-shoo[["future_exo"]]
-shoo[["arima_models"]]
+extension_of_exo[["future_exo"]]
+extension_of_exo[["extended_exo"]]
+extension_of_exo[["arima_models"]]
 
 
 
+tic()
+shoo_cv_rw <- extending_exogenous_for_cv(
+  exodata = exodata_fullsample, h = 8, endo_end = end_target_in_VAR, n_cv = 5, same_model_across_cv = FALSE)
+toc()
 
+shoo_cv_rw$future_exo_cv
+
+shoo_cv_rw$arima_models_cv
 
 
 smaller_max_VAR_models_per_h <- 20
@@ -253,11 +348,8 @@ fit_VAR_rest <- function(var_data, variables, p,
     return(this_fit)
   }
   
-  
-  
   endodata <- this_var_data[ , endov]
   exodata <- this_var_data[ , exov]
-  
   
   if (is.null(dim(endodata))) {
     names(endodata) <- endov
@@ -298,6 +390,7 @@ fit_VAR_rest <- function(var_data, variables, p,
   # 
   
   if (is.numeric(t_tresh)) {
+    print(paste0("applying t-tresh = ", t_tresh))
     this_fit <- try(vars::restrict(this_fit, method = "ser", 
                    thresh = t_tresh), silent = TRUE)
     
@@ -308,28 +401,15 @@ fit_VAR_rest <- function(var_data, variables, p,
   return(this_fit)
 }
 
-forecast_VAR_one_row <- function(fit, h, exo_and_lags = NULL)  {
-  
-  if (class(fit) == "varest") {
-    if (is.null(exo_and_lags)) {
-      this_fc <- forecast(fit, h = h)
-    } else {
-      this_fc <- forecast(fit, h = h, dumvar = exo_and_lags,
-                          exogen = exo_and_lags)
-    }
-    
-  }
-  
-  if (!class(fit) == "varest") {
-    this_fc <- NA
-  }
-  # print(this_fc)
-  return(this_fc)
-}
-
-cv_var_from_one_row <- function(var_data, fit, variables, lags, h, 
-                                names_exogenous, training_length, 
-                                n_cv, this_type = "const") {
+cv_var_from_one_row <- function(var_data, 
+                                fit, 
+                                variables, 
+                                lags, 
+                                h, 
+                                names_exogenous,
+                                training_length, 
+                                n_cv, 
+                                this_type = "const") {
   
   print("inside cvvaronerow")
 
@@ -367,7 +447,9 @@ cv_var_from_one_row <- function(var_data, fit, variables, lags, h,
   return(this_cv)
 }
 
-estimate_var_from_model_tbl <- function(models_tbl, var_data, new_t_treshold = NULL, 
+estimate_var_from_model_tbl <- function(models_tbl, 
+                                        var_data, 
+                                        new_t_treshold = NULL, 
                                         names_exogenous = c(""),
                                         exo_lag = NULL) {
   
@@ -441,10 +523,16 @@ estimate_var_from_model_tbl <- function(models_tbl, var_data, new_t_treshold = N
   return(one_model_per_row)
 }
 
-forecast_var_from_model_tbl <- function(models_tbl, var_data, fc_horizon, 
-                                        new_t_treshold = NULL, fit_column = NULL,
-                                        target_transform = "yoy", target_level_ts = NULL,
-                                        keep_fc_obj = FALSE, keep_varest_obj = FALSE) {
+forecast_var_from_model_tbl <- function(models_tbl, 
+                                        var_data,
+                                        fc_horizon, 
+                                        new_t_treshold = NULL, 
+                                        fit_column = NULL,
+                                        target_transform = "yoy",
+                                        target_level_ts = NULL,
+                                        keep_fc_obj = FALSE,
+                                        keep_varest_obj = FALSE,
+                                        names_exogenous = c("")) {
   
   starting_names <- names(models_tbl)
   has_short_name <- "short_name" %in% starting_names
@@ -514,11 +602,15 @@ forecast_var_from_model_tbl <- function(models_tbl, var_data, fc_horizon,
   return(models_tbl)
 }
 
-cv_var_from_model_tbl <- function(h, n_cv, training_length, 
-                                  models_tbl, var_data, 
+cv_var_from_model_tbl <- function(h, 
+                                  n_cv, 
+                                  training_length, 
+                                  models_tbl, 
+                                  var_data, 
                                   new_t_treshold = NULL, 
                                   fit_column = NULL, 
-                                  target_transform = "yoy", 
+                                  target_transform = "yoy",
+                                  names_exogenous = c(""),
                                   target_level_ts = NULL,
                                   keep_varest_obj = FALSE,
                                   keep_cv_objects = FALSE,
@@ -897,7 +989,9 @@ cv_var_from_1 <- function(h, n_cv, training_length,
                           keep_cv_objects = FALSE,
                           keep_fc_objects = FALSE,
                           names_exogenous = c(""),
-                          exo_lag = NULL) {
+                          exo_lag = NULL,
+                          future_exo = NULL,
+                          future_exo_cv = NULL) {
   
   starting_names <- names(models_tbl)
   has_short_name <- "short_name" %in% starting_names
@@ -921,8 +1015,7 @@ cv_var_from_1 <- function(h, n_cv, training_length,
   if (is.null(fit_column)) {
     print("There is no column with fit varest objects, so we will estimate all VARs now")
     models_tbl <- estimate_var_from_model_tbl(
-      models_tbl = models_tbl, var_data = var_data, new_t_treshold = new_t_treshold, 
-      names_exogenous = names_exogenous, exo_lag = exo_lag)
+      models_tbl = models_tbl, var_data = var_data, new_t_treshold = new_t_treshold)
     
     print("Done estimating VARs, now we will compute the forecasts")
     
@@ -931,7 +1024,9 @@ cv_var_from_1 <- function(h, n_cv, training_length,
   }
   
   models_tbl <- models_tbl %>%
-    mutate(fc_obj = map(fit, ~ forecast_VAR_one_row(fit = .x, h = h)),
+    mutate(fc_obj = map2(fit, variables, ~ forecast_VAR_one_row(
+              fit = .x, h = h, variables = .y, names_exogenous = names_exogenous, 
+              future_exo_mts = future_exo)),
            fc_target_mean = map(fc_obj, c("forecast", "rgdp", "mean")),
            fc_target_mean_yoy = map(fc_target_mean,
                                     ~ any_fc_2_fc_yoy(
@@ -941,6 +1036,9 @@ cv_var_from_1 <- function(h, n_cv, training_length,
            )
     )
 
+  
+  
+  
   # print("Starting cv")
   # 
   # print(1)
@@ -1070,6 +1168,110 @@ cv_old1 <- cv_var_from_1(h = fc_horizon,
                          names_exogenous = names_exogenous)
 toc()
 
+
+foo <- cv_old1$fit[[1]]
+
+
+vtry_u <- fit_VAR_rest(var_data = VAR_data_for_estimation, 
+                      variables = c("rgdp", "rpc", "act_eco_bra"), 
+                      p = 4, 
+                      names_exogenous = names_exogenous, t_tresh = FALSE)
+
+
+
+colnames(vtry_u$y)
+colnames(vtry_u$datamat)
+
+
+vtry_r <- fit_VAR_rest(var_data = VAR_data_for_estimation, 
+                       variables = c("rgdp", "rpc", "act_eco_bra"), 
+                       p = 4, 
+                       names_exogenous = names_exogenous, t_tresh = 2)
+
+
+
+
+
+colnames(vtry_r$y)
+colnames(vtry_r$datamat)
+
+
+
+
+
+forecast_VAR_one_row <- function(fit, h, variables, extended_exo_mts, 
+                                 names_exogenous, exo_lag = NULL)  {
+  
+
+  
+  print("class(fit) == varest")
+  print(class(fit) == "varest")
+  
+  if (class(fit) == "varest") {
+    
+    this_var_data <- fit$y
+    endov <- variables[!variables %in% names_exogenous] 
+    exov <- variables[variables %in% names_exogenous] 
+    print("exov")
+    print(exov)
+    
+    if (exov == c("")) {
+      exo_and_lags <- NULL
+    } else {
+      
+      exodata <- extended_exo_mts[, exov]
+      
+      if(is.null(exo_lag)) {
+        exo_lag <- fit$p
+      }
+      exo_and_lags_extended <- make_exomat(exodata = exodata, exov = exov, exo_lag = exo_lag)
+      
+      print(end(this_var_data))
+      
+      exo_and_lags <- window(exo_and_lags_extended, end = end(this_var_data))
+      exo_and_lags_for_fc <- subset(exo_and_lags_extended, start = nrow(exo_and_lags)+1)
+      
+      print(exo_and_lags)
+      print(h)
+      print(exo_and_lags_for_fc)
+      
+      
+      assign("exo_and_lags", exo_and_lags_for_fit,
+      envir = .GlobalEnv)
+      
+    }
+    
+    
+    if (is.null(exo_and_lags_extended)) {
+      this_fc <- forecast(fit, h = h)
+    } else {
+      this_fc <- forecast(fit, h = h, dumvar = exo_and_lags_for_fc,
+                          exogen = exo_and_lags)
+    }
+    
+  }
+  
+  # this_fc <- forecast(this_var, h = h_max, dumvar = test_exo_and_lags,
+  #                     exogen = training_exo_and_lags)
+  
+  if (!class(fit) == "varest") {
+    this_fc <- NA
+  }
+  # print(this_fc)
+  return(this_fc)
+}
+
+
+ftry_u <- forecast_VAR_one_row(fit = vtry_u, h = 8, 
+                               variables = c("rgdp", "rpc", "act_eco_bra"), 
+                               extended_exo_mts = extension_of_exo$extended_exo, 
+                               names_exogenous = names_exogenous)
+
+
+ftry_r <- forecast_VAR_one_row(fit = vtry_r, h = 8, 
+                               variables = c("rgdp", "rpc", "act_eco_bra"), 
+                               extended_exo_mts = extension_of_exo$extended_exo, 
+                               names_exogenous = names_exogenous)
 
 cv_old1 <- cv_old1 %>% 
   mutate(varsize = map_dbl(variables, length))
