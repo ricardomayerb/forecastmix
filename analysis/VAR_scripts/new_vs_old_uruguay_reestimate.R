@@ -1221,22 +1221,23 @@ forecast_VAR_one_row <- function(fit, h, variables, extended_exo_mts,
       
       exodata <- extended_exo_mts[, exov]
       
-      if(is.null(exo_lag)) {
+      if (is.null(exo_lag)) {
         exo_lag <- fit$p
       }
       exo_and_lags_extended <- make_exomat(exodata = exodata, exov = exov, exo_lag = exo_lag)
       
       print(end(this_var_data))
       
-      exo_and_lags <- window(exo_and_lags_extended, end = end(this_var_data))
-      exo_and_lags_for_fc <- subset(exo_and_lags_extended, start = nrow(exo_and_lags)+1)
+      exo_and_lags <- window(exo_and_lags_extended,
+                                     end = end(this_var_data))
+      exo_and_lags_for_fc <- subset(exo_and_lags_extended, 
+                                    start = nrow(exo_and_lags) + 1)
       
       print(exo_and_lags)
       print(h)
       print(exo_and_lags_for_fc)
       
-      
-      assign("exo_and_lags", exo_and_lags_for_fit,
+      assign("exo_and_lags", exo_and_lags,
       envir = .GlobalEnv)
       
     }
