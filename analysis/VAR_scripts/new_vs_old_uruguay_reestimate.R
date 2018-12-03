@@ -1224,7 +1224,8 @@ forecast_VAR_one_row <- function(fit, h, variables, extended_exo_mts,
       if (is.null(exo_lag)) {
         exo_lag <- fit$p
       }
-      exo_and_lags_extended <- make_exomat(exodata = exodata, exov = exov, exo_lag = exo_lag)
+      exo_and_lags_extended <- make_exomat(exodata = exodata, exov = exov,
+                                           exo_lag = exo_lag)
       
       print(end(this_var_data))
       
