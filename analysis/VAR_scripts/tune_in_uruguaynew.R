@@ -1,16 +1,6 @@
 source('./R/combinations_functions.R')
 
-country <- "Uruguay"
-forecast_exercise_year <- 2018
-forecast_exercise_number <- 2
-output_path <- paste0("./analysis/VAR_output/edd_exercises/",
-                      forecast_exercise_year, 
-                      "_exercise_", forecast_exercise_number, "/")
-
-data_ts <- get_raw_data_ts(country, data_path = "./data/edd_exercises/2018_exercise_2/")
-rgdp_level_ts <- data_ts[, "rgdp"]
-rgdp_level_ts <- na.omit(rgdp_level_ts)
-rgdp_yoy_ts <- make_yoy_ts(rgdp_level_ts)
+####### functions  ----------------
 
 read_compare_var_res <- function(filename_new, filename_old, h_max = 7, 
                                  rank_h_max = 30) {
@@ -24,7 +14,7 @@ read_compare_var_res <- function(filename_new, filename_old, h_max = 7,
     var_res_old <- filename_old
   }
   
-
+  
   if ("f_vbls_all_sizes" %in% names(var_res_new)) {
     var_res_new <- var_res_new[["consolidated_var_res"]]
   }
@@ -51,7 +41,7 @@ read_compare_var_res <- function(filename_new, filename_old, h_max = 7,
   old_and_new <- stack_models(list(var_res_new, var_res_old))
   
   plot_best_consolidated <- single_plot_rmse_all_h(old_and_new, is_wide = TRUE, 
-                                        h_max = h_max, rank_h_max = rank_h_max)
+                                                   h_max = h_max, rank_h_max = rank_h_max)
   
   plot_best_each <- each_plot_rmse_all_h(selected_one = var_res_new,
                                          selected_two = var_res_old,
@@ -89,7 +79,7 @@ read_compare_var_res <- function(filename_new, filename_old, h_max = 7,
   print("Size 4 VARs: variables in old that are not in new:")
   print(size4_vbls_old[!size4_vbls_old %in% size4_vbls_new])
   
-
+  
   
   print("Size 5 VARs: variables in new that are not in old:")
   print(size5_vbls_new[!size5_vbls_new %in% size5_vbls_old])
@@ -106,50 +96,6 @@ read_compare_var_res <- function(filename_new, filename_old, h_max = 7,
   
 } 
 
-VAR_data_for_estimation <- readRDS("./analysis/VAR_output/edd_exercises/2018_exercise_2/VAR_data_Uruguay.rds")
-
-target_used_in_VAR <- VAR_data_for_estimation[, "rgdp"]
-start_target_in_VAR <- start(na.omit(target_used_in_VAR))
-end_target_in_VAR <- end(na.omit(target_used_in_VAR))
-
-ury_filename_old <- "./analysis/VAR_output/edd_exercises/2018_exercise_2/from_older_version_code/Uruguay_by_step_12345.rds"
-
-ury_auto_1s4_3s5_partial_filename_new <- "Uruguay_auto_1s4_3s5.rds"
-ury_auto_2s4_3s5_partial_filename_new <- "Uruguay_auto_2s4_3s5.rds"
-
-ury_auto_1s4_3s5_filename_new <- paste0(output_path, ury_auto_1s4_3s5_partial_filename_new)
-ury_auto_2s4_3s5_filename_new <- paste0(output_path, ury_auto_2s4_3s5_partial_filename_new)
-
-ury_auto_1s4_3s5 <- readRDS(ury_auto_1s4_3s5_filename_new)
-ury_auto_2s4_3s5 <- readRDS(ury_auto_2s4_3s5_filename_new)
-ury_old <- readRDS(ury_filename_old)
-
-ury_auto_1s4_3s5_mr <- ury_auto_1s4_3s5$consolidated_var_res
-ury_auto_2s4_3s5_mr <- ury_auto_2s4_3s5$consolidated_var_res
-ury_old_mr <- ury_old
-
-max_VAR_models_per_h <- ury_auto_1s4_3s5$max_rank_some_h
-print(paste0("max_VAR_models_per_h = ", max_VAR_models_per_h))
-
-n_cv <- ury_auto_1s4_3s5$number_of_cv
-print(paste0("n_cv = ", n_cv))
-
-training_length <- ury_auto_1s4_3s5$train_span
-print(paste0("training_length = ", training_length))
-
-names_exogenous <- ury_auto_2s4_3s5$names_exogenous
-print("names_exogenous = ")
-print(names_exogenous)
-
-fc_horizon <- ury_auto_2s4_3s5$fc_horizon
-print(paste0("fc_horizon = ", fc_horizon))
-
-rgdp_transformation <- ury_auto_2s4_3s5$target_variable_transform
-print(paste0("rgdp_transformation = ", rgdp_transformation))
-
-
-exodata_fullsample <- VAR_data_for_estimation[,names_exogenous]
-
 
 extending_exogenous <- function(exodata, h, endo_end, list_of_models = NULL) {
   
@@ -158,7 +104,7 @@ extending_exogenous <- function(exodata, h, endo_end, list_of_models = NULL) {
   } else {
     nexo <- ncol(exodata)
   }
-
+  
   extended_exo_list <- list_along(seq(1, nexo))
   future_exo_list <- list_along(seq(1, nexo))
   arima_models_list <- list_along(seq(1, nexo))
@@ -233,7 +179,7 @@ extending_exogenous_for_cv <- function(exodata, h, endo_end, n_cv,
       full_sample_models <- full_sample_results[["arima_models"]]
     }
   }
- 
+  
   fcs_per_cv <- list_along(seq(1, n_cv))
   models_per_cv <- list_along(seq(1, n_cv))
   
@@ -281,50 +227,8 @@ extending_exogenous_for_cv <- function(exodata, h, endo_end, n_cv,
 }
 
 
-tic()
-extension_of_exo <- extending_exogenous(exodata = exodata_fullsample, h = 8, 
-                            endo_end = end_target_in_VAR)
-toc()
-
-extension_of_exo[["future_exo"]]
-extension_of_exo[["extended_exo"]]
-extension_of_exo[["arima_models"]]
 
 
-
-tic()
-shoo_cv_rw <- extending_exogenous_for_cv(
-  exodata = exodata_fullsample, h = 8, endo_end = end_target_in_VAR, n_cv = 5, same_model_across_cv = FALSE)
-toc()
-
-shoo_cv_rw$future_exo_cv
-
-shoo_cv_rw$arima_models_cv
-
-
-smaller_max_VAR_models_per_h <- 20
-
-oldless <- as_tibble(ury_old) %>% 
-  filter(rank_1 <= smaller_max_VAR_models_per_h | rank_2 <= smaller_max_VAR_models_per_h | 
-           rank_3 <= smaller_max_VAR_models_per_h | rank_4 <= smaller_max_VAR_models_per_h |
-           rank_5 <= smaller_max_VAR_models_per_h | rank_6 <= smaller_max_VAR_models_per_h | 
-           rank_7 <= smaller_max_VAR_models_per_h | rank_8 <= smaller_max_VAR_models_per_h) 
-
-auto13less <- as_tibble(ury_auto_1s4_3s5_mr) %>% 
-  filter(rank_1 <= smaller_max_VAR_models_per_h | rank_2 <= smaller_max_VAR_models_per_h | 
-           rank_3 <= smaller_max_VAR_models_per_h | rank_4 <= smaller_max_VAR_models_per_h |
-           rank_5 <= smaller_max_VAR_models_per_h | rank_6 <= smaller_max_VAR_models_per_h | 
-           rank_7 <= smaller_max_VAR_models_per_h | rank_8 <= smaller_max_VAR_models_per_h) 
-
-auto23less <- as_tibble(ury_auto_2s4_3s5_mr) %>% 
-  filter(rank_1 <= smaller_max_VAR_models_per_h | rank_2 <= smaller_max_VAR_models_per_h | 
-           rank_3 <= smaller_max_VAR_models_per_h | rank_4 <= smaller_max_VAR_models_per_h |
-           rank_5 <= smaller_max_VAR_models_per_h | rank_6 <= smaller_max_VAR_models_per_h | 
-           rank_7 <= smaller_max_VAR_models_per_h | rank_8 <= smaller_max_VAR_models_per_h) 
-
-names(auto13less)
-names(auto23less)
-names(oldless)
 
 
 fit_VAR_rest <- function(var_data, variables, p,
@@ -390,9 +294,9 @@ fit_VAR_rest <- function(var_data, variables, p,
   # 
   
   if (is.numeric(t_tresh)) {
-    print(paste0("applying t-tresh = ", t_tresh))
+    # print(paste0("applying t-tresh = ", t_tresh))
     this_fit <- try(vars::restrict(this_fit, method = "ser", 
-                   thresh = t_tresh), silent = TRUE)
+                                   thresh = t_tresh), silent = TRUE)
     
     if (class(this_fit) == "try-error") {
       this_fit <- "one_or_more_eqn_drops"
@@ -412,7 +316,7 @@ cv_var_from_one_row <- function(var_data,
                                 this_type = "const") {
   
   print("inside cvvaronerow")
-
+  
   this_restriction_mat <- try(fit$restrictions, silent = TRUE) 
   
   if (class(this_restriction_mat) == "try-error") {
@@ -514,7 +418,7 @@ estimate_var_from_model_tbl <- function(models_tbl,
                                          names_exogenous = names_exogenous, 
                                          exo_lag = exo_lag))
         )
-
+      
       all_one_model_per_row[[i]] <- this_one_model_per_row
     }
     one_model_per_row <- reduce(all_one_model_per_row, rbind)
@@ -532,7 +436,13 @@ forecast_var_from_model_tbl <- function(models_tbl,
                                         target_level_ts = NULL,
                                         keep_fc_obj = FALSE,
                                         keep_varest_obj = FALSE,
-                                        names_exogenous = c("")) {
+                                        names_exogenous = c(""),
+                                        extended_exo_mts = NULL
+) {
+  
+  print("extended_exo_mts")
+  print(extended_exo_mts)
+  
   
   starting_names <- names(models_tbl)
   has_short_name <- "short_name" %in% starting_names
@@ -563,8 +473,26 @@ forecast_var_from_model_tbl <- function(models_tbl,
   }
   
   models_tbl <- models_tbl %>% 
-    mutate(fc_object_raw = map(fit, ~ forecast_VAR_one_row(fit = .x, h = fc_horizon))
-           )
+    mutate(fc_object_raw = map2(fit, variables,
+                               ~ forecast_VAR_one_row(
+                                 fit = .x, variables = .y, h = fc_horizon, 
+                                 names_exogenous = names_exogenous,
+                                 extended_exo_mts = extended_exo_mts)
+    )
+    )
+  
+  # models_tbl <- models_tbl %>%
+  #   mutate(fc_obj = map2(fit, variables, ~ forecast_VAR_one_row(
+  #     fit = .x, h = h, variables = .y, names_exogenous = names_exogenous, 
+  #     future_exo_mts = future_exo)),
+  #     fc_target_mean = map(fc_obj, c("forecast", "rgdp", "mean")),
+  #     fc_target_mean_yoy = map(fc_target_mean,
+  #                              ~ any_fc_2_fc_yoy(
+  #                                current_fc = .x,
+  #                                rgdp_transformation = target_transform,
+  #                                rgdp_level_ts = rgdp_level_ts)
+  #     )
+  #   )
   
   if (target_transform == "yoy") {
     print("Target variable already in YoY form, so no transformation is needed")
@@ -572,7 +500,7 @@ forecast_var_from_model_tbl <- function(models_tbl,
       mutate(target_mean_fc_yoy = map(fc_object_raw,
                                       ~ .x[["forecast"]][["rgdp"]][["mean"]]))
   }
-
+  
   if (target_transform != "yoy") {
     
     print(paste0("Target variable is in ", target_transform, " form. Forecasts will be transformed to YoY."))
@@ -585,8 +513,8 @@ forecast_var_from_model_tbl <- function(models_tbl,
                                         current_fc = .x, 
                                         rgdp_transformation = target_transform,
                                         rgdp_level_ts = rgdp_level_ts)
-                                      )
              )
+      )
   }
   
   if (!keep_varest_obj) {
@@ -651,13 +579,13 @@ cv_var_from_model_tbl <- function(h,
                                       current_fc = .x,
                                       rgdp_transformation = target_transform,
                                       rgdp_level_ts = rgdp_level_ts)
-                                    )
            )
-    
+    )
+  
   print("Starting cv")
   
   print(1)
-
+  
   models_tbl <-  models_tbl %>% 
     mutate(cv_obj = pmap(list(fit, variables, lags),
                          ~ cv_var_from_one_row(var_data = var_data, fit = ..1, 
@@ -666,8 +594,8 @@ cv_var_from_model_tbl <- function(h,
                                                names_exogenous = names_exogenous,
                                                training_length = training_length,
                                                this_type = "const")
-                         )
-           )
+    )
+    )
   print(2)
   
   if (target_transform != "yoy") {
@@ -675,17 +603,17 @@ cv_var_from_model_tbl <- function(h,
     # rgdp_yoy_ts <- make_yoy_ts(target_level_ts)
     
     if (target_transform == "diff_yoy") {
-
+      
       models_tbl <- models_tbl %>% 
         rename(cv_obj_diff_yoy = cv_obj)
       
       models_tbl <- models_tbl %>% 
         mutate(cv_obj_yoy = map(cv_obj_diff_yoy,
                                 ~ transform_all_cv( ., 
-                                                current_form = rgdp_transformation,
-                                                target_level_ts =  rgdp_level_ts,
-                                                n_cv = n_cv) 
-                                )
+                                                    current_form = rgdp_transformation,
+                                                    target_level_ts =  rgdp_level_ts,
+                                                    n_cv = n_cv) 
+        )
         )
     }
     
@@ -698,11 +626,11 @@ cv_var_from_model_tbl <- function(h,
       results_all_models <- results_all_models %>% 
         mutate(cv_obj_yoy = map(cv_obj_diff,
                                 ~ transform_all_cv(cv_object  = .,
-                                               current_form = rgdp_transformation,
-                                               auxiliary_ts = target_level_ts,
-                                               n_cv = n_cv)
-                                )
-               )
+                                                   current_form = rgdp_transformation,
+                                                   auxiliary_ts = target_level_ts,
+                                                   n_cv = n_cv)
+        )
+        )
     }
     
   }
@@ -727,7 +655,7 @@ cv_var_from_model_tbl <- function(h,
     models_tbl <- models_tbl %>% 
       dplyr::select(-fit)
   }
-
+  
   if (!keep_fc_objects) {
     models_tbl <- models_tbl %>% 
       dplyr::select(vars_select(names(.), -starts_with("fc_ob")))
@@ -782,14 +710,14 @@ all_rmse_from_cv_obj <- function(cv_obj) {
   matrix_errors <- reduce(cv_errors, rbind) 
   rownames(matrix_errors) <- NULL
   rmse <- sqrt(colMeans(matrix_errors^2))
-
+  
   return(rmse)
 }
 
 
 
 transform_all_cv <- function(cv_object, current_form,
-                         target_level_ts, n_cv) {
+                             target_level_ts, n_cv) {
   
   if (current_form == "yoy") {
     #noting to transform
@@ -864,21 +792,21 @@ transform_all_cv <- function(cv_object, current_form,
       level_fcs <- un_diff_ts(initial_cond_ts, this_fcs)
       
       pre_test_level_data <- window(auxiliary_ts, end = end_initial_cond_y_q)
-
+      
       data_and_test_level <- ts(c(pre_test_level_data, level_test_data),
                                 frequency = 4, start = start(auxiliary_ts))
       data_and_fcs_level <- ts(c(pre_test_level_data, level_fcs),
-                                frequency = 4, start = start(auxiliary_ts))
+                               frequency = 4, start = start(auxiliary_ts))
       
       data_and_test_yoy <- make_yoy_ts(data_and_test_level, freq = 4, 
                                        is_log = FALSE)
       data_and_fcs_yoy <- make_yoy_ts(data_and_fcs_level, freq = 4, 
-                                       is_log = FALSE)
+                                      is_log = FALSE)
       
       new_test_data <- window(data_and_test_yoy, start = start(this_test_data),
                               end = end(this_test_data))
       new_fcs <- window(data_and_fcs_yoy, start = start(this_fcs),
-                              end = end(this_fcs))
+                        end = end(this_fcs))
       
       new_fcs_errors <-  new_test_data - new_fcs
       new_fcs_errors_list[[td]] <- new_fcs_errors
@@ -927,13 +855,20 @@ ave_fc_from_cv <- function(cv_tbl, best_n_to_keep = "all") {
 
 
 
-
-
-
 forecast_VAR_one_row <- function(fit, h, variables, extended_exo_mts, 
                                  names_exogenous, exo_lag = NULL)  {
   
+  print("in fc var one row")
+  # print("extended_exo_mts")
+  # print(extended_exo_mts)
   
+  print("variables")
+  print(variables)
+  
+  print("names_exogenous")
+  print(names_exogenous)
+  
+  are_there_exo <- any(names_exogenous %in% names_exogenous)
   
   print("class(fit) == varest")
   print(class(fit) == "varest")
@@ -946,7 +881,11 @@ forecast_VAR_one_row <- function(fit, h, variables, extended_exo_mts,
     print("exov")
     print(exov)
     
-    if (exov == c("")) {
+    print("are_there_exo")
+    print(are_there_exo)
+    
+    if (!are_there_exo) {
+      print("terrible de null")
       exo_and_lags <- NULL
     } else {
       
@@ -992,66 +931,6 @@ forecast_VAR_one_row <- function(fit, h, variables, extended_exo_mts,
   # print(this_fc)
   return(this_fc)
 }
-
-
-
-
-
-
-
-
-# return(list(cv_errors = cv_errors,
-#             cv_test_data = cv_test_data,
-#             cv_fcs = cv_fcs,
-#             mean_cv_rmse = mean_cv_rmse,
-#             cv_vbl_names = cv_vbl_names,
-#             cv_lag = cv_lag,
-#             cv_is_white_noise = cv_is_white_noise))
-
-
-# cv_test_data_diff_yoy, ~ transform_cv(list_series  = ., 
-#                                       series_name = "cv_test_data",
-#                                       current_form = rgdp_current_form,
-#                                       auxiliary_ts = auxiliary_ts,
-#                                       n_cv = n_cv) ),
-# cv_fcs = map(
-#   cv_fcs_diff_yoy,  ~ transform_cv(list_series  = .,
-#                                    series_name = "cv_fcs",
-#                                    current_form = rgdp_current_form,
-#                                    auxiliary_ts = auxiliary_ts,
-#                                    n_cv = n_cv) ),
-
-
-tic()
-fcold_3t_from_scratch <- forecast_var_from_model_tbl(oldless, var_data = VAR_data_for_estimation,
-                                                     new_t_treshold = c(0, 1.65, 2),
-                                                     fc_horizon = 8, 
-                                                     target_transform = rgdp_transformation)
-toc()
-print(object.size(fcold_3t_from_scratch), units = "auto")
-
-
-tic()
-fc13_3t_from_scratch <- forecast_var_from_model_tbl(auto13less, var_data = VAR_data_for_estimation,
-                                                     new_t_treshold = c(0, 1.65, 2), 
-                                                    fc_horizon = 8, target_transform = rgdp_transformation)
-toc()
-print(object.size(fc13_3t_from_scratch), units = "auto")
-
-
-tic()
-cv_oldless_3t_from_scratch <- cv_var_from_model_tbl(h = fc_horizon, 
-                                                n_cv = n_cv, 
-                                                training_length = training_length,
-                                                models_tbl = oldless, 
-                                                var_data = VAR_data_for_estimation, 
-                                                new_t_treshold = c(0, 1.65, 2), 
-                                                target_level_ts = rgdp_level_ts,
-                                                target_transform = rgdp_transformation)
-toc()
-print(object.size(cv_oldless_3t_from_scratch), units = "auto")
-
-
 
 
 cv_var_from_1 <- function(h, n_cv, training_length, 
@@ -1100,17 +979,17 @@ cv_var_from_1 <- function(h, n_cv, training_length,
   
   models_tbl <- models_tbl %>%
     mutate(fc_obj = map2(fit, variables, ~ forecast_VAR_one_row(
-              fit = .x, h = h, variables = .y, names_exogenous = names_exogenous, 
-              future_exo_mts = future_exo)),
-           fc_target_mean = map(fc_obj, c("forecast", "rgdp", "mean")),
-           fc_target_mean_yoy = map(fc_target_mean,
-                                    ~ any_fc_2_fc_yoy(
-                                      current_fc = .x,
-                                      rgdp_transformation = target_transform,
-                                      rgdp_level_ts = rgdp_level_ts)
-           )
+      fit = .x, h = h, variables = .y, names_exogenous = names_exogenous, 
+      future_exo_mts = future_exo)),
+      fc_target_mean = map(fc_obj, c("forecast", "rgdp", "mean")),
+      fc_target_mean_yoy = map(fc_target_mean,
+                               ~ any_fc_2_fc_yoy(
+                                 current_fc = .x,
+                                 rgdp_transformation = target_transform,
+                                 rgdp_level_ts = rgdp_level_ts)
+      )
     )
-
+  
   
   
   
@@ -1227,6 +1106,155 @@ cv_var_from_1 <- function(h, n_cv, training_length,
   
   return(models_tbl)
 } 
+
+
+
+
+####### prelim param and data ------------
+
+country <- "Uruguay"
+forecast_exercise_year <- 2018
+forecast_exercise_number <- 2
+output_path <- paste0("./analysis/VAR_output/edd_exercises/",
+                      forecast_exercise_year, 
+                      "_exercise_", forecast_exercise_number, "/")
+
+data_ts <- get_raw_data_ts(country, data_path = "./data/edd_exercises/2018_exercise_2/")
+rgdp_level_ts <- data_ts[, "rgdp"]
+rgdp_level_ts <- na.omit(rgdp_level_ts)
+rgdp_yoy_ts <- make_yoy_ts(rgdp_level_ts)
+
+
+VAR_data_for_estimation <- readRDS("./analysis/VAR_output/edd_exercises/2018_exercise_2/VAR_data_Uruguay.rds")
+
+target_used_in_VAR <- VAR_data_for_estimation[, "rgdp"]
+start_target_in_VAR <- start(na.omit(target_used_in_VAR))
+end_target_in_VAR <- end(na.omit(target_used_in_VAR))
+
+ury_filename_old <- "./analysis/VAR_output/edd_exercises/2018_exercise_2/from_older_version_code/Uruguay_by_step_12345.rds"
+ury_auto_2s4_3s5_partial_filename_new <- "Uruguay_auto_2s4_3s5.rds"
+ury_auto_2s4_3s5_filename_new <- paste0(output_path, ury_auto_2s4_3s5_partial_filename_new)
+ury_auto_2s4_3s5 <- readRDS(ury_auto_2s4_3s5_filename_new)
+ury_old <- readRDS(ury_filename_old)
+ury_auto_2s4_3s5_mr <- ury_auto_2s4_3s5$consolidated_var_res
+ury_old_mr <- ury_old
+
+max_VAR_models_per_h <- ury_auto_2s4_3s5$max_rank_some_h
+print(paste0("max_VAR_models_per_h = ", max_VAR_models_per_h))
+
+n_cv <- ury_auto_2s4_3s5$number_of_cv
+print(paste0("n_cv = ", n_cv))
+
+training_length <- ury_auto_2s4_3s5$train_span
+print(paste0("training_length = ", training_length))
+
+names_exogenous <- ury_auto_2s4_3s5$names_exogenous
+print("names_exogenous = ")
+print(names_exogenous)
+
+fc_horizon <- ury_auto_2s4_3s5$fc_horizon
+print(paste0("fc_horizon = ", fc_horizon))
+
+rgdp_transformation <- ury_auto_2s4_3s5$target_variable_transform
+print(paste0("rgdp_transformation = ", rgdp_transformation))
+
+smaller_max_VAR_models_per_h <- 10
+
+oldless <- as_tibble(ury_old) %>% 
+  filter(rank_1 <= smaller_max_VAR_models_per_h | rank_2 <= smaller_max_VAR_models_per_h | 
+           rank_3 <= smaller_max_VAR_models_per_h | rank_4 <= smaller_max_VAR_models_per_h |
+           rank_5 <= smaller_max_VAR_models_per_h | rank_6 <= smaller_max_VAR_models_per_h | 
+           rank_7 <= smaller_max_VAR_models_per_h | rank_8 <= smaller_max_VAR_models_per_h) 
+
+auto23less <- as_tibble(ury_auto_2s4_3s5_mr) %>% 
+  filter(rank_1 <= smaller_max_VAR_models_per_h | rank_2 <= smaller_max_VAR_models_per_h | 
+           rank_3 <= smaller_max_VAR_models_per_h | rank_4 <= smaller_max_VAR_models_per_h |
+           rank_5 <= smaller_max_VAR_models_per_h | rank_6 <= smaller_max_VAR_models_per_h | 
+           rank_7 <= smaller_max_VAR_models_per_h | rank_8 <= smaller_max_VAR_models_per_h) 
+
+names(oldless)
+names(auto23less)
+
+exodata_fullsample <- VAR_data_for_estimation[,names_exogenous]
+
+
+tic()
+extension_of_exo <- extending_exogenous(exodata = exodata_fullsample, h = 8, 
+                                        endo_end = end_target_in_VAR)
+toc()
+
+extension_of_exo[["future_exo"]]
+extension_of_exo[["extended_exo"]]
+extension_of_exo[["arima_models"]]
+
+
+
+tic()
+shoo_cv_rw <- extending_exogenous_for_cv(
+  exodata = exodata_fullsample, h = 8, endo_end = end_target_in_VAR, 
+  n_cv = n_cv, same_model_across_cv = FALSE)
+toc()
+
+shoo_cv_rw$future_exo_cv
+
+shoo_cv_rw$arima_models_cv
+
+
+
+
+
+
+####### using functions ------
+
+### reestimating old models
+tic()
+mt_with_fit_old <- estimate_var_from_model_tbl(models_tbl = oldless, var_data = VAR_data_for_estimation, new_t_treshold = c(0, 1.65, 2), names_exogenous = names_exogenous)  
+names(mt_with_fit_old)
+mt_with_fit_old
+toc()
+
+### reestiamting new models
+tic()
+mt_with_fit_new <- estimate_var_from_model_tbl(models_tbl = auto23less, var_data = VAR_data_for_estimation, new_t_treshold = c(0, 1.65, 2), names_exogenous = names_exogenous)  
+names(mt_with_fit_new)
+mt_with_fit_new
+toc()
+
+
+### forecasts when there are no fit objects, old models
+tic()
+mt_with_fcs_reestimate_old <- forecast_var_from_model_tbl(
+  oldless, var_data = VAR_data_for_estimation, new_t_treshold = c(0, 1.65, 2),
+  fc_horizon = 8, target_transform = rgdp_transformation, 
+  target_level_ts = rgdp_level_ts, names_exogenous = names_exogenous,
+  extended_exo_mts = extension_of_exo[["extended_exo"]])
+toc()
+names(mt_with_fcs_reestimate_old)
+mt_with_fit_new
+print(object.size(mt_with_fcs_reestimate_old), units = "auto")
+
+
+tic()
+fc13_3t_from_scratch <- forecast_var_from_model_tbl(auto13less, var_data = VAR_data_for_estimation,
+                                                     new_t_treshold = c(0, 1.65, 2), 
+                                                    fc_horizon = 8, target_transform = rgdp_transformation)
+toc()
+print(object.size(fc13_3t_from_scratch), units = "auto")
+
+
+tic()
+cv_oldless_3t_from_scratch <- cv_var_from_model_tbl(h = fc_horizon, 
+                                                n_cv = n_cv, 
+                                                training_length = training_length,
+                                                models_tbl = oldless, 
+                                                var_data = VAR_data_for_estimation, 
+                                                new_t_treshold = c(0, 1.65, 2), 
+                                                target_level_ts = rgdp_level_ts,
+                                                target_transform = rgdp_transformation)
+toc()
+print(object.size(cv_oldless_3t_from_scratch), units = "auto")
+
+
 
 
 
