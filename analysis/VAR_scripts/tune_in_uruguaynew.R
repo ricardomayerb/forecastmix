@@ -868,7 +868,7 @@ forecast_VAR_one_row <- function(fit, h, variables, extended_exo_mts,
   print("names_exogenous")
   print(names_exogenous)
   
-  are_there_exo <- any(names_exogenous %in% names_exogenous)
+  are_there_exo <- any(names_exogenous %in% variables)
   
   print("class(fit) == varest")
   print(class(fit) == "varest")
