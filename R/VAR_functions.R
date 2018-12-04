@@ -1402,9 +1402,13 @@ var_cv <- function(var_data, this_p, this_type = "const",
                    external_idx = NULL, test_residuals = TRUE,
                    full_sample_resmat = NULL,
                    names_exogenous = c(""),
-                   exo_lag = NULL) {
+                   exo_lag = NULL,
+                   future_exo_cv = NULL) {
   
-  # print("inside var_cv")
+  print("inside var_cv")
+  print("future_exo_cv")
+  print(future_exo_cv)
+  
   # print(colnames(var_data))
   # print("firts full_sample_resmat")
   # print(full_sample_resmat)}
@@ -1413,7 +1417,8 @@ var_cv <- function(var_data, this_p, this_type = "const",
   
   if (is.null(train_test_marks)) {
     train_test_dates <- make_test_dates_list(ts_data = var_data, 
-                                             type = "tscv", n = n_cv, h_max = h_max, 
+                                             type = "tscv", n = n_cv, 
+                                             h_max = h_max, 
                                              training_length = training_length, 
                                              timetk_idx = timetk_idx, 
                                              external_idx = external_idx)
@@ -1422,19 +1427,17 @@ var_cv <- function(var_data, this_p, this_type = "const",
   }
   
 
-  # print("here1")
   
   vbls_for_var <- colnames(var_data)
   
   endov <- vbls_for_var[!vbls_for_var %in% names_exogenous] 
-
-  
-  exov <- vbls_for_var[vbls_for_var %in% names_exogenous] 
-
-  
   endodata <- var_data[ , endov]
+  exov <- vbls_for_var[vbls_for_var %in% names_exogenous] 
+  
+  if(is.null(future_exo_cv)){
+    exodata <- var_data[ , exov]
+  }
 
-  exodata <- var_data[ , exov]
 
   
   if (is.null(dim(endodata))) {
@@ -1447,7 +1450,7 @@ var_cv <- function(var_data, this_p, this_type = "const",
     exo_lag <- this_p
   }
   
-  print("here2")
+  # print("here2")
   
   exo_and_lags <- make_exomat(exodata = exodata, exov = exov, exo_lag = exo_lag)
 
@@ -1496,7 +1499,7 @@ var_cv <- function(var_data, this_p, this_type = "const",
     training_y <- window(endodata, 
                          start = this_tra_s,
                          end = this_tra_e)
-    print("here6")
+    # print("here6")
     
     # print("training_y")
     # print(training_y)
@@ -1507,12 +1510,13 @@ var_cv <- function(var_data, this_p, this_type = "const",
     #                  start = this_tes_s,
     #                  end = this_tes_e)
     
-    print("here6b")
+    # print("here6b")
+    # print("here6b")
 
     test_y <- window(endodata, 
                      start = this_tes_s,
                      end = this_tes_e)
-    print("here7")
+    # print("here7")
     
     if (is.null(exo_and_lags)) {
       training_exo <- NULL
@@ -1556,7 +1560,7 @@ var_cv <- function(var_data, this_p, this_type = "const",
     
     # this_var <- vars::VAR(y = training_y, p = this_p, type = this_type) 
     
-    print("prethisvar")
+    # print("prethisvar")
     
     
     

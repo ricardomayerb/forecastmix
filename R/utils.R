@@ -21,6 +21,11 @@ any_fc_2_fc_yoy <- function(current_fc, rgdp_transformation, rgdp_level_ts) {
     return(yoy_fc)
   }
   
+  if (is.na(current_fc)) {
+    yoy_fc <- NA
+    return(yoy_fc)
+  }
+  
   yq_pre_fc <- as.yearqtr(min(time(current_fc)) - 0.25)
   
   end_adjusted <- c(year(yq_pre_fc), quarter(yq_pre_fc))
