@@ -440,8 +440,8 @@ forecast_var_from_model_tbl <- function(models_tbl,
                                         extended_exo_mts = NULL
 ) {
   
-  print("extended_exo_mts")
-  print(extended_exo_mts)
+  # print("extended_exo_mts")
+  # print(extended_exo_mts)
   
   
   starting_names <- names(models_tbl)
@@ -481,19 +481,6 @@ forecast_var_from_model_tbl <- function(models_tbl,
     )
     )
   
-  # models_tbl <- models_tbl %>%
-  #   mutate(fc_obj = map2(fit, variables, ~ forecast_VAR_one_row(
-  #     fit = .x, h = h, variables = .y, names_exogenous = names_exogenous, 
-  #     future_exo_mts = future_exo)),
-  #     fc_target_mean = map(fc_obj, c("forecast", "rgdp", "mean")),
-  #     fc_target_mean_yoy = map(fc_target_mean,
-  #                              ~ any_fc_2_fc_yoy(
-  #                                current_fc = .x,
-  #                                rgdp_transformation = target_transform,
-  #                                rgdp_level_ts = rgdp_level_ts)
-  #     )
-  #   )
-  
   if (target_transform == "yoy") {
     print("Target variable already in YoY form, so no transformation is needed")
     models_tbl <- models_tbl %>% 
@@ -505,16 +492,30 @@ forecast_var_from_model_tbl <- function(models_tbl,
     
     print(paste0("Target variable is in ", target_transform, " form. Forecasts will be transformed to YoY."))
     
+    fcr <- models_tbl$fc_object_raw
+    print("fcr")
+    print(fcr)
+    fcr1 <- fcr1[[1]]
+    print(names(fcr1))
+    
+    
     models_tbl <- models_tbl %>% 
       mutate(target_mean_fc = map(fc_object_raw,
-                                  ~ .x[["forecast"]][["rgdp"]][["mean"]]),
-             target_mean_fc_yoy = map(target_mean_fc, 
+                                  ~ .x[["forecast"]][["rgdp"]][["mean"]])
+             )
+    
+    print("foo")
+    
+    models_tbl <- models_tbl %>% 
+      mutate(target_mean_fc_yoy = map(target_mean_fc, 
                                       ~ any_fc_2_fc_yoy(
                                         current_fc = .x, 
                                         rgdp_transformation = target_transform,
                                         rgdp_level_ts = rgdp_level_ts)
+                                      )
              )
-      )
+    print("moo")
+    
   }
   
   if (!keep_varest_obj) {
@@ -887,6 +888,7 @@ forecast_VAR_one_row <- function(fit, h, variables, extended_exo_mts,
     if (!are_there_exo) {
       print("terrible de null")
       exo_and_lags <- NULL
+      exo_and_lags_extended <- NULL
     } else {
       
       exodata <- extended_exo_mts[, exov]
@@ -894,8 +896,9 @@ forecast_VAR_one_row <- function(fit, h, variables, extended_exo_mts,
       if (is.null(exo_lag)) {
         exo_lag <- fit$p
       }
-      exo_and_lags_extended <- make_exomat(exodata = exodata, exov = exov, exo_lag = exo_lag)
-      
+      exo_and_lags_extended <- make_exomat(exodata = exodata, 
+                                           exov = exov,
+                                           exo_lag = exo_lag)
       print(end(this_var_data))
       
       exo_and_lags <- window(exo_and_lags_extended,
@@ -922,13 +925,11 @@ forecast_VAR_one_row <- function(fit, h, variables, extended_exo_mts,
     
   }
   
-  # this_fc <- forecast(this_var, h = h_max, dumvar = test_exo_and_lags,
-  #                     exogen = training_exo_and_lags)
-  
+
   if (!class(fit) == "varest") {
-    this_fc <- NA
+    this_fc <- list()
+    this_fc[["forecast"]][["rgdp"]][["mean"]] <- NA
   }
-  # print(this_fc)
   return(this_fc)
 }
 
