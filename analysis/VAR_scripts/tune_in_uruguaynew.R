@@ -113,7 +113,7 @@ extending_exogenous <- function(exodata, h, endo_end, list_of_models = NULL) {
     
     print(paste0("exo_variable = ", i))
     
-    if(nexo == 1) {
+    if (nexo == 1) {
       this_series <- exodata
     } else {
       this_series <- exodata[,i]
@@ -164,15 +164,17 @@ extending_exogenous_for_cv <- function(exodata, h, endo_end, n_cv,
   
   exodata <- window(exodata, end = endo_end)
   
-  if(is.null(dim(exodata))) {
+  if (is.null(dim(exodata))) {
     full_sample_length <- length(exodata)
+    names_exogenous <- "exo_vbl"
   } else {
     full_sample_length <- nrow(exodata)
+    names_exogenous <- colnames(exodata)
   }
   
   # print(paste0("full_sample_length = ", full_sample_length))
   
-  if(is.null(list_of_models)) {
+  if (is.null(list_of_models)) {
     if (same_model_across_cv) {
       full_sample_results <- extending_exogenous(exodata = exodata, h = h, 
                                                  endo_end = endo_end)
@@ -216,6 +218,12 @@ extending_exogenous_for_cv <- function(exodata, h, endo_end, n_cv,
     # print(this_cv_results[["future_exo"]])
     
     this_cv_fcs_mts <- this_cv_results[["future_exo"]]
+    colnames(this_cv_fcs_mts) <- names_exogenous
+    print("names_exogenous")
+    print(names_exogenous)
+    print("this_cv_fcs_mts")
+    print(this_cv_fcs_mts)
+    
     fcs_per_cv[[i]] <- this_cv_fcs_mts
     models_per_cv[[i]] <- this_cv_models
     
@@ -974,7 +982,7 @@ cv_var_from_1 <- function(h, n_cv, training_length,
                                                names_exogenous = names_exogenous,
                                                training_length = training_length,
                                                this_type = "const",
-                                               future_exo_cv = NULL)
+                                               future_exo_cv = future_exo_cv)
                          )
     )
   
