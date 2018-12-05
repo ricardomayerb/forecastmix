@@ -1395,8 +1395,11 @@ stack_models <- function(models_list) {
 
 
 
-var_cv <- function(var_data, this_p, this_type = "const", 
-                   n_cv = 8, h_max = 6, 
+var_cv <- function(var_data, 
+                   this_p, 
+                   this_type = "const", 
+                   n_cv = 8, 
+                   h_max = 6, 
                    train_test_marks = NULL,
                    training_length = 20, timetk_idx = TRUE,
                    external_idx = NULL, test_residuals = TRUE,
