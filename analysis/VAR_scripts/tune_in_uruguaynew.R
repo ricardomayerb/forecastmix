@@ -321,7 +321,7 @@ cv_var_from_one_row <- function(var_data,
                                 this_type = "const", 
                                 future_exo_cv = NULL) {
   
-  print("inside cvvaronerow")
+  # print("inside cvvaronerow")
   
   this_restriction_mat <- try(fit$restrictions, silent = TRUE) 
   
@@ -343,9 +343,9 @@ cv_var_from_one_row <- function(var_data,
   
   sub_data_tk_index <- tk_index(var_data, timetk_idx = TRUE)
   
-  print("about to this_cv")
-  print("future_exo_cv")
-  print(future_exo_cv)
+  # print("about to this_cv")
+  # print("future_exo_cv")
+  # print(future_exo_cv)
   
   
   this_cv <- var_cv(var_data = sub_data,
@@ -358,7 +358,7 @@ cv_var_from_one_row <- function(var_data,
                     this_type = this_type,
                     future_exo_cv = future_exo_cv)
   
-  print("just did this_cv")
+  # print("just did this_cv")
   
   return(this_cv)
 }
@@ -714,6 +714,10 @@ all_rmse_from_cv_obj <- function(cv_obj) {
 transform_all_cv <- function(cv_object, current_form,
                              target_level_ts, n_cv) {
   
+  if (is.na(cv_object)) {
+    return(cv_object)
+  }
+  
   if (current_form == "yoy") {
     #noting to transform
     return(cv_object)
@@ -928,8 +932,10 @@ forecast_VAR_one_row <- function(fit, h, variables, extended_exo_mts,
 }
 
 
-cv_var_from_1 <- function(h, n_cv, training_length, 
-                          models_tbl, var_data, 
+cv_var_from_1 <- function(h, n_cv, 
+                          training_length, 
+                          models_tbl, 
+                          var_data, 
                           new_t_treshold = NULL, 
                           fit_column = NULL, 
                           target_transform = "yoy", 
@@ -970,8 +976,6 @@ cv_var_from_1 <- function(h, n_cv, training_length,
     print("Using previously estimates varest objects")
   }
   
-  
-  
   print("Starting cv")
   
   models_tbl <-  models_tbl %>%
@@ -986,83 +990,99 @@ cv_var_from_1 <- function(h, n_cv, training_length,
                          )
     )
   
+  print("transform to yoy")
   
-  # print(2)
-  # 
-  # if (target_transform != "yoy") {
-  #   
-  #   # rgdp_yoy_ts <- make_yoy_ts(target_level_ts)
-  #   
-  #   if (target_transform == "diff_yoy") {
-  #     
-  #     models_tbl <- models_tbl %>% 
-  #       rename(cv_obj_diff_yoy = cv_obj)
-  #     
-  #     models_tbl <- models_tbl %>% 
-  #       mutate(cv_obj_yoy = map(cv_obj_diff_yoy,
-  #                               ~ transform_all_cv( ., 
-  #                                                   current_form = rgdp_transformation,
-  #                                                   target_level_ts =  rgdp_level_ts,
-  #                                                   n_cv = n_cv) 
-  #       )
-  #       )
-  #   }
-  #   
-  #   if (target_transform == "diff") {
-  #     auxiliary_ts <-  target_level_ts
-  #     
-  #     models_tbl <- models_tbl %>% 
-  #       rename(cv_obj_diff = cv_obj)
-  #     
-  #     results_all_models <- results_all_models %>% 
-  #       mutate(cv_obj_yoy = map(cv_obj_diff,
-  #                               ~ transform_all_cv(cv_object  = .,
-  #                                                  current_form = rgdp_transformation,
-  #                                                  auxiliary_ts = target_level_ts,
-  #                                                  n_cv = n_cv)
-  #       )
-  #       )
-  #   }
-  #   
-  # }
-  # 
-  # if (target_transform == "yoy") {
-  #   models_tbl <- models_tbl %>% 
-  #     rename(cv_obj_yoy = cv_obj)
-  # }
-  # 
-  # models_tbl <- models_tbl %>% 
-  #   mutate(rmse_yoy_all_h = map(cv_obj_yoy, all_rmse_from_cv_obj))
-  # 
-  # rmse_tibble <- as_tibble(reduce(models_tbl$rmse_yoy_all_h, rbind))
-  # names(rmse_tibble) <- paste0("rmse_", seq(1, ncol(rmse_tibble)))
-  # 
-  # models_tbl <- models_tbl %>% 
-  #   dplyr::select(-rmse_yoy_all_h) %>% 
-  #   cbind(rmse_tibble)
-  # 
-  # 
-  # if (!keep_varest_obj) {
-  #   models_tbl <- models_tbl %>% 
-  #     dplyr::select(-fit)
-  # }
-  # 
-  # if (!keep_fc_objects) {
-  #   models_tbl <- models_tbl %>% 
-  #     dplyr::select(vars_select(names(.), -starts_with("fc_ob")))
-  # }
-  # 
-  # if (!keep_cv_objects) {
-  #   models_tbl <- models_tbl %>% 
-  #     dplyr::select(vars_select(names(.), -starts_with("cv_ob")))
-  # }
-  # 
-  # 
+  if (target_transform != "yoy") {
+
+    if (target_transform == "diff_yoy") {
+      
+      print("from diffyoy to yoy")
+
+      models_tbl <- models_tbl %>%
+        rename(cv_obj_diff_yoy = cv_obj)
+
+      models_tbl <- models_tbl %>%
+        mutate(cv_obj_yoy = map(cv_obj_diff_yoy,
+                                ~ transform_all_cv( .,
+                                                    current_form = rgdp_transformation,
+                                                    target_level_ts =  rgdp_level_ts,
+                                                    n_cv = n_cv)
+                                )
+               )
+    }
+
+    if (target_transform == "diff") {
+      auxiliary_ts <-  target_level_ts
+
+      models_tbl <- models_tbl %>%
+        rename(cv_obj_diff = cv_obj)
+
+      results_all_models <- results_all_models %>%
+        mutate(cv_obj_yoy = map(cv_obj_diff,
+                                ~ transform_all_cv(cv_object  = .,
+                                                   current_form = rgdp_transformation,
+                                                   auxiliary_ts = target_level_ts,
+                                                   n_cv = n_cv)
+        )
+        )
+    }
+
+  }
+
+  if (target_transform == "yoy") {
+    models_tbl <- models_tbl %>%
+      rename(cv_obj_yoy = cv_obj)
+  }
+  
+  print("done transforming")
+  
+  # print("models_tbl$cv_obj_yoy")
+  # print(models_tbl$cv_obj_yoy)
+   
+  models_tbl <- models_tbl %>%
+    mutate(rmse_yoy_all_h = map(cv_obj_yoy, all_rmse_from_cv_obj))
+
+  rmse_tibble <- as_tibble(reduce(models_tbl$rmse_yoy_all_h, rbind))
+  names(rmse_tibble) <- paste0("rmse_", seq(1, ncol(rmse_tibble)))
+
+  models_tbl <- models_tbl %>%
+    dplyr::select(-rmse_yoy_all_h) %>%
+    cbind(rmse_tibble)
+
+
+  if (!keep_varest_obj) {
+    models_tbl <- models_tbl %>%
+      dplyr::select(-fit)
+  }
+  
+  if (!keep_fc_objects) {
+    models_tbl <- models_tbl %>%
+      dplyr::select(vars_select(names(.), -starts_with("fc_ob")))
+  }
+  
+  if (!keep_cv_objects) {
+    models_tbl <- models_tbl %>%
+      dplyr::select(vars_select(names(.), -starts_with("cv_ob")))
+  }
+  
+  models_tbl <- as_tibble(models_tbl)
+
+  
   # mean_yoy <- models_tbl$fc_target_mean_yoy
-  # mean_yoy[map_lgl(mean_yoy, is.null)] <- NA 
+  
+  # print("mean_yoy 1")
+  # print(mean_yoy)
+  # 
+  # mean_yoy[map_lgl(mean_yoy, is.null)] <- NA
+  # 
+  # print("mean_yoy 2")
+  # print(mean_yoy)
+  # 
   # fc_tibble <- as_tibble(reduce(mean_yoy, rbind))
   # names(fc_tibble) <- paste0("fc_yoy_", seq(1, ncol(fc_tibble)))
-  # # fc_tibble
+  
+  
+  # fc_tibble
   # 
   # fc_tibble_long <- fc_tibble %>% 
   #   gather(key = "fc_yoy_h", value = "fc_yoy")
@@ -1273,9 +1293,6 @@ cv_old1 <- cv_var_from_1(h = fc_horizon,
                          future_exo = extension_of_exo[["future_exo"]], 
                          future_exo_cv = shoo_cv_rw[["future_exo_cv"]])
 toc()
-
-
-
 
 ### remanent stuff ----
 
