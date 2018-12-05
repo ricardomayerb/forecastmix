@@ -1395,24 +1395,47 @@ stack_models <- function(models_list) {
 
 
 
-var_cv <- function(var_data, this_p, this_type = "const", 
+var_cv <- function(var_data,
+                   this_p, 
+                   this_type = "const", 
                    n_cv = 8, h_max = 6, 
                    train_test_marks = NULL,
-                   training_length = 20, timetk_idx = TRUE,
-                   external_idx = NULL, test_residuals = TRUE,
+                   training_length = 20,
+                   timetk_idx = TRUE,
+                   external_idx = NULL, 
+                   test_residuals = TRUE,
                    full_sample_resmat = NULL,
                    names_exogenous = c(""),
                    exo_lag = NULL,
                    future_exo_cv = NULL) {
   
-  print("inside var_cv")
-  print("future_exo_cv")
-  print(future_exo_cv)
+  # print("inside var_cv")
+  # print("future_exo_cv")
+  # print(future_exo_cv)
   
   # print(colnames(var_data))
   # print("firts full_sample_resmat")
   # print(full_sample_resmat)}
   
+  # print("initial data")
+  # print("var_data")
+  # print(var_data)
+  
+  vbls_for_var <- colnames(var_data)
+  
+  endov <- vbls_for_var[!vbls_for_var %in% names_exogenous] 
+  
+  if (length(endov) == 1) {
+    this_cv <- NA
+    print("only one endogenous variable, not a real VAR, returning NA")
+    return(this_cv)
+  }
+  
+  endodata <- var_data[ , endov]
+  exov <- vbls_for_var[vbls_for_var %in% names_exogenous] 
+  exodata <- var_data[ , exov]
+  
+
   cv_restriction_status <- NULL
   
   if (is.null(exo_lag)) {
@@ -1421,7 +1444,8 @@ var_cv <- function(var_data, this_p, this_type = "const",
   
   if (is.null(train_test_marks)) {
     train_test_dates <- make_test_dates_list(ts_data = var_data, 
-                                             type = "tscv", n = n_cv, 
+                                             type = "tscv",
+                                             n = n_cv, 
                                              h_max = h_max, 
                                              training_length = training_length, 
                                              timetk_idx = timetk_idx, 
@@ -1429,23 +1453,21 @@ var_cv <- function(var_data, this_p, this_type = "const",
     
     train_test_dates <- train_test_dates[["list_of_year_quarter"]]
   }
-  
 
+  # print("exodata")
+  # print(exodata)
   
-  vbls_for_var <- colnames(var_data)
+  # print("exo_lag")
+  # print(exo_lag)
+  # 
+  # print("this_p")
+  # print(this_p)
   
-  endov <- vbls_for_var[!vbls_for_var %in% names_exogenous] 
-  endodata <- var_data[ , endov]
-  exov <- vbls_for_var[vbls_for_var %in% names_exogenous] 
-  exodata <- var_data[ , exov]
-  
-  print("exodata")
-  print(exodata)
-  
-  
-  if (is.null(future_exo_cv)) {
-    exo_and_lags <- make_exomat(exodata = exodata, exov = exov, exo_lag = exo_lag)
-  }
+  exo_and_lags <- make_exomat(exodata = exodata, exov = exov, exo_lag = exo_lag)
+
+  # if (is.null(future_exo_cv)) {
+  #   exo_and_lags <- make_exomat(exodata = exodata, exov = exov, exo_lag = exo_lag)
+  # }
   
   if (is.null(dim(endodata))) {
     names(endodata) <- endov
@@ -1481,75 +1503,138 @@ var_cv <- function(var_data, this_p, this_type = "const",
   
   for (i in seq_along(1:n_cv)) {
     
+    # print(paste0("i = ", i))
+    
     this_tra_s <- train_test_dates[[i]]$tra_s
     this_tra_e <- train_test_dates[[i]]$tra_e
     
-    # print("here4")
-    
     this_tes_s <- train_test_dates[[i]]$tes_s
     this_tes_e <- train_test_dates[[i]]$tes_e
-    # print("here5")
-    
-    # training_y <- window(var_data, 
-    #                      start = this_tra_s,
-    #                      end = this_tra_e)
 
     training_y <- window(endodata, 
                          start = this_tra_s,
                          end = this_tra_e)
-    # print("here6")
     
+    # print("this_tra_s")
+    # print(this_tra_s)
+    # 
+    # print("this_tra_e")
+    # print(this_tra_e)
+    # 
+    # print("endodata")
+    # print(endodata)
+    # 
     # print("training_y")
     # print(training_y)
     
-    # training_rgdp <- training_y[ , "rgdp"]
+    this_training_y <- training_y
     
-    # test_y <- window(var_data,
-    #                  start = this_tes_s,
-    #                  end = this_tes_e)
-    
-    # print("here6b")
-    # print("here6b")
-
     test_y <- window(endodata, 
                      start = this_tes_s,
                      end = this_tes_e)
-    # print("here7")
+    
     
     if (is.null(exo_and_lags)) {
       training_exo <- NULL
-      
       training_exo_and_lags <- NULL
-      
       test_exo <- NULL
-      
       test_exo_and_lags <- NULL
     } else {
       training_exo <- window(exodata, 
                              start = this_tra_s,
                              end = this_tra_e)
       
+      # print("training_exo") 
+      # print(training_exo) 
+      
       training_exo_and_lags <- window(exo_and_lags, 
                                       start = this_tra_s,
                                       end = this_tra_e)
       
+      # print("training_exo_and_lags")
+      # print(training_exo_and_lags)
+  
       assign("training_exo_and_lags", training_exo_and_lags, 
              envir = .GlobalEnv)
       
+      # print("training_exo_and_lags")
+      # print(training_exo_and_lags)
+      # 
+      # print("training_y")
+      # print(training_y)
+
+      
       if (!is.null(future_exo_cv)) {
-        print("Using cv-specific future exogenous")
+        # print("Using cv-specific future exogenous")
+        
         this_future_exo_cv <- future_exo_cv[[i]]
+        # print(1)
         test_exo <- this_future_exo_cv[, exov]
-        this_exodata <- ts(data = c(training_exo, test_exo), 
-                           frequency = frequency(training_exo),
-                           start = start(training_exo))
-        exo_and_lags <- make_exomat(exodata = this_exodata, exov = exov, 
+        # print(2)
+        
+        pretest_exodata <- window(exodata, end = this_tra_e)
+        
+        # print("exodata")
+        # print(exodata)
+        # print("pretest_exodata")
+        # print(pretest_exodata)
+        # print("test_exo")
+        # print(test_exo)
+        
+        # print("dim(exodata)")
+        # print(dim(exodata))
+        
+        # return(list(pe = pretest_exodata, te = test_exo))
+        
+        # print("c(pretest_exodata, test_exo)")
+        # print(c(pretest_exodata, test_exo))
+        # 
+        # print("rbind(pretest_exodata, test_exo)")
+        # print(rbind(pretest_exodata, test_exo))
+        # 
+        # print("c(pretest_exodata, test_exo)")
+        # print(c(pretest_exodata, test_exo))
+
+                # print("start(pretest?exodata)")
+        # print(start(pretest_exodata))
+        # 
+        # print("ts(rbind(pretest_exodata, test_exo ), frequency = 4, start = start(pretest_exodata))")
+        # print(ts(rbind(pretest_exodata, test_exo ), frequency = 4, start = start(pretest_exodata)))     
+        # 
+        # print("frequency(pretest_exodata)")
+        # print(frequency(pretest_exodata))
+        # 
+        # print("ts(rbind(pretest_exodata, test_exo ), frequency =  frequency(pretest_exodata), start = start(pretest_exodata))")
+        # print(ts(rbind(pretest_exodata, test_exo ), frequency =  frequency(pretest_exodata), start = start(pretest_exodata)))
+        
+        if (is.null(dim(exodata))) {
+          # print("one exodata series")
+          this_exodata <- ts(c(pretest_exodata, test_exo ), frequency =  frequency(pretest_exodata), start = start(pretest_exodata))
+        } else {
+          # print("multiple exodata series")
+          this_exodata <- ts(rbind(pretest_exodata, test_exo ), frequency =  frequency(pretest_exodata), start = start(pretest_exodata))
+        }
+        
+        # print(3)
+
+        # print("this_exodata")
+        # print(this_exodata)
+        
+        this_exo_and_lags <- make_exomat(exodata = this_exodata, exov = exov, 
                                     exo_lag = exo_lag)
-        test_exo_and_lags <- window(exo_and_lags, 
+        # print(4)
+        test_exo_and_lags <- window(this_exo_and_lags, 
                                     start = this_tes_s,
                                     end = this_tes_e)
-        print("this_exodata")
-        print(this_exodata)
+        # print("this_exodata")
+        # print(this_exodata)
+        
+        # print("exo_and_lags")
+        # print(exo_and_lags)
+        # 
+        # print("test_exo_and_lags")
+        # print(test_exo_and_lags)
+        # print("end cv-specific future exogenous")
         
       } else {
         test_exo <- window(exodata, 
@@ -1563,8 +1648,7 @@ var_cv <- function(var_data, this_p, this_type = "const",
       
       
     }
-    # print("here8")
-    
+
     if (is.null(dim(test_y))) {
       test_rgdp <- test_y
     } else {
@@ -1572,18 +1656,11 @@ var_cv <- function(var_data, this_p, this_type = "const",
     }
     
     
-    
-    
-    # this_var <- vars::VAR(y = training_y, p = this_p, type = this_type) 
-    
-    # print("prethisvar")
-    
-    
-    
     if (is.null(training_exo_and_lags)) {
       this_var <- vars::VAR(y = training_y, p = this_p, type = this_type) 
       
     } else {
+      # this_training_y
       this_var <- vars::VAR(y = training_y, p = this_p, type = this_type, 
                             exogen = training_exo_and_lags)
 
@@ -1598,7 +1675,7 @@ var_cv <- function(var_data, this_p, this_type = "const",
         cv_restriction_status <- 0
         
       } else {
-        cv_restriction_status <- 0
+        cv_restriction_status <- 1
         this_var <- this_var_r
       }
     }
@@ -1623,11 +1700,11 @@ var_cv <- function(var_data, this_p, this_type = "const",
       this_fc <- forecast(this_var, h = h_max)
     } else {
       
-      print("eoooo")
-      print("dumvar")
-      print(test_exo_and_lags)
-      print("exogen")
-      print(training_exo_and_lags)
+      # print("eoooo")
+      # print("dumvar")
+      # print(test_exo_and_lags)
+      # print("exogen")
+      # print(training_exo_and_lags)
       
       this_fc <- forecast(this_var, h = h_max, dumvar = test_exo_and_lags,
                           exogen = training_exo_and_lags)
@@ -1672,6 +1749,7 @@ var_cv <- function(var_data, this_p, this_type = "const",
   # if(is.na(mean_cv_rmse)) {mean_cv_rmse <- Inf}
   # print("foo6")
   
+  # print("finished var_cv")
 
   return(list(cv_errors = cv_errors,
               cv_test_data = cv_test_data,
