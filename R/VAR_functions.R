@@ -1395,12 +1395,6 @@ stack_models <- function(models_list) {
 
 
 
-<<<<<<< HEAD
-var_cv <- function(var_data, 
-                   this_p, 
-                   this_type = "const", 
-                   n_cv = 8, 
-                   h_max = 6, 
 var_cv <- function(var_data,
                    this_p, 
                    this_type = "const", 
