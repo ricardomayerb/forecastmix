@@ -237,6 +237,147 @@ each_plot_rmse_all_h <- function(selected_one, selected_two, extra_models = NULL
   return(p)
 }
 
+
+extending_exogenous <- function(exodata, h, endo_end, list_of_models = NULL) {
+  
+  if(is.null(dim(exodata))) {
+    nexo <- 1
+  } else {
+    nexo <- ncol(exodata)
+  }
+  
+  extended_exo_list <- list_along(seq(1, nexo))
+  future_exo_list <- list_along(seq(1, nexo))
+  arima_models_list <- list_along(seq(1, nexo))
+  
+  for (i in seq(1, nexo)) {
+    
+    print(paste0("exo_variable = ", i))
+    
+    if (nexo == 1) {
+      this_series <- exodata
+    } else {
+      this_series <- exodata[,i]
+    }
+    
+    
+    # print("in inner fun")
+    # print(endo_end)
+    this_series <- na.omit(this_series)
+    this_series <- window(this_series, end = endo_end)
+    # print(this_series)
+    
+    if (is.null(list_of_models)) {
+      this_ari <- auto.arima(y = this_series, stepwise = FALSE, 
+                             approximation = FALSE, allowdrift = TRUE)
+    } else {
+      this_ari <- list_of_models[[i]]
+    }
+    
+    this_fc <- forecast(this_ari, h = h)
+    
+    future_exo <-  this_fc$mean
+    extended_exo <- ts(data = c(this_series, future_exo), 
+                       frequency = frequency(this_series),
+                       start = start(this_series))
+    
+    future_exo_list[[i]] <- future_exo
+    extended_exo_list[[i]] <- extended_exo
+    arima_models_list[[i]] <- this_ari
+  }
+  
+  extended_exo_mts <- reduce(extended_exo_list, ts.union)
+  future_exo_mts <- reduce(future_exo_list, ts.union)
+  colnames(extended_exo_mts) <- colnames(exodata)
+  
+  return(list(extended_exo = extended_exo_mts,
+              future_exo = future_exo_mts,
+              arima_models = arima_models_list))
+}
+
+
+
+extending_exogenous_for_cv <- function(exodata, h, endo_end, n_cv, 
+                                       list_of_models = NULL, 
+                                       same_model_across_cv = TRUE,
+                                       fixed_window = FALSE,
+                                       training_length = NULL) {
+  
+  exodata <- window(exodata, end = endo_end)
+  
+  if (is.null(dim(exodata))) {
+    full_sample_length <- length(exodata)
+    names_exogenous <- "exo_vbl"
+  } else {
+    full_sample_length <- nrow(exodata)
+    names_exogenous <- colnames(exodata)
+  }
+  
+  # print(paste0("full_sample_length = ", full_sample_length))
+  
+  if (is.null(list_of_models)) {
+    if (same_model_across_cv) {
+      full_sample_results <- extending_exogenous(exodata = exodata, h = h, 
+                                                 endo_end = endo_end)
+      full_sample_models <- full_sample_results[["arima_models"]]
+    }
+  }
+  
+  fcs_per_cv <- list_along(seq(1, n_cv))
+  models_per_cv <- list_along(seq(1, n_cv))
+  
+  for (i  in seq(1, n_cv)) {
+    print(paste0("cv = ", i))
+    test_offset <- h + i - 1
+    end_index <- full_sample_length - test_offset
+    # print(paste0("end_index = ", end_index))
+    exodata_train <- subset(exodata, end = end_index)
+    
+    if (fixed_window) {
+      print("it is fixed window")
+      start_index <- end_index - training_length + 1
+      exodata_train <- subset(exodata_train, start = start_index)
+    }
+    
+    # print(exodata_train)
+    
+    cv_endo_date = end(exodata_train)
+    # print(cv_endo_date)
+    
+    if (same_model_across_cv) {
+      this_cv_results <-  extending_exogenous(exodata = exodata_train, h = h, 
+                                              endo_end = cv_endo_date, 
+                                              list_of_models = full_sample_models)
+      this_cv_models <- this_cv_results[["arima_models"]]
+    } else {
+      this_cv_results <-  extending_exogenous(exodata = exodata_train, h = h, 
+                                              endo_end = cv_endo_date, 
+                                              list_of_models = NULL)
+      this_cv_models <- this_cv_results[["arima_models"]]
+    }
+    
+    # print(this_cv_results[["future_exo"]])
+    
+    this_cv_fcs_mts <- this_cv_results[["future_exo"]]
+    colnames(this_cv_fcs_mts) <- names_exogenous
+    print("names_exogenous")
+    print(names_exogenous)
+    print("this_cv_fcs_mts")
+    print(this_cv_fcs_mts)
+    
+    fcs_per_cv[[i]] <- this_cv_fcs_mts
+    models_per_cv[[i]] <- this_cv_models
+    
+    
+  }
+  
+  return(list(future_exo_cv = fcs_per_cv,
+              arima_models_cv = models_per_cv))
+}
+
+
+
+
 facet_rmse_all_h <- function(selected_models_tbl, extra_models = NULL) {
   
   rmse_table_single_h <- selected_models_tbl %>% 

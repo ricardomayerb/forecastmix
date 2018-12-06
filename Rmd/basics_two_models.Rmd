@@ -1,0 +1,44 @@
+---
+title: "The basics, with two models"
+author: "Ricardo Mayer"
+date: "12/6/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+```
+
+```{r source-and-lib, message=FALSE, warning=FALSE}
+source('./R/combinations_functions.R')
+```
+
+
+## Estimating one VAR model to predict GDP growth
+
+We will start with a ready-to-use data set of quarterly data ready to use in our VAR estimation and forecast. In particular, we will *not* discuss the following important points:
+    - how the data was obtained
+    - how monthly data was converted to quaterly frequency
+    - how monthly data was *extended* to complete its current final quarter
+    - how (potentially) exogenous data was forecasted in order to make it available to produce conditional forecasts
+    
+All those points are discussed in the data preparation document, see *here*
+
+    
+    
+
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
