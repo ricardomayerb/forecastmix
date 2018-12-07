@@ -1295,95 +1295,95 @@ cv_old1 <- cv_var_from_1(h = fc_horizon,
 toc()
 
 ### remanent stuff ----
+# 
+# tic()
+# fc13_3t_from_scratch <- forecast_var_from_model_tbl(auto13less, var_data = VAR_data_for_estimation,
+#                                                      new_t_treshold = c(0, 1.65, 2), 
+#                                                     fc_horizon = 8, target_transform = rgdp_transformation)
+# toc()
+# print(object.size(fc13_3t_from_scratch), units = "auto")
+# 
+# 
+# tic()
+# cv_oldless_3t_from_scratch <- cv_var_from_model_tbl(h = fc_horizon, 
+#                                                 n_cv = n_cv, 
+#                                                 training_length = training_length,
+#                                                 models_tbl = oldless, 
+#                                                 var_data = VAR_data_for_estimation, 
+#                                                 new_t_treshold = c(0, 1.65, 2), 
+#                                                 target_level_ts = rgdp_level_ts,
+#                                                 target_transform = rgdp_transformation)
+# toc()
+# print(object.size(cv_oldless_3t_from_scratch), units = "auto")
+# 
+# 
+# 
+# 
+# 
+# 
+# tic()
+# cv_old1 <- cv_var_from_1(h = fc_horizon,
+#                          n_cv = n_cv, 
+#                          training_length = training_length,
+#                          models_tbl = ury_old, 
+#                          var_data = VAR_data_for_estimation, 
+#                          new_t_treshold = c(0, 1.65, 2), 
+#                          target_level_ts = rgdp_level_ts,
+#                          target_transform = rgdp_transformation, 
+#                          names_exogenous = names_exogenous)
+# toc()
+# 
 
-tic()
-fc13_3t_from_scratch <- forecast_var_from_model_tbl(auto13less, var_data = VAR_data_for_estimation,
-                                                     new_t_treshold = c(0, 1.65, 2), 
-                                                    fc_horizon = 8, target_transform = rgdp_transformation)
-toc()
-print(object.size(fc13_3t_from_scratch), units = "auto")
-
-
-tic()
-cv_oldless_3t_from_scratch <- cv_var_from_model_tbl(h = fc_horizon, 
-                                                n_cv = n_cv, 
-                                                training_length = training_length,
-                                                models_tbl = oldless, 
-                                                var_data = VAR_data_for_estimation, 
-                                                new_t_treshold = c(0, 1.65, 2), 
-                                                target_level_ts = rgdp_level_ts,
-                                                target_transform = rgdp_transformation)
-toc()
-print(object.size(cv_oldless_3t_from_scratch), units = "auto")
-
-
-
-
-
-
-tic()
-cv_old1 <- cv_var_from_1(h = fc_horizon,
-                         n_cv = n_cv, 
-                         training_length = training_length,
-                         models_tbl = ury_old, 
-                         var_data = VAR_data_for_estimation, 
-                         new_t_treshold = c(0, 1.65, 2), 
-                         target_level_ts = rgdp_level_ts,
-                         target_transform = rgdp_transformation, 
-                         names_exogenous = names_exogenous)
-toc()
-
-
-foo <- cv_old1$fit[[1]]
-
-
-vtry_u <- fit_VAR_rest(var_data = VAR_data_for_estimation, 
-                      variables = c("rgdp", "rpc", "act_eco_bra"), 
-                      p = 4, 
-                      names_exogenous = names_exogenous, t_tresh = FALSE)
-
-
-
-colnames(vtry_u$y)
-colnames(vtry_u$datamat)
-
-
-vtry_r <- fit_VAR_rest(var_data = VAR_data_for_estimation, 
-                       variables = c("rgdp", "rpc", "act_eco_bra"), 
-                       p = 4, 
-                       names_exogenous = names_exogenous, t_tresh = 2)
-
-
-
-
-
-colnames(vtry_r$y)
-colnames(vtry_r$datamat)
-
-
-
-
-
-
-ftry_u <- forecast_VAR_one_row(fit = vtry_u, h = 8, 
-                               variables = c("rgdp", "rpc", "act_eco_bra"), 
-                               extended_exo_mts = extension_of_exo$extended_exo, 
-                               names_exogenous = names_exogenous)
-
-
-ftry_r <- forecast_VAR_one_row(fit = vtry_r, h = 8, 
-                               variables = c("rgdp", "rpc", "act_eco_bra"), 
-                               extended_exo_mts = extension_of_exo$extended_exo, 
-                               names_exogenous = names_exogenous)
-
-cv_old1 <- cv_old1 %>% 
-  mutate(varsize = map_dbl(variables, length))
-
-cv_old1_s2 <- cv_old1 %>% filter(varsize == 2)
-cv_old1_s3 <- cv_old1 %>% filter(varsize == 3)
-
-
-ave_fc_from_cv(cv_tbl = cv_oldless_3t_from_scratch)
+# foo <- cv_old1$fit[[1]]
+# 
+# 
+# vtry_u <- fit_VAR_rest(var_data = VAR_data_for_estimation, 
+#                       variables = c("rgdp", "rpc", "act_eco_bra"), 
+#                       p = 4, 
+#                       names_exogenous = names_exogenous, t_tresh = FALSE)
+# 
+# 
+# 
+# colnames(vtry_u$y)
+# colnames(vtry_u$datamat)
+# 
+# 
+# vtry_r <- fit_VAR_rest(var_data = VAR_data_for_estimation, 
+#                        variables = c("rgdp", "rpc", "act_eco_bra"), 
+#                        p = 4, 
+#                        names_exogenous = names_exogenous, t_tresh = 2)
+# 
+# 
+# 
+# 
+# 
+# colnames(vtry_r$y)
+# colnames(vtry_r$datamat)
+# 
+# 
+# 
+# 
+# 
+# 
+# ftry_u <- forecast_VAR_one_row(fit = vtry_u, h = 8, 
+#                                variables = c("rgdp", "rpc", "act_eco_bra"), 
+#                                extended_exo_mts = extension_of_exo$extended_exo, 
+#                                names_exogenous = names_exogenous)
+# 
+# 
+# ftry_r <- forecast_VAR_one_row(fit = vtry_r, h = 8, 
+#                                variables = c("rgdp", "rpc", "act_eco_bra"), 
+#                                extended_exo_mts = extension_of_exo$extended_exo, 
+#                                names_exogenous = names_exogenous)
+# 
+# cv_old1 <- cv_old1 %>% 
+#   mutate(varsize = map_dbl(variables, length))
+# 
+# cv_old1_s2 <- cv_old1 %>% filter(varsize == 2)
+# cv_old1_s3 <- cv_old1 %>% filter(varsize == 3)
+# 
+# 
+# ave_fc_from_cv(cv_tbl = cv_oldless_3t_from_scratch)
 
 
 
