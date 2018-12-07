@@ -2001,18 +2001,10 @@ var_search <- function(country,
   
   country_data_ts <- get_raw_data_ts(country = country, data_path = excel_data_path)
   external_data_ts <- get_raw_external_data_ts(data_path = excel_data_path)
-  # data_ts <- country_data_ts
-  
-  # print("country_data_ts")
-  # print(country_data_ts)
-  # print("external_data_ts")
-  # print(external_data_ts)
-  
+
   data_ts <- ts.union(country_data_ts, external_data_ts)
   colnames(data_ts) <- c(colnames(country_data_ts), colnames(external_data_ts))
-  # print("data_ts")
-  # print(data_ts)
-  
+
   rgdp_level_ts <- data_ts[, "rgdp"]
   rgdp_level_ts <- na.omit(rgdp_level_ts)
   rgdp_yoy_ts <- make_yoy_ts(rgdp_level_ts)
