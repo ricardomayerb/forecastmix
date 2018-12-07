@@ -69,7 +69,7 @@ The final step would be to balance the data set, i.e. eliminate trailing and lea
 
 ### First VAR: only endogenous variables
 
-Let's form a VAR with rgdp, rpc and imp_capital as variables and illustrate how we treat lags specification, testing, restrictions and evaluation
+Let's form a VAR with rgdp, rpc and imp_capital as variables and illustrate how we treat lags specification, testing, restrictions and evaluation.
 
 
 
