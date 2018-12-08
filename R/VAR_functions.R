@@ -167,6 +167,541 @@ add_rmse_rankings <- function(tbl_with_rmses) {
   return(new_tbl)
 }
 
+all_rmse_from_cv_obj <- function(cv_obj) {
+  cv_errors <- cv_obj[["cv_errors"]]
+  # print(cv_errors)
+  n_cv <- length(cv_errors)
+  # print(n_cv)
+  # print(cv_errors[[1]])
+  t_periods <-  length(cv_errors[[1]])
+  # print(t_periods)
+  
+  # matrix is n_cv x t_periods, i.e. a column represent fixed period, varying cv
+  matrix_errors <- reduce(cv_errors, rbind) 
+  rownames(matrix_errors) <- NULL
+  rmse <- sqrt(colMeans(matrix_errors^2))
+  
+  return(rmse)
+}
+
+
+ave_fc_from_cv <- function(cv_tbl, best_n_to_keep = "all") {
+  
+  if (best_n_to_keep == "all") {
+    cv_tbl <- cv_tbl
+  }
+  
+  if (is.numeric(best_n_to_keep)) {
+    cv_tbl <- cv_tbl %>% 
+      arrange(rmse_h, rmse) %>%
+      group_by(rmse_h) %>% 
+      mutate(rank_h = rank(rmse)) %>% 
+      filter(rank_h <= best_n_to_keep) %>% 
+      mutate(inv_mse = 1/(rmse*rmse),
+             model_weight_h = inv_mse/sum(inv_mse),
+             weighted_fc_h = fc_yoy*model_weight_h,
+             average_fc_h = sum(weighted_fc_h)
+      ) %>% 
+      ungroup()
+  }
+  
+  ave_fc <- cv_tbl %>% 
+    group_by(rmse_h) %>% 
+    summarise(ave_fc_h = sum(weighted_fc_h))
+  
+  return(ave_fc)
+}
+
+check_resid_VAR <- function(fit_VAR, type = "PT.adjusted", lags.pt = 12,
+                            pval_ref = 0.05) {
+  
+  test_object <- try(serial.test(fit_VAR), silent = TRUE)
+  # print(class(test_object))
+  
+  if (class(test_object) == "try-error") {
+    # print("Running serial.test threw an error.")
+    is_white_noise <- FALSE
+  } else {
+    pval <- test_object[["serial"]][["p.value"]]
+    pval <- unname(pval)
+    is_white_noise <- pval > pval_ref
+  }
+  
+  return(is_white_noise)
+}
+
+cv_var_from_model_tbl <- function(h, n_cv, 
+                                  training_length, 
+                                  models_tbl, 
+                                  var_data, 
+                                  new_t_threshold = NULL, 
+                                  fit_column = NULL, 
+                                  target_transform = "yoy", 
+                                  target_level_ts = NULL,
+                                  keep_varest_obj = FALSE,
+                                  keep_cv_objects = FALSE,
+                                  keep_fc_objects = FALSE,
+                                  names_exogenous = c(""),
+                                  exo_lag = NULL,
+                                  future_exo = NULL,
+                                  future_exo_cv = NULL) {
+  
+  starting_names <- names(models_tbl)
+  has_short_name <- "short_name" %in% starting_names
+  has_t_threshold <- "t_threshold" %in% starting_names
+  
+  if (!has_t_threshold) {
+    models_tbl <- models_tbl %>% mutate(t_threshold = FALSE)
+  }
+  
+  if (!has_short_name) {
+    models_tbl <- models_tbl %>% 
+      mutate(short_name = map2(variables, lags,
+                               ~ make_model_name(variables = .x, lags = .y)),
+             short_name = unlist(short_name))
+    
+    models_tbl <- models_tbl %>% dplyr::select(short_name, everything())
+  }
+  
+  if (is.null(fit_column)) {
+    print("There is no column with fit varest objects, so we will estimate all VARs now")
+    models_tbl <- estimate_var_from_model_tbl(
+      models_tbl = models_tbl, var_data = var_data, new_t_threshold = new_t_threshold)
+    
+    print("Done estimating VARs, now we will compute the forecasts")
+    
+  } else {
+    print("Using previously estimates varest objects")
+  }
+  
+  print("Starting cv")
+  # print("models_tbl so far")
+  # print(models_tbl)
+  
+  models_tbl <-  models_tbl %>%
+    mutate(cv_obj = pmap(list(fit, variables, lags, t_threshold),
+                         ~ cv_var_from_one_row(var_data = var_data, fit = ..1,
+                                               variables = ..2, lags = ..3,
+                                               this_thresh = ..4,
+                                               h = h, n_cv = n_cv,
+                                               names_exogenous = names_exogenous,
+                                               training_length = training_length,
+                                               this_type = "const",
+                                               future_exo_cv = future_exo_cv)
+    )
+    )
+  
+  print("transform to yoy")
+  
+  if (target_transform != "yoy") {
+    
+    if (target_transform == "diff_yoy") {
+      
+      print("from diffyoy to yoy")
+      
+      models_tbl <- models_tbl %>%
+        rename(cv_obj_diff_yoy = cv_obj)
+      
+      models_tbl <- models_tbl %>%
+        mutate(cv_obj_yoy = map(cv_obj_diff_yoy,
+                                ~ transform_all_cv( .,
+                                                    current_form = rgdp_transformation,
+                                                    target_level_ts =  rgdp_level_ts,
+                                                    n_cv = n_cv)
+        )
+        )
+    }
+    
+    if (target_transform == "diff") {
+      auxiliary_ts <-  target_level_ts
+      
+      models_tbl <- models_tbl %>%
+        rename(cv_obj_diff = cv_obj)
+      
+      results_all_models <- results_all_models %>%
+        mutate(cv_obj_yoy = map(cv_obj_diff,
+                                ~ transform_all_cv(cv_object  = .,
+                                                   current_form = rgdp_transformation,
+                                                   auxiliary_ts = target_level_ts,
+                                                   n_cv = n_cv)
+        )
+        )
+    }
+    
+  }
+  
+  if (target_transform == "yoy") {
+    models_tbl <- models_tbl %>%
+      rename(cv_obj_yoy = cv_obj)
+  }
+  
+  print("done transforming")
+  
+  # print("models_tbl$cv_obj_yoy")
+  # print(models_tbl$cv_obj_yoy)
+  
+  models_tbl <- models_tbl %>%
+    mutate(rmse_yoy_all_h = map(cv_obj_yoy, all_rmse_from_cv_obj))
+  
+  rmse_tibble <- as_tibble(reduce(models_tbl$rmse_yoy_all_h, rbind))
+  names(rmse_tibble) <- paste0("rmse_", seq(1, ncol(rmse_tibble)))
+  
+  models_tbl <- models_tbl %>%
+    dplyr::select(-rmse_yoy_all_h) %>%
+    cbind(rmse_tibble)
+  
+  
+  if (!keep_varest_obj) {
+    models_tbl <- models_tbl %>%
+      dplyr::select(-fit)
+  }
+  
+  if (!keep_fc_objects) {
+    models_tbl <- models_tbl %>%
+      dplyr::select(vars_select(names(.), -starts_with("fc_ob")))
+  }
+  
+  if (!keep_cv_objects) {
+    models_tbl <- models_tbl %>%
+      dplyr::select(vars_select(names(.), -starts_with("cv_ob")))
+  }
+  
+  models_tbl <- as_tibble(models_tbl)
+
+  return(models_tbl)
+} 
+
+cv_var_from_one_row <- function(var_data, 
+                                fit, 
+                                variables, 
+                                lags, 
+                                h, 
+                                names_exogenous,
+                                training_length, 
+                                n_cv, 
+                                this_type = "const", 
+                                future_exo_cv = NULL,
+                                this_thresh = 0) {
+  
+  # print("inside cvvaronerow")
+  # print("this_thresh")
+  # print(this_thresh)
+  
+  this_restriction_mat <- try(fit$restrictions, silent = TRUE) 
+  
+  if (class(this_restriction_mat) == "try-error") {
+    this_restriction_mat <-  NULL
+  }
+  
+  # print("this_restriction_mat")
+  # print(this_restriction_mat)
+  
+  sub_data <- na.omit(var_data[, variables])
+  
+  # print(sub_data)
+  # print("variables")
+  # print(variables)
+  
+  # print("colnames(sub_data)")
+  # print(colnames(sub_data))
+  
+  sub_data_tk_index <- tk_index(var_data, timetk_idx = TRUE)
+  
+  # print("about to this_cv")
+  # print("future_exo_cv")
+  # print(future_exo_cv)
+  
+  
+  this_cv <- var_cv(var_data = sub_data,
+                    h_max = h,
+                    n_cv = n_cv, this_p = lags,  
+                    external_idx = sub_data_tk_index,
+                    full_sample_resmat = this_restriction_mat,
+                    names_exogenous = names_exogenous,
+                    training_length = training_length,
+                    this_type = this_type,
+                    future_exo_cv = future_exo_cv,
+                    this_thresh = this_thresh)
+  
+  # print("just did this_cv")
+  
+  return(this_cv)
+}
+
+
+estimate_var_from_model_tbl <- function(models_tbl, 
+                                        var_data, 
+                                        new_t_threshold = NULL, 
+                                        names_exogenous = c(""),
+                                        exo_lag = NULL) {
+  
+  starting_names <- names(models_tbl)
+  has_short_name <- "short_name" %in% starting_names
+  has_t_threshold <- "t_threshold" %in% starting_names
+  
+  if (!has_t_threshold) {
+    models_tbl <- models_tbl %>% mutate(t_threshold = FALSE)
+  }
+  
+  rmse_names <- names(models_tbl)[str_detect(names(models_tbl), "rmse")]
+  
+  models_tbl <- models_tbl %>% 
+    gather(key = "rmse_h", value = "rmse", rmse_names) %>% 
+    dplyr::select(vars_select(names(.), -starts_with("rank"))) %>% 
+    group_by(rmse_h) %>% 
+    arrange(rmse_h, rmse) %>% 
+    mutate(rank_h = rank(rmse)) %>% 
+    ungroup() %>% 
+    mutate(lags = unlist(lags),
+           t_threshold = unlist(t_threshold),
+           model_type = "VAR")
+  
+  if (!has_short_name) {
+    models_tbl <- models_tbl %>% 
+      mutate(short_name = map2(variables, lags,
+                               ~ make_model_name(variables = .x, lags = .y)),
+             short_name = unlist(short_name))
+    
+    models_tbl <- models_tbl %>% dplyr::select(short_name, everything())
+  }
+  
+  one_model_per_row <- models_tbl %>% 
+    dplyr::select(-c(rmse, rmse_h, rank_h)) %>% 
+    distinct(short_name, .keep_all = TRUE)
+  
+  if (is.null(new_t_threshold)) {
+    one_model_per_row <- one_model_per_row %>%
+      mutate(fit = pmap(list(variables, lags, t_threshold),
+                        ~ fit_VAR_rest(var_data = var_data, variables = ..1,
+                                       p = ..2, t_thresh = ..3, 
+                                       names_exogenous = names_exogenous, 
+                                       exo_lag = exo_lag))
+      )
+  } 
+  
+  if (!is.null(new_t_threshold)) {
+    
+    all_one_model_per_row <- list_along( seq(1, length(new_t_threshold))  )
+    
+    for (i in seq(1, length(new_t_threshold))) {
+      
+      this_thresh <- new_t_threshold[i]
+      
+      this_one_model_per_row <- one_model_per_row %>%
+        mutate(t_threshold = this_thresh,
+               short_name_t = map_chr(short_name, ~ paste0(.x, "_t", this_thresh*100)),
+               fit = pmap(list(variables, lags, t_threshold),
+                          ~ fit_VAR_rest(var_data = var_data, variables = ..1,
+                                         p = ..2, t_thresh = ..3, 
+                                         names_exogenous = names_exogenous, 
+                                         exo_lag = exo_lag))
+        )
+      
+      all_one_model_per_row[[i]] <- this_one_model_per_row
+    }
+    one_model_per_row <- reduce(all_one_model_per_row, rbind)
+  }
+  
+  return(one_model_per_row)
+}
+
+
+fit_VAR_rest <- function(var_data, variables, p,
+                         t_thresh = FALSE, type = "const",
+                         names_exogenous = c(""),
+                         exo_lag = NULL)  {
+  
+  this_var_data <- var_data[, variables]
+  this_var_data <- na.omit(this_var_data)
+  
+  vbls_for_var <- colnames(this_var_data)
+  endov <- vbls_for_var[!vbls_for_var %in% names_exogenous] 
+  exov <- vbls_for_var[vbls_for_var %in% names_exogenous] 
+
+  if (length(endov) == 1) {
+    this_fit <- NA
+    print("only one endogenous variable, not a real VAR, returning NA")
+    return(this_fit)
+  }
+  
+  endodata <- this_var_data[ , endov]
+  exodata <- this_var_data[ , exov]
+  
+  if (is.null(dim(endodata))) {
+    names(endodata) <- endov
+  } else {
+    colnames(endodata) <- endov
+  }
+  
+  if (is.null(exo_lag)) {
+    exo_lag <- p
+  }
+  
+  exo_and_lags <- make_exomat(exodata = exodata, exov = exov, exo_lag = exo_lag)
+  n <- nrow(var_data)
+  
+  if (is.null(exo_and_lags)) {
+    this_fit <- vars::VAR(y = endodata, p = p, type = type) 
+    
+  } else {
+    this_fit <- vars::VAR(y = endodata, p = p, type = type, 
+                          exogen = exo_and_lags)
+    
+  }
+
+  
+  if (is.numeric(t_thresh)) {
+    # print(paste0("applying t-tresh = ", t_thresh))
+    this_fit <- try(vars::restrict(this_fit, method = "ser", 
+                                   thresh = t_thresh), silent = TRUE)
+    
+    if (class(this_fit) == "try-error") {
+      this_fit <- "one_or_more_eqn_drops"
+    }
+  }
+  return(this_fit)
+}
+
+
+forecast_VAR_one_row <- function(fit, h, variables, extended_exo_mts, 
+                                 names_exogenous, exo_lag = NULL)  {
+  
+  are_there_exo <- any(names_exogenous %in% variables)
+
+  if (class(fit) == "varest") {
+    
+    this_var_data <- fit$y
+    endov <- variables[!variables %in% names_exogenous] 
+    exov <- variables[variables %in% names_exogenous] 
+
+     
+    if (!are_there_exo) {
+      # print("terrible de null")
+      exo_and_lags <- NULL
+      exo_and_lags_extended <- NULL
+    } else {
+      
+      exodata <- extended_exo_mts[, exov]
+      
+      if (is.null(exo_lag)) {
+        exo_lag <- fit$p
+      }
+      exo_and_lags_extended <- make_exomat(exodata = exodata, 
+                                           exov = exov,
+                                           exo_lag = exo_lag)
+
+      exo_and_lags <- window(exo_and_lags_extended,
+                             end = end(this_var_data))
+      exo_and_lags_for_fc <- subset(exo_and_lags_extended, 
+                                    start = nrow(exo_and_lags) + 1)
+
+      assign("exo_and_lags", exo_and_lags,
+             envir = .GlobalEnv)
+      
+    }
+    
+    
+    if (is.null(exo_and_lags_extended)) {
+      this_fc <- forecast(fit, h = h)
+    } else {
+      this_fc <- forecast(fit, h = h, dumvar = exo_and_lags_for_fc,
+                          exogen = exo_and_lags)
+    }
+    
+  }
+  
+  if (!class(fit) == "varest") {
+    this_fc <- list(forecast = list(rgdp = list(mean = NA)))
+    
+  }
+  return(this_fc)
+}
+
+forecast_var_from_model_tbl <- function(models_tbl, 
+                                        var_data,
+                                        fc_horizon, 
+                                        new_t_threshold = NULL, 
+                                        fit_column = NULL,
+                                        target_transform = "yoy",
+                                        target_level_ts = NULL,
+                                        keep_fc_obj = FALSE,
+                                        keep_varest_obj = FALSE,
+                                        names_exogenous = c(""),
+                                        extended_exo_mts = NULL
+) {
+  
+  starting_names <- names(models_tbl)
+  has_short_name <- "short_name" %in% starting_names
+  has_t_threshold <- "t_threshold" %in% starting_names
+  
+  if (!has_t_threshold) {
+    models_tbl <- models_tbl %>% mutate(t_threshold = FALSE)
+  }
+  
+  if (!has_short_name) {
+    models_tbl <- models_tbl %>% 
+      mutate(short_name = map2(variables, lags,
+                               ~ make_model_name(variables = .x, lags = .y)),
+             short_name = unlist(short_name))
+    
+    models_tbl <- models_tbl %>% dplyr::select(short_name, everything())
+  }
+  
+  if (is.null(fit_column)) {
+    print("There is no column with fit varest objects, so we will estimate all VARs now")
+    models_tbl <- estimate_var_from_model_tbl(
+      models_tbl = models_tbl, var_data = var_data, new_t_threshold = new_t_threshold)
+    
+    print("Done estimating VARs, now we will compute the forecasts")
+    
+  } else {
+    print("Using previously estimates varest objects")
+  }
+  
+  models_tbl <- models_tbl %>% 
+    mutate(fc_object_raw = map2(fit, variables,
+                                ~ forecast_VAR_one_row(
+                                  fit = .x, variables = .y, h = fc_horizon, 
+                                  names_exogenous = names_exogenous,
+                                  extended_exo_mts = extended_exo_mts)
+    )
+    )
+  
+  if (target_transform == "yoy") {
+    print("Target variable already in YoY form, so no transformation is needed")
+    models_tbl <- models_tbl %>% 
+      mutate(target_mean_fc_yoy = map(fc_object_raw,
+                                      ~ .x[["forecast"]][["rgdp"]][["mean"]]))
+  }
+  
+  if (target_transform != "yoy") {
+    
+    print(paste0("Target variable is in ", target_transform, " form. Forecasts will be transformed to YoY."))
+    
+    models_tbl <- models_tbl %>% 
+      mutate(target_mean_fc = map(fc_object_raw,
+                                  ~ .x[["forecast"]][["rgdp"]][["mean"]]),
+             target_mean_fc_yoy = map(target_mean_fc, 
+                                      ~ any_fc_2_fc_yoy(
+                                        current_fc = .x, 
+                                        rgdp_transformation = target_transform,
+                                        rgdp_level_ts = rgdp_level_ts)
+             )
+      )
+  }
+  
+  if (!keep_varest_obj) {
+    models_tbl <- models_tbl %>% 
+      dplyr::select(-fit)
+  }
+  
+  if (!keep_fc_obj) {
+    models_tbl <- models_tbl %>% 
+      dplyr::select(-fc_object_raw)
+  }
+  
+  return(models_tbl)
+}
 
 
 get_rmses_h_rankings_h <- function(data = cv_objects, h_max = 6){
@@ -197,26 +732,6 @@ get_rmses_h_rankings_h <- function(data = cv_objects, h_max = 6){
   return(rmse_each_h)
   
 }
-
-
-check_resid_VAR <- function(fit_VAR, type = "PT.adjusted", lags.pt = 12,
-                            pval_ref = 0.05) {
-  
-  test_object <- try(serial.test(fit_VAR), silent = TRUE)
-  # print(class(test_object))
-  
-  if (class(test_object) == "try-error") {
-    # print("Running serial.test threw an error.")
-    is_white_noise <- FALSE
-  } else {
-    pval <- test_object[["serial"]][["p.value"]]
-    pval <- unname(pval)
-    is_white_noise <- pval > pval_ref
-  }
-  
-  return(is_white_noise)
-}
-
 
 
 get_sets_of_variables <- function(df, this_size, all_variables, already_chosen){
@@ -293,8 +808,6 @@ make_exomat <- function(exodata, exov, exo_lag) {
 }
 
 
-
-
 max_effective_lag <- function(var_obj) {
   
   vres <- var_obj$restrictions
@@ -315,506 +828,99 @@ max_effective_lag <- function(var_obj) {
 }
 
 
-
-var_search <- function(country, 
-                       search_plan,
-                       forecast_exercise_year, 
-                       forecast_exercise_number,
-                       fc_horizon,
-                       target_variable = c("rgdp"),
-                       default_t_treshold = 1.65,
-                       default_lags = c(2, 3, 4, 5),
-                       add_aic_bic_hq_fpe_lags =  FALSE,
-                       restrict_by_signif = TRUE,
-                       number_of_cv = 8,
-                       train_span = 25,
-                       ret_cv = TRUE,
-                       max_rank_some_h =50,
-                       max_rank_some_h_for_freq = 50,
-                       max_small_rank = 3,
-                       results_file_name = NULL,
-                       names_exogenous = c(""),
-                       exo_lag = NULL,
-                       combn_already_tried = NULL
-) {
-  
-  initial_time <- Sys.time()
-  tic(msg = "Total time for this country")
+read_compare_var_res <- function(filename_new, filename_old, h_max = 7, 
+                                 rank_h_max = 30) {
   
   
-  # file paths
-  excel_data_path <- paste0("./data/edd_exercises/", forecast_exercise_year, 
-                            "_exercise_", forecast_exercise_number, "/")
-  
-  output_path <- paste0("./analysis/VAR_output/edd_exercises/",
-                        forecast_exercise_year, 
-                        "_exercise_", forecast_exercise_number, "/")
-  
-  country_data_ts <- get_raw_data_ts(country = country, data_path = excel_data_path)
-  external_data_ts <- get_raw_external_data_ts(data_path = excel_data_path)
-  # data_ts <- country_data_ts
-  
-  # print("country_data_ts")
-  # print(country_data_ts)
-  # print("external_data_ts")
-  # print(external_data_ts)
-  
-  data_ts <- ts.union(country_data_ts, external_data_ts)
-  colnames(data_ts) <- c(colnames(country_data_ts), colnames(external_data_ts))
-  # print("data_ts")
-  # print(data_ts)
-  
-  rgdp_level_ts <- data_ts[, "rgdp"]
-  rgdp_level_ts <- na.omit(rgdp_level_ts)
-  rgdp_yoy_ts <- make_yoy_ts(rgdp_level_ts)
-  
-  print(paste0("This country: ", country))
-  print(paste0("Number of variables (incl. rgdp): ", ncol(data_ts)))
-  print("Names of variables: ")
-  print(colnames(data_ts))
-  
-  tic()
-  print("Finding and applying stationary transformations to all variables")
-  reco_all_variables <- find_statio_diffs(data_ts, country)
-  country_transformed_data <- follow_rec(data_ts, reco_all_variables)
-  print("Done.")
-  toc()
-  
-  rgdp_rec <- reco_all_variables[reco_all_variables$variable == "rgdp", ][["kpss_05_level"]]
-  print(paste0("Stationary transformation for rgdp: ", rgdp_rec))
-  
-  VAR_data_for_estimation  <- country_transformed_data
-  
-  print(paste0("rgdp obs. after transformation: ", 
-               length(na.omit(VAR_data_for_estimation[ , "rgdp"]))
-  )
-  )
-  
-  print(paste0("rgdp obs. before transformation: ", length(rgdp_level_ts)))
-  
-  variable_names <- colnames(VAR_data_for_estimation)
-  ncolumns <- ncol(VAR_data_for_estimation)
-  
-  max_common_train_span_guaranted <- nrow(na.omit(VAR_data_for_estimation)) - fc_horizon - number_of_cv
-  print(paste0("Taking all variables together, maximum common training span is ",
-               max_common_train_span_guaranted))
-  upper_bound_for_train_span <- length(na.omit(VAR_data_for_estimation[ , "rgdp"])) - fc_horizon - number_of_cv
-  print(paste0("For variables encompasing rgdp extent, max training span is ",
-               upper_bound_for_train_span))
-  
-  if (train_span == "common_max") {
-    print(paste0("Using common_max span for training sets: ", max_common_train_span_guaranted))
-    train_span <- max_common_train_span_guaranted
-  }
-  
-  saveRDS(VAR_data_for_estimation, 
-          paste0(output_path, "VAR_data_", country, ".rds"))
-  
-  n_steps <- length(search_plan)
-  
-  per_size_results <- list_along(1:n_steps)
-  f_vbls_list <- list_along(1:n_steps)
-  current_consolidated_models_list <- list_along(1:n_steps)
-  cv_objects_list <- list_along(1:n_steps)
-  prechosen_variables_at_each_step <- list_along(1:n_steps)
-  all_prechosen_variables_at_each_step <- list_along(seq(1, n_steps))
-  
-  tic(msg = "Finish var search")
-  
-  for (i in seq(1, n_steps)) {
-    
-    set_of_prechosen_to_use <- NULL
-    
-    n_searches_for_this_size <- 0
-    this_search_step <- search_plan[[i]]
-    this_size <- this_search_step[["size"]]
-    this_selection_type <- this_search_step[["vbl_selection_type"]]
-    
-    print("")
-    print("--------------------------------------")
-    print("")
-    print(paste0("Starting the estimation of VAR with ", this_size," vbls"))
-    print(paste0("Variable selection type for this size: ", this_selection_type))
-    
-    if (is.null(this_search_step$lags)) {
-      this_lags <- default_lags
-    } else 
-    {
-      this_lags <- this_search_step[["lags"]]
-    }
-    
-    # print("This lags = ")
-    # print(this_lags)
-    
-    
-    if (is.null(this_search_step$t_treshold)) {
-      this_t_tresh <- default_t_treshold
-    } else {
-      this_t_tresh <- this_search_step[["t_treshold"]]
-    }
-    
-    # print("This t tresh = ")
-    # print(this_t_tresh)
-
-    if (this_selection_type == "none") {
-      print("Using all variables without pre-chosen variables")
-      this_VAR_data <- VAR_data_for_estimation
-      this_prechosen_variables <- NULL
-      f_vbls <- NULL
-      new_select_vbls <- colnames(VAR_data_for_estimation) 
-      vbls_top_small <- NA
-      by_total_not_in_tsm <- NA
-    }
-    
-    
-    if (i > 1 & is.numeric(this_selection_type)) {
-      f_vbls <- variable_freq_by_n(current_consolidated_models, 
-                                   h_max = fc_horizon,
-                                   max_rank = max_rank_some_h_for_freq,
-                                   n_freq = this_selection_type, 
-                                   is_wide = TRUE,
-                                   mas_small_rank)
-      freq_sel_vbls_by_multi <- f_vbls$vbl_multi
-      vbls_top_small <- f_vbls$variables_in_top_small
-      
-      if(length(vbls_top_small) > this_selection_type) {
-        print(paste0("Number of best-n-VAR variables (", length(vbls_top_small), 
-                     "exceeds next_freq_limit (",  this_selection_type, "). We will preserve 
-        the integrity of best VARs and use those",  length(vbls_top_small), " variables in next size." )  )
-        
-        print(paste0("If you want to decrease the number of variables, reduce the mas_small_rank 
-                     parameter to some value lower than ", max_small_rank))
-        
-        vbls_top_small <- vbls_top_small
-      }
-      
-      by_total_not_in_tsm <- f_vbls$by_total_not_in_top_small
-      
-      by_total_na <- is.na(by_total_not_in_tsm)
-      
-      by_total_not_in_tsm <- by_total_not_in_tsm[!by_total_na]
-      
-      n_gap_vbls <- this_selection_type - length(vbls_top_small)
-      
-      if (n_gap_vbls > 0) {
-        extra_vbls <- by_total_not_in_tsm[1:n_gap_vbls]
-      } else {
-        extra_vbls <- c()
-      }
-      
-      new_select_vbls <- c(vbls_top_small, extra_vbls)
-      
-      print("Using this subset of variables: ")
-      print(new_select_vbls)
-      
-      this_VAR_data <- VAR_data_for_estimation[, new_select_vbls]
-    }
-    
-    if (this_selection_type == "manually_prechosen_variables") {
-      print("Using automatic incrementally added pre-chosen variables")
-      print("This option does not automatically inherits prechosen variables from previous steps")
-      
-      current_consolidated_models <- current_consolidated_models_list[[i-1]]
-      
-
-      # print("before addig this step manual variables, we have:")
-      # print(all_prechosen_variables_at_each_step)
-
-      updated_list_of_prechosen <- add_prechosen_for_this_step(
-        search_plan = search_plan, step_index = i, 
-        prechosen_so_far = all_prechosen_variables_at_each_step,
-        max_rank_some_h_for_freq = max_rank_some_h_for_freq,
-        models_table = current_consolidated_models)
-      
-      # print("And after add_prechosen_for_this_step, the updated version of it is")
-      # print(updated_list_of_prechosen)
-      all_prechosen_variables_at_each_step <- updated_list_of_prechosen
-      
-      set_of_prechosen_to_use <- all_prechosen_variables_at_each_step[[i]]
-      
-      # print("And in this step we will add the following variables as prechosen, one at the time:")
-      # print(set_of_prechosen_to_use)
-
-    }
-    
-    if (this_selection_type == "incremental_auto_prechosen") {
-      
-      print("Using automatic incrementally added pre-chosen variables")
-      
-      print("Inherits from previous step, the following prechosen variables:")
-      print(all_prechosen_variables_at_each_step[[i - 1]])
-      
-      current_consolidated_models <- current_consolidated_models_list[[i-1]]
-      
-      updated_list_of_prechosen <- add_prechosen_for_this_step(
-        search_plan = search_plan, step_index = i, 
-        prechosen_so_far = all_prechosen_variables_at_each_step,
-        max_rank_some_h_for_freq = max_rank_some_h_for_freq,
-        models_table = current_consolidated_models)
-      
-      all_prechosen_variables_at_each_step <- updated_list_of_prechosen
-      
-      set_of_prechosen_to_use <- all_prechosen_variables_at_each_step[[i]]
-      
-      print("And in this step we will add the following variables as prechosen, one at the time:")
-      print(set_of_prechosen_to_use)
-      
-      # print("all_prechosen_variables_at_each_step")
-      # print(all_prechosen_variables_at_each_step)
-      
-      # print("set_of_prechosen_to_use")
-      # print(set_of_prechosen_to_use)
-    }
-    
-    add_augmented_models <- this_search_step[["add_augmented_models"]]
-    
-    if (is.null(add_augmented_models)) {
-      add_augmented_models <- FALSE
-    }
-    
-    if (add_augmented_models) {
-      
-      n_best_per_h <- 2
-      rmse_names <- paste("rmse", seq(fc_horizon), sep = "_")
-      
-      print(paste0(
-        "Also including one-extra-variable augmented versions of the best ",
-        n_best_per_h, " size-",search_plan[[i-1]]$size, "-VAR of each horizon",
-        " (including ties).")
-        )
-      
-      potential_models <- current_consolidated_models_list[[i-1]]
-      
-      potential_models <- potential_models %>% 
-        gather(key = "rmse_h", value = "rmse", rmse_names) %>% 
-        dplyr::select(vars_select(names(.), -starts_with("rank"))) %>% 
-        group_by(rmse_h) %>% 
-        arrange(rmse_h, rmse) %>% 
-        mutate(rank_h = rank(rmse),
-               nth_rmse = nth(rmse, n_best_per_h)) %>% 
-        ungroup()
-      
-      print("potential_models")
-      print(potential_models)
-      
-      vec_of_rmse_h <- sort(unique(potential_models$rmse_h))
-      
-      print("vec_of_rmse_h")
-      print(vec_of_rmse_h)
-      
-      list_best <- map(vec_of_rmse_h, 
-                       ~ potential_models %>% 
-                         filter(rmse_h == .x, rmse <= nth_rmse)
-                       ) 
-      
-      print("list_best")
-      print(list_best)
-      
-      break
-      
-    }
-    
-    tic(msg = paste0("Finished VARs with ", this_size, " variables"))
-    
-    if (!is.null(set_of_prechosen_to_use)) {
-      # print("Inside the prechose vbls loop:")
-      # print("set_of_prechosen_to_use")
-      # print(set_of_prechosen_to_use)
-      
-      var_res_each_prechosen <- list_along(seq(1, length(set_of_prechosen_to_use)))
-      
-      for (ptu in seq(1, length(set_of_prechosen_to_use))) {
-        print(paste0("new prechosen ", ptu, " of ", length(set_of_prechosen_to_use)))
-        
-        this_prechosen_variables <- set_of_prechosen_to_use[ptu][[1]]
-        
-        print("pre-chosen variables to be use in the coming VAR search:")
-        print(this_prechosen_variables)
-        
-        print("is.list(this_prechosen_variables)")
-        print(is.list(this_prechosen_variables))
-        
-        var_res <- search_var_one_size(
-          var_size = this_size,
-          vec_lags = this_lags,
-          var_data = this_VAR_data,
-          rgdp_level_ts = rgdp_level_ts,
-          rgdp_yoy_ts = rgdp_yoy_ts,
-          target_v = target_variable,
-          pre_selected_v = this_prechosen_variables,
-          is_cv = TRUE,
-          training_length = train_span,
-          h_max = fc_horizon,
-          n_cv = number_of_cv,
-          return_cv = ret_cv,
-          rgdp_current_form = rgdp_rec,
-          max_rank = max_rank_some_h,
-          check_residuals_cv = TRUE,
-          check_residuals_full_sample = TRUE,
-          restrict_by_signif = restrict_by_signif,
-          t_tresh = this_t_tresh,
-          max_p_for_estimation = 12,
-          add_info_based_lags = add_aic_bic_hq_fpe_lags,
-          names_exogenous = names_exogenous,
-          exo_lag = exo_lag)
-        
-        # print("names(var_res)")
-        # 
-        # print(names(var_res))
-        
-        var_res[["explored_size"]] <- this_size
-        var_res[["used_prechosen"]] <- this_prechosen_variables
-        
-        var_res_each_prechosen[[ptu]] <- var_res
-        
-        n_searches_for_this_size <- n_searches_for_this_size + 1
-        print("N of searches for this size:")
-        print(n_searches_for_this_size)
-      }
-      
-      all_models <- map(var_res_each_prechosen, "accu_rankings_models")
-      all_models <- reduce(all_models, rbind)
-      
-      all_cv_obj <- map(var_res_each_prechosen, "cv_objects")
-      all_cv_obj <- reduce(all_cv_obj, rbind)
-      
-      var_res <- list(accu_rankings_models = all_models,
-                      cv_objects = all_cv_obj)
-      
-    }
-    
-    if (is.null(set_of_prechosen_to_use)) {
-      var_res <- search_var_one_size(
-        var_size = this_size,
-        vec_lags = this_lags,
-        var_data = this_VAR_data,
-        rgdp_level_ts = rgdp_level_ts,
-        rgdp_yoy_ts = rgdp_yoy_ts,
-        target_v = target_variable,
-        pre_selected_v = this_prechosen_variables,
-        is_cv = TRUE,
-        training_length = train_span,
-        h_max = fc_horizon,
-        n_cv = number_of_cv,
-        return_cv = ret_cv,
-        rgdp_current_form = rgdp_rec,
-        max_rank = max_rank_some_h,
-        check_residuals_cv = TRUE,
-        check_residuals_full_sample = TRUE,
-        restrict_by_signif = restrict_by_signif,
-        t_tresh = this_t_tresh,
-        max_p_for_estimation = 12,
-        add_info_based_lags = add_aic_bic_hq_fpe_lags, 
-        names_exogenous = names_exogenous, 
-        exo_lag = exo_lag)
-      
-      n_searches_for_this_size <- n_searches_for_this_size + 1
-      print("N of searches for this size:")
-      print(n_searches_for_this_size)
-      
-      var_res[["explored_size"]] <- this_size
-      var_res[["used_prechosen"]] <- this_prechosen_variables
-    }
-
-    per_size_results[[i]] <- var_res
-    
-    if (i == 1) {
-      current_consolidated_models <- stack_models(
-        list(var_res[["accu_rankings_models"]])
-      ) 
-    } else {
-      current_consolidated_models <- stack_models(map(per_size_results, "accu_rankings_models"))
-    }
-    
-    combn_already_tried <- c(combn_already_tried, 
-                             var_res[["combinations_of_variables_considered"]])
-    
-    file_suffix <- paste0("_size_", this_size,
-                          "_t_", this_t_tresh, "mr", max_rank_some_h,
-                          "_mrfq", max_rank_some_h_for_freq, ".rds")
-    
-    filename <- paste0("var_results_", country, file_suffix)
-    
-    saveRDS(var_res, paste0(output_path, filename))
-    
-    per_size_results[[i]] <- var_res
-    f_vbls_list[[i]] <- f_vbls
-    
-    prechosen_variables_at_each_step[[i]] <- this_prechosen_variables
-    current_consolidated_models_list[[i]] <- current_consolidated_models
-    cv_objects_list[[i]] <- var_res[["cv_objects"]]
-    
-    toc()
-  }
-  
-  toc()
-  
-  bind_var_res_all_sizes <- reduce(map(per_size_results, "accu_rankings_models"), rbind)
-  
-  consolidated_var_res <- stack_models(map(per_size_results, "accu_rankings_models"))
-  
-  final_time <- Sys.time()
-  
-  elapsed_time <- final_time - initial_time
-  
-  if (ret_cv) {
-    res_and_info <- list(consolidated_var_res = consolidated_var_res,
-                         f_vbls_all_sizes = f_vbls_list,
-                         var_data = VAR_data_for_estimation,
-                         elapsed_time = elapsed_time, 
-                         prechosen = all_prechosen_variables_at_each_step,
-                         cv_objects = cv_objects_list,
-                         target_variable_transform = rgdp_rec,
-                         names_exogenous = names_exogenous,
-                         fc_horizon = fc_horizon,
-                         train_span = train_span,
-                         number_of_cv = number_of_cv,
-                         max_rank_some_h = max_rank_some_h)
-    
+  if (is.character(filename_new)) {
+    var_res_new <- readRDS(filename_new)
+    var_res_old <- readRDS(filename_old)
   } else {
-    res_and_info <- list(consolidated_var_res = consolidated_var_res,
-                         f_vbls_all_sizes = f_vbls_list,
-                         var_data = VAR_data_for_estimation,
-                         prechosen = all_prechosen_variables_at_each_step,
-                         elapsed_time = elapsed_time,
-                         target_variable_transform = rgdp_rec,
-                         names_exogenous,
-                         fc_horizon = fc_horizon,
-                         train_span = train_span,
-                         number_of_cv = number_of_cv,
-                         max_rank_some_h = max_rank_some_h)
+    var_res_new <- filename_new
+    var_res_old <- filename_old
   }
   
-  allsizes <- paste(n_steps, collapse = "")
-  allthresh <- "foo"
-  # allthresh <- paste(t_tresh, collapse = "")
-  allfqlim <- paste(c(9,6,6), collapse = "")
   
-  file_suffix_all_sizes <-  paste0("_s", allsizes,
-                                   "_t", allthresh, "_mr", max_rank_some_h,
-                                   "_mrfq", max_rank_some_h_for_freq,
-                                   "_cv",number_of_cv,"_tspan", train_span,
-                                   "_h", fc_horizon,".rds")
-  
-  
-  if(is.null(results_file_name)) {
-    filename <- paste0("vr_", country, file_suffix_all_sizes)
-  } else {
-    filename <- results_file_name
+  if ("f_vbls_all_sizes" %in% names(var_res_new)) {
+    var_res_new <- var_res_new[["consolidated_var_res"]]
   }
   
-  print("filename")
-  print(filename)
+  if ("f_vbls_all_sizes" %in% names(var_res_old)) {
+    var_res_old <- var_res_old[["consolidated_var_res"]]
+  }
   
-  saveRDS(res_and_info, paste0(output_path, filename))
+  var_res_new <- var_res_new %>% 
+    mutate(short_name = map2(variables, lags, ~make_model_name(.x, .y, remove_base = FALSE)),
+           model_function = "new") %>% 
+    dplyr::select(-t_threshold) %>% 
+    dplyr::select(-lag_sel_method) %>% 
+    dplyr::select(-rmse_8) %>% 
+    dplyr::select(-rank_8)
   
-  return(res_and_info)
-}
-
-
-
-
-
+  var_res_old <- var_res_old %>% 
+    mutate(short_name = map2(variables, lags, ~make_model_name(.x, .y, remove_base = FALSE)),
+           model_function = "old",
+           var_size = map_dbl(variables, length)) %>% 
+    dplyr::select(-rmse_8) %>% 
+    dplyr::select(-rank_8)
+  
+  old_and_new <- stack_models(list(var_res_new, var_res_old))
+  
+  plot_best_consolidated <- single_plot_rmse_all_h(old_and_new, is_wide = TRUE, 
+                                                   h_max = h_max, rank_h_max = rank_h_max)
+  
+  plot_best_each <- each_plot_rmse_all_h(selected_one = var_res_new,
+                                         selected_two = var_res_old,
+                                         is_wide = TRUE, 
+                                         h_max = h_max,
+                                         rank_h_max = rank_h_max)
+  
+  size4_vbls_new <-  var_res_new %>% 
+    filter(var_size == 4) %>% 
+    dplyr::select(variables) %>% 
+    unlist() %>% 
+    unique()
+  
+  size4_vbls_old <-  var_res_old %>% 
+    filter(var_size == 4) %>% 
+    dplyr::select(variables) %>% 
+    unlist() %>% 
+    unique()
+  
+  size5_vbls_new <-  var_res_new %>% 
+    filter(var_size == 5) %>% 
+    dplyr::select(variables) %>% 
+    unlist() %>% 
+    unique()
+  
+  size5_vbls_old <-  var_res_old %>% 
+    filter(var_size == 5) %>% 
+    dplyr::select(variables) %>% 
+    unlist() %>% 
+    unique()
+  
+  print("Size 4 VARs: variables in new that are not in old:")
+  print(size4_vbls_new[!size4_vbls_new %in% size4_vbls_old])
+  
+  print("Size 4 VARs: variables in old that are not in new:")
+  print(size4_vbls_old[!size4_vbls_old %in% size4_vbls_new])
+  
+  
+  
+  print("Size 5 VARs: variables in new that are not in old:")
+  print(size5_vbls_new[!size5_vbls_new %in% size5_vbls_old])
+  
+  print("Size 5 VARs: variables in old that are not in new:")
+  print(size5_vbls_old[!size5_vbls_old %in% size5_vbls_new])
+  
+  return(list(size4_vbls_new = size4_vbls_new, size4_vbls_old = size4_vbls_old,
+              size5_vbls_new = size5_vbls_new, size5_vbls_old = size5_vbls_old,
+              var_res_old_and_new = old_and_new, var_res_new = var_res_new,
+              var_res_old = var_res_old, 
+              plot_best_consolidated  = plot_best_consolidated,
+              plot_best_each = plot_best_each))
+  
+} 
 
 
 # search var one size formerly known as try_sizes_vbls_lags
@@ -1393,13 +1499,11 @@ stack_models <- function(models_list) {
 }
 
 
-
-
 var_cv <- function(var_data,
                    this_p, 
                    this_type = "const", 
                    n_cv = 8,
-                   h_max = 6, 
+                   h_max = 8, 
                    train_test_marks = NULL,
                    training_length = 20,
                    timetk_idx = TRUE,
@@ -1408,19 +1512,18 @@ var_cv <- function(var_data,
                    full_sample_resmat = NULL,
                    names_exogenous = c(""),
                    exo_lag = NULL,
-                   future_exo_cv = NULL) {
+                   future_exo_cv = NULL,
+                   this_thresh = 0) {
   
-  # print("inside var_cv")
-  # print("future_exo_cv")
-  # print(future_exo_cv)
-  
-  # print(colnames(var_data))
-  # print("firts full_sample_resmat")
-  # print(full_sample_resmat)}
-  
-  # print("initial data")
-  # print("var_data")
-  # print(var_data)
+  # print("")
+  # print("start var cv")
+  # print("")
+  # 
+  # print("full_sample_resmat starting var_cv()")
+  # print(full_sample_resmat)
+  # 
+  # print("this_thresh")
+  # print(this_thresh)
   
   vbls_for_var <- colnames(var_data)
   
@@ -1435,7 +1538,6 @@ var_cv <- function(var_data,
   endodata <- var_data[ , endov]
   exov <- vbls_for_var[vbls_for_var %in% names_exogenous] 
   exodata <- var_data[ , exov]
-  
 
   cv_restriction_status <- NULL
   
@@ -1455,21 +1557,9 @@ var_cv <- function(var_data,
     train_test_dates <- train_test_dates[["list_of_year_quarter"]]
   }
 
-  # print("exodata")
-  # print(exodata)
-  
-  # print("exo_lag")
-  # print(exo_lag)
-  # 
-  # print("this_p")
-  # print(this_p)
-  
   exo_and_lags <- make_exomat(exodata = exodata, exov = exov, exo_lag = exo_lag)
 
-  # if (is.null(future_exo_cv)) {
-  #   exo_and_lags <- make_exomat(exodata = exodata, exov = exov, exo_lag = exo_lag)
-  # }
-  
+
   if (is.null(dim(endodata))) {
     names(endodata) <- endov
   } else {
@@ -1485,10 +1575,7 @@ var_cv <- function(var_data,
   cv_vbl_names <- list_along(1:n_cv)
   cv_lag <- list_along(1:n_cv)
   cv_is_white_noise <- vector(mode = "logical", length = n_cv)
-  
-  # print("VAR data before cv")
-  # print(var_data)
-  
+
   total_obs <- nrow(var_data)
   cv_obs_used <- n_cv + training_length + h_max
   
@@ -1516,18 +1603,6 @@ var_cv <- function(var_data,
                          start = this_tra_s,
                          end = this_tra_e)
     
-    # print("this_tra_s")
-    # print(this_tra_s)
-    # 
-    # print("this_tra_e")
-    # print(this_tra_e)
-    # 
-    # print("endodata")
-    # print(endodata)
-    # 
-    # print("training_y")
-    # print(training_y)
-    
     this_training_y <- training_y
     
     test_y <- window(endodata, 
@@ -1544,70 +1619,20 @@ var_cv <- function(var_data,
       training_exo <- window(exodata, 
                              start = this_tra_s,
                              end = this_tra_e)
-      
-      # print("training_exo") 
-      # print(training_exo) 
-      
+
       training_exo_and_lags <- window(exo_and_lags, 
                                       start = this_tra_s,
                                       end = this_tra_e)
-      
-      # print("training_exo_and_lags")
-      # print(training_exo_and_lags)
-  
+
       assign("training_exo_and_lags", training_exo_and_lags, 
              envir = .GlobalEnv)
-      
-      # print("training_exo_and_lags")
-      # print(training_exo_and_lags)
-      # 
-      # print("training_y")
-      # print(training_y)
 
-      
       if (!is.null(future_exo_cv)) {
-        # print("Using cv-specific future exogenous")
-        
         this_future_exo_cv <- future_exo_cv[[i]]
-        # print(1)
         test_exo <- this_future_exo_cv[, exov]
-        # print(2)
-        
-        pretest_exodata <- window(exodata, end = this_tra_e)
-        
-        # print("exodata")
-        # print(exodata)
-        # print("pretest_exodata")
-        # print(pretest_exodata)
-        # print("test_exo")
-        # print(test_exo)
-        
-        # print("dim(exodata)")
-        # print(dim(exodata))
-        
-        # return(list(pe = pretest_exodata, te = test_exo))
-        
-        # print("c(pretest_exodata, test_exo)")
-        # print(c(pretest_exodata, test_exo))
-        # 
-        # print("rbind(pretest_exodata, test_exo)")
-        # print(rbind(pretest_exodata, test_exo))
-        # 
-        # print("c(pretest_exodata, test_exo)")
-        # print(c(pretest_exodata, test_exo))
 
-                # print("start(pretest?exodata)")
-        # print(start(pretest_exodata))
-        # 
-        # print("ts(rbind(pretest_exodata, test_exo ), frequency = 4, start = start(pretest_exodata))")
-        # print(ts(rbind(pretest_exodata, test_exo ), frequency = 4, start = start(pretest_exodata)))     
-        # 
-        # print("frequency(pretest_exodata)")
-        # print(frequency(pretest_exodata))
-        # 
-        # print("ts(rbind(pretest_exodata, test_exo ), frequency =  frequency(pretest_exodata), start = start(pretest_exodata))")
-        # print(ts(rbind(pretest_exodata, test_exo ), frequency =  frequency(pretest_exodata), start = start(pretest_exodata)))
-        
+        pretest_exodata <- window(exodata, end = this_tra_e)
+
         if (is.null(dim(exodata))) {
           # print("one exodata series")
           this_exodata <- ts(c(pretest_exodata, test_exo ), frequency =  frequency(pretest_exodata), start = start(pretest_exodata))
@@ -1615,28 +1640,12 @@ var_cv <- function(var_data,
           # print("multiple exodata series")
           this_exodata <- ts(rbind(pretest_exodata, test_exo ), frequency =  frequency(pretest_exodata), start = start(pretest_exodata))
         }
-        
-        # print(3)
 
-        # print("this_exodata")
-        # print(this_exodata)
-        
         this_exo_and_lags <- make_exomat(exodata = this_exodata, exov = exov, 
                                     exo_lag = exo_lag)
-        # print(4)
         test_exo_and_lags <- window(this_exo_and_lags, 
                                     start = this_tes_s,
                                     end = this_tes_e)
-        # print("this_exodata")
-        # print(this_exodata)
-        
-        # print("exo_and_lags")
-        # print(exo_and_lags)
-        # 
-        # print("test_exo_and_lags")
-        # print(test_exo_and_lags)
-        # print("end cv-specific future exogenous")
-        
       } else {
         test_exo <- window(exodata, 
                            start = this_tes_s,
@@ -1646,8 +1655,6 @@ var_cv <- function(var_data,
                                     start = this_tes_s,
                                     end = this_tes_e)
       }
-      
-      
     }
 
     if (is.null(dim(test_y))) {
@@ -1656,34 +1663,31 @@ var_cv <- function(var_data,
       test_rgdp <- test_y[ , "rgdp"]
     }
     
-    
     if (is.null(training_exo_and_lags)) {
       this_var <- vars::VAR(y = training_y, p = this_p, type = this_type) 
       
     } else {
-      # this_training_y
       this_var <- vars::VAR(y = training_y, p = this_p, type = this_type, 
                             exogen = training_exo_and_lags)
-
     }
-    
 
     if (!is.null(full_sample_resmat)) {
-      this_var_r <- try(vars::restrict(this_var, method = "manual", 
-                                 resmat = full_sample_resmat), silent = TRUE)
+      # print(paste0("fit restriction inside cv, with t-thresh = "), this_thresh)
+      # this_var_r <- try(vars::restrict(this_var, method = "manual", 
+      #                            resmat = full_sample_resmat), silent = TRUE)
+      this_var_r <- try(vars::restrict(this_var, method = "ser", thresh = this_thresh), silent = TRUE)
+      
+      # print("this_var_r")
+      # print(this_var_r)
       
       if (class(this_var_r) == "try-error") {
         cv_restriction_status <- 0
-        
       } else {
         cv_restriction_status <- 1
         this_var <- this_var_r
       }
     }
     
-    # print("postthisvar")
-    
-
     this_effective_lag <- max_effective_lag(this_var)
 
     if (test_residuals) {
@@ -1701,12 +1705,6 @@ var_cv <- function(var_data,
       this_fc <- forecast(this_var, h = h_max)
     } else {
       
-      # print("eoooo")
-      # print("dumvar")
-      # print(test_exo_and_lags)
-      # print("exogen")
-      # print(training_exo_and_lags)
-      
       this_fc <- forecast(this_var, h = h_max, dumvar = test_exo_and_lags,
                           exogen = training_exo_and_lags)
     }
@@ -1719,8 +1717,6 @@ var_cv <- function(var_data,
     
     lag <- this_p
     
-    # print("foo1")
-    
     cv_vbl_names[[i]] <- vbl_names
     cv_lag[[i]] <- lag
     cv_errors[[i]] <- fc_error
@@ -1729,29 +1725,17 @@ var_cv <- function(var_data,
     # cv_fc_object[[i]] <- this_fc
     cv_is_white_noise[[i]] <- is_white_noise
     
-    # print("foo2")
-    
   }
-  
-  # print("foo2")
-  
+
   cv_test_data_mat <- reduce(cv_test_data, rbind)
-  # print("foo3")
-  
+
   cv_fcs_mat <- reduce(cv_fcs, rbind)
-  # print("foo4")
-  
+
   # eliminate pesky "out" of it
   dimnames(cv_test_data_mat) <- NULL
   dimnames(cv_fcs_mat) <- NULL
-  # print("foo5")
-  
-  mean_cv_rmse <- fcs_accu(cv_fcs_mat, cv_test_data_mat)
-  # if(is.na(mean_cv_rmse)) {mean_cv_rmse <- Inf}
-  # print("foo6")
-  
-  # print("finished var_cv")
 
+  mean_cv_rmse <- fcs_accu(cv_fcs_mat, cv_test_data_mat)
   return(list(cv_errors = cv_errors,
               cv_test_data = cv_test_data,
               cv_fcs = cv_fcs,
@@ -1761,8 +1745,6 @@ var_cv <- function(var_data,
               cv_is_white_noise = cv_is_white_noise,
               cv_restriction_status = cv_restriction_status))
 }
-
-
 
 
 variable_freq_by_n <- function(tbl_of_models, h_max = 8, max_rank = 20, 
@@ -1869,9 +1851,8 @@ variable_freq_by_n <- function(tbl_of_models, h_max = 8, max_rank = 20,
   
   # print(10)
   
-  
   names(tbl_best_small) <- c("vbl", paste("h", seq(h_max), sep = "_"))
-  
+
   # print(11)
   
   tbl_best_small <- tbl_best_small %>% 
@@ -1983,448 +1964,618 @@ variable_freq_by_n <- function(tbl_of_models, h_max = 8, max_rank = 20,
 }
 
 
+var_search <- function(country, 
+                       search_plan,
+                       forecast_exercise_year, 
+                       forecast_exercise_number,
+                       fc_horizon,
+                       target_variable = c("rgdp"),
+                       default_t_treshold = 1.65,
+                       default_lags = c(2, 3, 4, 5),
+                       add_aic_bic_hq_fpe_lags =  FALSE,
+                       restrict_by_signif = TRUE,
+                       number_of_cv = 8,
+                       train_span = 25,
+                       ret_cv = TRUE,
+                       max_rank_some_h =50,
+                       max_rank_some_h_for_freq = 50,
+                       max_small_rank = 3,
+                       results_file_name = NULL,
+                       names_exogenous = c(""),
+                       exo_lag = NULL,
+                       combn_already_tried = NULL
+) {
+  
+  initial_time <- Sys.time()
+  tic(msg = "Total time for this country")
+  
+  
+  # file paths
+  excel_data_path <- paste0("./data/edd_exercises/", forecast_exercise_year, 
+                            "_exercise_", forecast_exercise_number, "/")
+  
+  output_path <- paste0("./analysis/VAR_output/edd_exercises/",
+                        forecast_exercise_year, 
+                        "_exercise_", forecast_exercise_number, "/")
+  
+  country_data_ts <- get_raw_data_ts(country = country, data_path = excel_data_path)
+  external_data_ts <- get_raw_external_data_ts(data_path = excel_data_path)
+
+  data_ts <- ts.union(country_data_ts, external_data_ts)
+  colnames(data_ts) <- c(colnames(country_data_ts), colnames(external_data_ts))
+
+  rgdp_level_ts <- data_ts[, "rgdp"]
+  rgdp_level_ts <- na.omit(rgdp_level_ts)
+  rgdp_yoy_ts <- make_yoy_ts(rgdp_level_ts)
+  
+  print(paste0("This country: ", country))
+  print(paste0("Number of variables (incl. rgdp): ", ncol(data_ts)))
+  print("Names of variables: ")
+  print(colnames(data_ts))
+  
+  tic()
+  print("Finding and applying stationary transformations to all variables")
+  reco_all_variables <- find_statio_diffs(data_ts, country)
+  country_transformed_data <- follow_rec(data_ts, reco_all_variables)
+  print("Done.")
+  toc()
+  
+  rgdp_rec <- reco_all_variables[reco_all_variables$variable == "rgdp", ][["kpss_05_level"]]
+  print(paste0("Stationary transformation for rgdp: ", rgdp_rec))
+  
+  VAR_data_for_estimation  <- country_transformed_data
+  
+  print(paste0("rgdp obs. after transformation: ", 
+               length(na.omit(VAR_data_for_estimation[ , "rgdp"]))
+  )
+  )
+  
+  print(paste0("rgdp obs. before transformation: ", length(rgdp_level_ts)))
+  
+  variable_names <- colnames(VAR_data_for_estimation)
+  ncolumns <- ncol(VAR_data_for_estimation)
+  
+  max_common_train_span_guaranted <- nrow(na.omit(VAR_data_for_estimation)) - fc_horizon - number_of_cv
+  print(paste0("Taking all variables together, maximum common training span is ",
+               max_common_train_span_guaranted))
+  upper_bound_for_train_span <- length(na.omit(VAR_data_for_estimation[ , "rgdp"])) - fc_horizon - number_of_cv
+  print(paste0("For variables encompasing rgdp extent, max training span is ",
+               upper_bound_for_train_span))
+  
+  if (train_span == "common_max") {
+    print(paste0("Using common_max span for training sets: ", max_common_train_span_guaranted))
+    train_span <- max_common_train_span_guaranted
+  }
+  
+  saveRDS(VAR_data_for_estimation, 
+          paste0(output_path, "VAR_data_", country, ".rds"))
+  
+  n_steps <- length(search_plan)
+  
+  per_size_results <- list_along(1:n_steps)
+  f_vbls_list <- list_along(1:n_steps)
+  current_consolidated_models_list <- list_along(1:n_steps)
+  cv_objects_list <- list_along(1:n_steps)
+  prechosen_variables_at_each_step <- list_along(1:n_steps)
+  all_prechosen_variables_at_each_step <- list_along(seq(1, n_steps))
+  
+  tic(msg = "Finish var search")
+  
+  for (i in seq(1, n_steps)) {
+    
+    set_of_prechosen_to_use <- NULL
+    
+    n_searches_for_this_size <- 0
+    this_search_step <- search_plan[[i]]
+    this_size <- this_search_step[["size"]]
+    this_selection_type <- this_search_step[["vbl_selection_type"]]
+    
+    print("")
+    print("--------------------------------------")
+    print("")
+    print(paste0("Starting the estimation of VAR with ", this_size," vbls"))
+    print(paste0("Variable selection type for this size: ", this_selection_type))
+    
+    if (is.null(this_search_step$lags)) {
+      this_lags <- default_lags
+    } else 
+    {
+      this_lags <- this_search_step[["lags"]]
+    }
+    
+    # print("This lags = ")
+    # print(this_lags)
+    
+    
+    if (is.null(this_search_step$t_treshold)) {
+      this_t_tresh <- default_t_treshold
+    } else {
+      this_t_tresh <- this_search_step[["t_treshold"]]
+    }
+    
+    # print("This t tresh = ")
+    # print(this_t_tresh)
+    
+    if (this_selection_type == "none") {
+      print("Using all variables without pre-chosen variables")
+      this_VAR_data <- VAR_data_for_estimation
+      this_prechosen_variables <- NULL
+      f_vbls <- NULL
+      new_select_vbls <- colnames(VAR_data_for_estimation) 
+      vbls_top_small <- NA
+      by_total_not_in_tsm <- NA
+    }
+    
+    
+    if (i > 1 & is.numeric(this_selection_type)) {
+      f_vbls <- variable_freq_by_n(current_consolidated_models, 
+                                   h_max = fc_horizon,
+                                   max_rank = max_rank_some_h_for_freq,
+                                   n_freq = this_selection_type, 
+                                   is_wide = TRUE,
+                                   mas_small_rank)
+      freq_sel_vbls_by_multi <- f_vbls$vbl_multi
+      vbls_top_small <- f_vbls$variables_in_top_small
+      
+      if(length(vbls_top_small) > this_selection_type) {
+        print(paste0("Number of best-n-VAR variables (", length(vbls_top_small), 
+                     "exceeds next_freq_limit (",  this_selection_type, "). We will preserve 
+        the integrity of best VARs and use those",  length(vbls_top_small), " variables in next size." )  )
+        
+        print(paste0("If you want to decrease the number of variables, reduce the mas_small_rank 
+                     parameter to some value lower than ", max_small_rank))
+        
+        vbls_top_small <- vbls_top_small
+      }
+      
+      by_total_not_in_tsm <- f_vbls$by_total_not_in_top_small
+      
+      by_total_na <- is.na(by_total_not_in_tsm)
+      
+      by_total_not_in_tsm <- by_total_not_in_tsm[!by_total_na]
+      
+      n_gap_vbls <- this_selection_type - length(vbls_top_small)
+      
+      if (n_gap_vbls > 0) {
+        extra_vbls <- by_total_not_in_tsm[1:n_gap_vbls]
+      } else {
+        extra_vbls <- c()
+      }
+      
+      new_select_vbls <- c(vbls_top_small, extra_vbls)
+      
+      print("Using this subset of variables: ")
+      print(new_select_vbls)
+      
+      this_VAR_data <- VAR_data_for_estimation[, new_select_vbls]
+    }
+    
+    if (this_selection_type == "manually_prechosen_variables") {
+      print("Using automatic incrementally added pre-chosen variables")
+      print("This option does not automatically inherits prechosen variables from previous steps")
+      
+      current_consolidated_models <- current_consolidated_models_list[[i-1]]
+      
+      
+      # print("before addig this step manual variables, we have:")
+      # print(all_prechosen_variables_at_each_step)
+      
+      updated_list_of_prechosen <- add_prechosen_for_this_step(
+        search_plan = search_plan, step_index = i, 
+        prechosen_so_far = all_prechosen_variables_at_each_step,
+        max_rank_some_h_for_freq = max_rank_some_h_for_freq,
+        models_table = current_consolidated_models)
+      
+      # print("And after add_prechosen_for_this_step, the updated version of it is")
+      # print(updated_list_of_prechosen)
+      all_prechosen_variables_at_each_step <- updated_list_of_prechosen
+      
+      set_of_prechosen_to_use <- all_prechosen_variables_at_each_step[[i]]
+      
+      # print("And in this step we will add the following variables as prechosen, one at the time:")
+      # print(set_of_prechosen_to_use)
+      
+    }
+    
+    if (this_selection_type == "incremental_auto_prechosen") {
+      
+      print("Using automatic incrementally added pre-chosen variables")
+      
+      print("Inherits from previous step, the following prechosen variables:")
+      print(all_prechosen_variables_at_each_step[[i - 1]])
+      
+      current_consolidated_models <- current_consolidated_models_list[[i-1]]
+      
+      updated_list_of_prechosen <- add_prechosen_for_this_step(
+        search_plan = search_plan, step_index = i, 
+        prechosen_so_far = all_prechosen_variables_at_each_step,
+        max_rank_some_h_for_freq = max_rank_some_h_for_freq,
+        models_table = current_consolidated_models)
+      
+      all_prechosen_variables_at_each_step <- updated_list_of_prechosen
+      
+      set_of_prechosen_to_use <- all_prechosen_variables_at_each_step[[i]]
+      
+      print("And in this step we will add the following variables as prechosen, one at the time:")
+      print(set_of_prechosen_to_use)
+      
+      # print("all_prechosen_variables_at_each_step")
+      # print(all_prechosen_variables_at_each_step)
+      
+      # print("set_of_prechosen_to_use")
+      # print(set_of_prechosen_to_use)
+    }
+    
+    add_augmented_models <- this_search_step[["add_augmented_models"]]
+    
+    if (is.null(add_augmented_models)) {
+      add_augmented_models <- FALSE
+    }
+    
+    if (add_augmented_models) {
+      
+      n_best_per_h <- 2
+      rmse_names <- paste("rmse", seq(fc_horizon), sep = "_")
+      
+      print(paste0(
+        "Also including one-extra-variable augmented versions of the best ",
+        n_best_per_h, " size-",search_plan[[i-1]]$size, "-VAR of each horizon",
+        " (including ties).")
+      )
+      
+      potential_models <- current_consolidated_models_list[[i-1]]
+      
+      potential_models <- potential_models %>% 
+        gather(key = "rmse_h", value = "rmse", rmse_names) %>% 
+        dplyr::select(vars_select(names(.), -starts_with("rank"))) %>% 
+        group_by(rmse_h) %>% 
+        arrange(rmse_h, rmse) %>% 
+        mutate(rank_h = rank(rmse),
+               nth_rmse = nth(rmse, n_best_per_h)) %>% 
+        ungroup()
+      
+      print("potential_models")
+      print(potential_models)
+      
+      vec_of_rmse_h <- sort(unique(potential_models$rmse_h))
+      
+      print("vec_of_rmse_h")
+      print(vec_of_rmse_h)
+      
+      list_best <- map(vec_of_rmse_h, 
+                       ~ potential_models %>% 
+                         filter(rmse_h == .x, rmse <= nth_rmse)
+      ) 
+      
+      print("list_best")
+      print(list_best)
+      
+      break
+      
+    }
+    
+    tic(msg = paste0("Finished VARs with ", this_size, " variables"))
+    
+    if (!is.null(set_of_prechosen_to_use)) {
+      # print("Inside the prechose vbls loop:")
+      # print("set_of_prechosen_to_use")
+      # print(set_of_prechosen_to_use)
+      
+      var_res_each_prechosen <- list_along(seq(1, length(set_of_prechosen_to_use)))
+      
+      for (ptu in seq(1, length(set_of_prechosen_to_use))) {
+        print(paste0("new prechosen ", ptu, " of ", length(set_of_prechosen_to_use)))
+        
+        this_prechosen_variables <- set_of_prechosen_to_use[ptu][[1]]
+        
+        print("pre-chosen variables to be use in the coming VAR search:")
+        print(this_prechosen_variables)
+        
+        print("is.list(this_prechosen_variables)")
+        print(is.list(this_prechosen_variables))
+        
+        var_res <- search_var_one_size(
+          var_size = this_size,
+          vec_lags = this_lags,
+          var_data = this_VAR_data,
+          rgdp_level_ts = rgdp_level_ts,
+          rgdp_yoy_ts = rgdp_yoy_ts,
+          target_v = target_variable,
+          pre_selected_v = this_prechosen_variables,
+          is_cv = TRUE,
+          training_length = train_span,
+          h_max = fc_horizon,
+          n_cv = number_of_cv,
+          return_cv = ret_cv,
+          rgdp_current_form = rgdp_rec,
+          max_rank = max_rank_some_h,
+          check_residuals_cv = TRUE,
+          check_residuals_full_sample = TRUE,
+          restrict_by_signif = restrict_by_signif,
+          t_tresh = this_t_tresh,
+          max_p_for_estimation = 12,
+          add_info_based_lags = add_aic_bic_hq_fpe_lags,
+          names_exogenous = names_exogenous,
+          exo_lag = exo_lag)
+        
+        # print("names(var_res)")
+        # 
+        # print(names(var_res))
+        
+        var_res[["explored_size"]] <- this_size
+        var_res[["used_prechosen"]] <- this_prechosen_variables
+        
+        var_res_each_prechosen[[ptu]] <- var_res
+        
+        n_searches_for_this_size <- n_searches_for_this_size + 1
+        print("N of searches for this size:")
+        print(n_searches_for_this_size)
+      }
+      
+      all_models <- map(var_res_each_prechosen, "accu_rankings_models")
+      all_models <- reduce(all_models, rbind)
+      
+      all_cv_obj <- map(var_res_each_prechosen, "cv_objects")
+      all_cv_obj <- reduce(all_cv_obj, rbind)
+      
+      var_res <- list(accu_rankings_models = all_models,
+                      cv_objects = all_cv_obj)
+      
+    }
+    
+    if (is.null(set_of_prechosen_to_use)) {
+      var_res <- search_var_one_size(
+        var_size = this_size,
+        vec_lags = this_lags,
+        var_data = this_VAR_data,
+        rgdp_level_ts = rgdp_level_ts,
+        rgdp_yoy_ts = rgdp_yoy_ts,
+        target_v = target_variable,
+        pre_selected_v = this_prechosen_variables,
+        is_cv = TRUE,
+        training_length = train_span,
+        h_max = fc_horizon,
+        n_cv = number_of_cv,
+        return_cv = ret_cv,
+        rgdp_current_form = rgdp_rec,
+        max_rank = max_rank_some_h,
+        check_residuals_cv = TRUE,
+        check_residuals_full_sample = TRUE,
+        restrict_by_signif = restrict_by_signif,
+        t_tresh = this_t_tresh,
+        max_p_for_estimation = 12,
+        add_info_based_lags = add_aic_bic_hq_fpe_lags, 
+        names_exogenous = names_exogenous, 
+        exo_lag = exo_lag)
+      
+      n_searches_for_this_size <- n_searches_for_this_size + 1
+      print("N of searches for this size:")
+      print(n_searches_for_this_size)
+      
+      var_res[["explored_size"]] <- this_size
+      var_res[["used_prechosen"]] <- this_prechosen_variables
+    }
+    
+    per_size_results[[i]] <- var_res
+    
+    if (i == 1) {
+      current_consolidated_models <- stack_models(
+        list(var_res[["accu_rankings_models"]])
+      ) 
+    } else {
+      current_consolidated_models <- stack_models(map(per_size_results, "accu_rankings_models"))
+    }
+    
+    combn_already_tried <- c(combn_already_tried, 
+                             var_res[["combinations_of_variables_considered"]])
+    
+    file_suffix <- paste0("_size_", this_size,
+                          "_t_", this_t_tresh, "mr", max_rank_some_h,
+                          "_mrfq", max_rank_some_h_for_freq, ".rds")
+    
+    filename <- paste0("var_results_", country, file_suffix)
+    
+    saveRDS(var_res, paste0(output_path, filename))
+    
+    per_size_results[[i]] <- var_res
+    f_vbls_list[[i]] <- f_vbls
+    
+    prechosen_variables_at_each_step[[i]] <- this_prechosen_variables
+    current_consolidated_models_list[[i]] <- current_consolidated_models
+    cv_objects_list[[i]] <- var_res[["cv_objects"]]
+    
+    toc()
+  }
+  
+  toc()
+  
+  bind_var_res_all_sizes <- reduce(map(per_size_results, "accu_rankings_models"), rbind)
+  
+  consolidated_var_res <- stack_models(map(per_size_results, "accu_rankings_models"))
+  
+  final_time <- Sys.time()
+  
+  elapsed_time <- final_time - initial_time
+  
+  if (ret_cv) {
+    res_and_info <- list(consolidated_var_res = consolidated_var_res,
+                         f_vbls_all_sizes = f_vbls_list,
+                         var_data = VAR_data_for_estimation,
+                         elapsed_time = elapsed_time, 
+                         prechosen = all_prechosen_variables_at_each_step,
+                         cv_objects = cv_objects_list,
+                         target_variable_transform = rgdp_rec,
+                         names_exogenous = names_exogenous,
+                         fc_horizon = fc_horizon,
+                         train_span = train_span,
+                         number_of_cv = number_of_cv,
+                         max_rank_some_h = max_rank_some_h)
+    
+  } else {
+    res_and_info <- list(consolidated_var_res = consolidated_var_res,
+                         f_vbls_all_sizes = f_vbls_list,
+                         var_data = VAR_data_for_estimation,
+                         prechosen = all_prechosen_variables_at_each_step,
+                         elapsed_time = elapsed_time,
+                         target_variable_transform = rgdp_rec,
+                         names_exogenous,
+                         fc_horizon = fc_horizon,
+                         train_span = train_span,
+                         number_of_cv = number_of_cv,
+                         max_rank_some_h = max_rank_some_h)
+  }
+  
+  allsizes <- paste(n_steps, collapse = "")
+  allthresh <- "foo"
+  # allthresh <- paste(t_tresh, collapse = "")
+  allfqlim <- paste(c(9,6,6), collapse = "")
+  
+  file_suffix_all_sizes <-  paste0("_s", allsizes,
+                                   "_t", allthresh, "_mr", max_rank_some_h,
+                                   "_mrfq", max_rank_some_h_for_freq,
+                                   "_cv",number_of_cv,"_tspan", train_span,
+                                   "_h", fc_horizon,".rds")
+  
+  
+  if(is.null(results_file_name)) {
+    filename <- paste0("vr_", country, file_suffix_all_sizes)
+  } else {
+    filename <- results_file_name
+  }
+  
+  print("filename")
+  print(filename)
+  
+  saveRDS(res_and_info, paste0(output_path, filename))
+  
+  return(res_and_info)
+}
 
 
 
 
-# 
-# 
-# var_search_old <- function(country, 
-#                        sizes, 
-#                        forecast_exercise_year, 
-#                        forecast_exercise_number,
-#                        fc_horizon,
-#                        target_variable = c("rgdp"),
-#                        other_prechosen_variables = list(c(""), c(""), c(""), c("")),
-#                        vec_lags = c(1, 2, 3, 4, 5, 6) ,
-#                        add_aic_bic_hq_fpe_lags =  FALSE,
-#                        vec_freq_limit = list("none", "none", 15, 10),
-#                        restrict_by_signif = TRUE,
-#                        t_tresh = c(2, 2, 2, 2),
-#                        number_of_cv = 8,
-#                        train_span = 25,
-#                        ret_cv = TRUE,
-#                        max_rank_some_h =50,
-#                        max_rank_some_h_for_freq = 50,
-#                        max_small_rank = 3,
-#                        results_file_name = NULL
-# ) {
-#   
-#   initial_time <- Sys.time()
-#   tic(msg = "Total time for this country")
-#   
-#   
-#   # file paths
-#   excel_data_path <- paste0("./data/edd_exercises/", forecast_exercise_year, 
-#                             "_exercise_", forecast_exercise_number, "/")
-#   
-#   output_path <- paste0("./analysis/VAR_output/edd_exercises/",
-#                         forecast_exercise_year, 
-#                         "_exercise_", forecast_exercise_number, "/")
-#   
-#   country_data_ts <- get_raw_data_ts(country = country, data_path = excel_data_path)
-#   external_data_ts <- get_raw_external_data_ts(data_path = excel_data_path)
-#   data_ts <- country_data_ts
-#   
-#   rgdp_level_ts <- data_ts[, "rgdp"]
-#   rgdp_level_ts <- na.omit(rgdp_level_ts)
-#   rgdp_yoy_ts <- make_yoy_ts(rgdp_level_ts)
-#   
-#   print(paste0("This country: ", country))
-#   print(paste0("Number of variables (incl. rgdp): ", ncol(data_ts)))
-#   print("Names of variables: ")
-#   print(colnames(data_ts))
-#   
-#   tic()
-#   print("Finding and applying stationary transformations to all variables")
-#   reco_all_variables <- find_statio_diffs(data_ts, country)
-#   country_transformed_data <- follow_rec(data_ts, reco_all_variables)
-#   print("Done.")
-#   toc()
-#   
-#   rgdp_rec <- reco_all_variables[reco_all_variables$variable == "rgdp", ][["kpss_05_level"]]
-#   print(paste0("Stationary transformation for rgdp: ", rgdp_rec))
-#   
-#   VAR_data_for_estimation  <- country_transformed_data
-#   
-#   print(paste0("rgdp obs. after transformation: ", 
-#                length(na.omit(VAR_data_for_estimation[ , "rgdp"]))
-#   )
-#   )
-#   
-#   print(paste0("rgdp obs. before transformation: ", length(rgdp_level_ts)))
-#   
-#   variable_names <- colnames(VAR_data_for_estimation)
-#   ncolumns <- ncol(VAR_data_for_estimation)
-#   
-#   max_common_train_span_guaranted <- nrow(na.omit(VAR_data_for_estimation)) - fc_horizon - number_of_cv
-#   print(paste0("Taking all variables together, maximum common training span is ",
-#                max_common_train_span_guaranted))
-#   upper_bound_for_train_span <- length(na.omit(VAR_data_for_estimation[ , "rgdp"])) - fc_horizon - number_of_cv
-#   print(paste0("For variables encompasing rgdp extent, max training span is ",
-#                upper_bound_for_train_span))
-#   
-#   if (train_span == "common_max") {
-#     print(paste0("Using common_max span for training sets: ", max_common_train_span_guaranted))
-#     train_span <- max_common_train_span_guaranted
-#   }
-#   
-#   saveRDS(VAR_data_for_estimation, 
-#           paste0(output_path, "VAR_data_", country, ".rds"))
-#   
-#   
-#   freq_sel_vbls <- colnames(VAR_data_for_estimation) # same as freq_limit = 'none'
-#   
-#   
-#   # if (train_span + fc_horizon + number_of_cv > nrow(VAR_data_for_estimation)) {
-#   #   print("not enough obs")
-#   #   stop()
-#   # }
-#   
-#   per_size_results <- list_along(sizes)
-#   f_vbls_list <- list_along(sizes)
-#   selection_for_next_size_list <- list_along(sizes)
-#   current_consolidated_models_list <- list_along(sizes)
-#   cv_objects_list <- list_along(sizes)
-#   
-#   tic(msg = "Finish var search")
-#   
-#   
-#   
-#   
-#   for (i in seq(length(sizes))) {
-#     
-#     this_size <- sizes[i]
-#     this_t_tresh <- t_tresh[i]
-#     this_freq_limit <- vec_freq_limit[[i]]
-#     this_prechosen_variables <- other_prechosen_variables[[i]]
-#     
-#     print(paste0("Starting the estimation of VAR with ", this_size," vbls"))
-#     
-#     print(paste0("prechosen variables for this size: "))
-#     print(this_prechosen_variables)
-#     
-#     
-#     if (i < length(sizes)) {
-#       next_freq_limit <- vec_freq_limit[[i + 1]]
-#     }
-#     
-#     if (this_freq_limit == "none") {
-#       print("Using all variables")
-#       this_VAR_data <- VAR_data_for_estimation
-#     }
-#     
-#     if (this_freq_limit == "cummulative-preselection") {
-#       print("Using pre-selected from a previous stage/size")
-#       
-#       var_res_of_previous_size <- keep(per_size_results[1: (i-1)], 
-#                                        ~ .x[["explored_size"]] == (this_size-1))
-#       
-#       n_previous_size_results <- length(var_res_of_previous_size)
-#       
-#       print(paste0("There are ", n_previous_size_results, 
-#                    " sets of results available from the previous size (i.e ", 
-#                    this_size-1, ")."))
-#       
-#       best_n_VAR_for_preselecting <- 10
-#       n_freq_for_preselecting <- 2*this_size
-#       
-#       nth_after_target <- this_freq_limit$nth
-#       
-#       preselected_for_this_size <- vector(mode = "integer", length = n_previous_size_results)
-#       
-#       for (psr in seq(1, n_previous_size_results)) {
-#         print(paste0("psr = ", psr))
-#         this_results <- var_res_of_previous_size[psr][[1]]
-#         
-#         f_vbls <- variable_freq_by_n(this_results[["accu_rankings_models"]], 
-#                                      h_max = fc_horizon, 
-#                                      max_rank = max_rank_some_h_for_freq,
-#                                      n_freq = n_freq_for_preselecting , 
-#                                      is_wide = TRUE,
-#                                      max_small_rank = best_n_VAR_for_preselecting)
-# 
-#         vbl_table <- f_vbls$vbl_freqs_by_h %>% arrange(desc(total_n))
-#         
-#         vbl_table_by_total <- vbl_table %>% 
-#           arrange(desc(total_n)) %>% 
-#           dplyr::select(vbl) %>% 
-#           dplyr::filter(row_number() <= n_freq_for_preselecting)
-#         
-#         vbl_by_total <-  vbl_table_by_total$vbl
-#         
-#         # print("vbl_table")
-#         # print(vbl_table)
-#         # print("vbl_by_total")
-#         # print(vbl_by_total)
-#         new_preselected <- vbl_by_total[1+nth_after_target]
-#         # print("new_preselected")
-#         # print(new_preselected)
-#         
-#         preselected_for_this_size[psr] <- new_preselected
-#         
-#       }
-#       
-#       print("preselected_for_this_size: ")
-#       print(preselected_for_this_size)
-#       
-#       
-#       
-#       # this_VAR_data <- VAR_data_for_estimation
-#     }
-#     
-#     
-#     
-#     if (i > 1 & is.numeric(this_freq_limit)) {
-#       print("Using this subset of variables: ")
-#       print(new_select_vbls)
-#       
-#       this_VAR_data <- VAR_data_for_estimation[, new_select_vbls]
-#     }
-#     
-#     tic(msg = paste0("Finished VARs with ", this_size, " variables"))
-#     
-#     var_res <- search_var_one_size(
-#       var_size = this_size,
-#       vec_lags = vec_lags,
-#       var_data = this_VAR_data,
-#       rgdp_level_ts = rgdp_level_ts,
-#       rgdp_yoy_ts = rgdp_yoy_ts,
-#       target_v = target_variable,
-#       pre_selected_v = this_prechosen_variables,
-#       is_cv = TRUE,
-#       training_length = train_span,
-#       h_max = fc_horizon,
-#       n_cv = number_of_cv,
-#       return_cv = ret_cv,
-#       rgdp_current_form = rgdp_rec,
-#       max_rank = max_rank_some_h,
-#       check_residuals_cv = TRUE,
-#       check_residuals_full_sample = TRUE,
-#       restrict_by_signif = restrict_by_signif,
-#       t_tresh = this_t_tresh,
-#       max_p_for_estimation = 12,
-#       add_info_based_lags = add_aic_bic_hq_fpe_lags)
-#     
-#     var_res[["explored_size"]] <- this_size
-#     
-#     per_size_results[[i]] <- var_res
-#     
-#     if (i == 1) {
-#       current_consolidated_models <- stack_models(
-#         list(var_res[["accu_rankings_models"]])
-#       ) 
-#     } else {
-#       current_consolidated_models <- stack_models(map(per_size_results, "accu_rankings_models"))
-#     }
-#     
-#     if (i < length(sizes)) {
-#       next_freq_limit <- vec_freq_limit[[i + 1]]
-#     }
-#     
-#     if (i == length(sizes)) {
-#       next_freq_limit <- list(type = "none")
-#     }
-#     
-#     
-#     if (next_freq_limit$type == "none") {
-#       f_vbls <- NULL
-#       new_select_vbls <- colnames(VAR_data_for_estimation) 
-#       vbls_top_small <- NA
-#       by_total_not_in_tsm <- NA
-#     }
-#     
-#     if (next_freq_limit$type == "cummulative-preselection") {
-#       print("this is cummulative preselection")
-#       
-#       # print("previously preselected so far:")
-# 
-#       vec_of_prechosen <- reduce(other_prechosen_variables, c)
-#       vec_of_prechosen <- vec_of_prechosen[vec_of_prechosen != ""]
-#       # print(vec_of_prechosen)
-#       
-#       
-#       best_n_VAR_for_preselecting <- 10
-#       n_freq_for_preselecting <- 2*this_size
-#       
-#       nth_after_target <- next_freq_limit$nth
-#       
-#       # f_vbls <- variable_freq_by_n(current_consolidated_models, 
-#       #                              h_max = fc_horizon, 
-#       #                              max_rank = max_rank_some_h_for_freq,
-#       #                              n_freq = n_freq_for_preselecting , 
-#       #                              is_wide = TRUE,
-#       #                              max_small_rank = best_n_VAR_for_preselecting)
-#       
-#       previous_results <- per_size_results[[i-1]]
-# 
-#       
-#       f_vbls <- variable_freq_by_n(previous_results[["accu_rankings_models"]], 
-#                                    h_max = fc_horizon, 
-#                                    max_rank = max_rank_some_h_for_freq,
-#                                    n_freq = n_freq_for_preselecting , 
-#                                    is_wide = TRUE,
-#                                    max_small_rank = best_n_VAR_for_preselecting)
-#       
-#       # print("f_vbls")
-#       # print(f_vbls)
-#       vbl_table <- f_vbls$vbl_freqs_by_h %>% arrange(desc(total_n))
-#       
-#       vbl_table_by_total <- vbl_table %>% 
-#         arrange(desc(total_n)) %>% 
-#         dplyr::select(vbl) %>% 
-#         dplyr::filter(row_number() <= n_freq_for_preselecting)
-#       
-#       vbl_by_total <-  vbl_table_by_total$vbl
-#       
-#       # print("vbl_table")
-#       # print(vbl_table)
-#       # print("vbl_by_total")
-#       # print(vbl_by_total)
-#       new_preselected <- vbl_by_total[1+nth_after_target]
-#       # print("new_preselected")
-#       # print(new_preselected)
-#       
-#       other_prechosen_variables[[i+1]] <- new_preselected 
-#       new_select_vbls <- colnames(VAR_data_for_estimation) 
-#     }
-#     
-#     if (is.numeric(next_freq_limit)) {
-#       f_vbls <- variable_freq_by_n(current_consolidated_models, 
-#                                    h_max = fc_horizon, max_rank = max_rank_some_h_for_freq,
-#                                    n_freq = next_freq_limit, is_wide = TRUE,
-#                                    mas_small_rank)
-#       freq_sel_vbls_by_multi <- f_vbls$vbl_multi
-#       vbls_top_small <- f_vbls$variables_in_top_small
-#       
-#       if(length(vbls_top_small) > next_freq_limit) {
-#         print(paste0("Number of best-n-VAR variables (", length(vbls_top_small), 
-#                      "exceeds next_freq_limit (",  next_freq_limit, "). We will preserve 
-#         the integrity of best VARs and use those",  length(vbls_top_small), " variables in next size." )  )
-#         
-#         print(paste0("If you want to decrease the number of variables, reduce the mas_small_rank 
-#                      parameter to some value lower than ", max_small_rank))
-#         
-#         vbls_top_small <- vbls_top_small
-#       }
-#       
-#       
-#       by_total_not_in_tsm <- f_vbls$by_total_not_in_top_small
-#       
-#       # print("vector tiene NA:")
-#       # print(by_total_not_in_tsm)
-#       by_total_na <- is.na(by_total_not_in_tsm)
-#       # print("by_total_na")
-#       # print(by_total_na)
-#       # print(!by_total_na)
-#       
-#       by_total_not_in_tsm <- by_total_not_in_tsm[!by_total_na]
-#       
-#       n_gap_vbls <- next_freq_limit - length(vbls_top_small)
-#       
-#       # print("vbls_top_small")
-#       # print(vbls_top_small)
-#       # print("by_total_not_in_tsm")
-#       # print(by_total_not_in_tsm)
-#       # print("n_gap_vbls")
-#       # print(n_gap_vbls)
-#       
-#       if (n_gap_vbls > 0) {
-#         extra_vbls <- by_total_not_in_tsm[1:n_gap_vbls]
-#         # print("extra_vbls")
-#         # print(extra_vbls)
-#       } else {
-#         extra_vbls <- c()
-#       }
-#       
-#       new_select_vbls <- c(vbls_top_small, extra_vbls)
-#       
-#       # print("new_select_vbls")
-#       # print(new_select_vbls)
-#       
-#       
-#     }
-#     
-#     # file_suffix <- paste0("_size_", this_size, "_fqlim_", this_freq_limit,
-#     #                       "_t_", this_t_tresh, "mr", max_rank_some_h,
-#     #                       "_mrfq", max_rank_some_h_for_freq, ".rds")
-#     
-#     file_suffix <- paste0("_size_", this_size,
-#                           "_t_", this_t_tresh, "mr", max_rank_some_h,
-#                           "_mrfq", max_rank_some_h_for_freq, ".rds")
-#     
-#     filename <- paste0("var_results_", country, file_suffix)
-#     
-#     print("filename")
-#     print(filename)
-#     
-#     saveRDS(var_res, paste0(output_path, filename))
-#     
-#     per_size_results[[i]] <- var_res
-#     f_vbls_list[[i]] <- f_vbls
-#     selection_for_next_size_list[[i]] <- new_select_vbls
-#     current_consolidated_models_list[[i]] <- current_consolidated_models
-#     cv_objects_list[[i]] <- var_res[["cv_objects"]]
-#     
-#     toc()
-#   }
-#   
-#   toc()
-#   
-#   bind_var_res_all_sizes <- reduce(map(per_size_results, "accu_rankings_models"), rbind)
-#   
-#   consolidated_var_res <- stack_models(map(per_size_results, "accu_rankings_models"))
-#   
-#   final_time <- Sys.time()
-#   
-#   elapsed_time <- final_time - initial_time
-#   
-#   if (ret_cv) {
-#     res_and_info <- list(consolidated_var_res = consolidated_var_res,
-#                          f_vbls_all_sizes = f_vbls_list,
-#                          selected_for_next_size = selection_for_next_size_list,
-#                          var_data = VAR_data_for_estimation,
-#                          elapsed_time = elapsed_time,
-#                          cv_objects = cv_objects_list)
-#     
-#   } else {
-#     res_and_info <- list(consolidated_var_res = consolidated_var_res,
-#                          f_vbls_all_sizes = f_vbls_list,
-#                          selected_for_next_size = selection_for_next_size_list,
-#                          var_data = VAR_data_for_estimation,
-#                          elapsed_time = elapsed_time)
-#   }
-#   
-#   allsizes <- paste(sizes, collapse = "")
-#   allthresh <- paste(t_tresh, collapse = "")
-#   allfqlim <- paste(vec_freq_limit, collapse = "")
-#   
-#   # file_suffix_all_sizes <-  paste0("_s", allsizes, "_fq", allfqlim,
-#   #                                  "_t", allthresh, "_mr", max_rank_some_h,
-#   #                                  "_mrfq", max_rank_some_h_for_freq,
-#   #                                  "_cv",number_of_cv,"_tspan", train_span,
-#   #                                  "_h", fc_horizon,".rds")
-#   
-#   file_suffix_all_sizes <-  paste0("_s", allsizes,
-#                                    "_t", allthresh, "_mr", max_rank_some_h,
-#                                    "_mrfq", max_rank_some_h_for_freq,
-#                                    "_cv",number_of_cv,"_tspan", train_span,
-#                                    "_h", fc_horizon,".rds")
-#   
-#   
-#   if(is.null(results_file_name)) {
-#     filename <- paste0("vr_", country, file_suffix_all_sizes)
-#   } else {
-#     filename <- results_file_name
-#   }
-#   
-#   print("filename")
-#   print(filename)
-#   
-#   saveRDS(res_and_info, paste0(output_path, filename))
-#   
-#   return(res_and_info)
-# }
+
+
+
+
+transform_all_cv <- function(cv_object, current_form,
+                             target_level_ts, n_cv) {
+  
+  if (is.na(cv_object)) {
+    return(cv_object)
+  }
+  
+  if (current_form == "yoy") {
+    #noting to transform
+    return(cv_object)
+  }
+  
+  old_test_data_list <- cv_object[["cv_test_data"]]
+  old_fcs_list <- cv_object[["cv_fcs"]]
+  
+  new_test_data_list <- list_along(1:n_cv)
+  new_fcs_list <- list_along(1:n_cv)
+  new_fcs_errors_list  <- list_along(1:n_cv)
+  
+  if (current_form == "diff_yoy") {
+    
+    len_initial_cond <- 1
+    auxiliary_ts <- make_yoy_ts(target_level_ts)
+    
+    for (td in seq_along(1:n_cv)) {
+      
+      this_test_data <- old_test_data_list[[td]]
+      this_fcs <- old_fcs_list[[td]]
+      
+      test_time <- time(this_test_data)
+      start_test <- min(test_time)
+      end_initial_cond <- start_test - 0.25
+      start_initial_cond <- start_test - 0.25*len_initial_cond
+      end_initial_cond_y_q <- c(year(as.yearqtr(end_initial_cond)),
+                                quarter(as.yearqtr(end_initial_cond))
+      )
+      start_initial_cond_y_q <- c(year(as.yearqtr(start_initial_cond)),
+                                  quarter(as.yearqtr(start_initial_cond))
+      )
+      initial_cond_ts <- window(auxiliary_ts, start = start_initial_cond_y_q,
+                                end = end_initial_cond_y_q)
+      
+      new_test_data <- un_diff_ts(initial_cond_ts, this_test_data)
+      new_fcs <- un_diff_ts(initial_cond_ts, this_fcs)
+      
+      new_fcs_errors <-  new_test_data - new_fcs
+      new_fcs_errors_list[[td]] <- new_fcs_errors
+      
+      new_test_data_list[[td]] <- new_test_data
+      new_fcs_list[[td]] <- new_fcs
+    }
+    
+  }
+  
+  if (current_form == "diff") {
+    len_initial_cond <- 1
+    auxiliary_ts <- target_level_ts
+    
+    for (td in seq_along(1:n_cv)) {
+      
+      this_test_data <- old_test_data_list[[td]]
+      this_fcs <- old_fcs_list[[td]]
+      
+      test_time <- time(this_test_data)
+      start_test <- min(test_time)
+      end_initial_cond <- start_test - 0.25
+      start_initial_cond <- start_test - 0.25*len_initial_cond
+      end_initial_cond_y_q <- c(year(as.yearqtr(end_initial_cond)),
+                                quarter(as.yearqtr(end_initial_cond))
+      )
+      start_initial_cond_y_q <- c(year(as.yearqtr(start_initial_cond)),
+                                  quarter(as.yearqtr(start_initial_cond))
+      )
+      initial_cond_ts <- window(auxiliary_ts, start = start_initial_cond_y_q,
+                                end = end_initial_cond_y_q)
+      
+      level_test_data <- un_diff_ts(initial_cond_ts, this_test_data)
+      level_fcs <- un_diff_ts(initial_cond_ts, this_fcs)
+      
+      pre_test_level_data <- window(auxiliary_ts, end = end_initial_cond_y_q)
+      
+      data_and_test_level <- ts(c(pre_test_level_data, level_test_data),
+                                frequency = 4, start = start(auxiliary_ts))
+      data_and_fcs_level <- ts(c(pre_test_level_data, level_fcs),
+                               frequency = 4, start = start(auxiliary_ts))
+      
+      data_and_test_yoy <- make_yoy_ts(data_and_test_level, freq = 4, 
+                                       is_log = FALSE)
+      data_and_fcs_yoy <- make_yoy_ts(data_and_fcs_level, freq = 4, 
+                                      is_log = FALSE)
+      
+      new_test_data <- window(data_and_test_yoy, start = start(this_test_data),
+                              end = end(this_test_data))
+      new_fcs <- window(data_and_fcs_yoy, start = start(this_fcs),
+                        end = end(this_fcs))
+      
+      new_fcs_errors <-  new_test_data - new_fcs
+      new_fcs_errors_list[[td]] <- new_fcs_errors
+      
+      new_fcs_list[[td]] <- new_fcs
+      new_test_data_list[[td]] <- new_test_data
+      
+    }
+    
+  }
+  
+  new_cv_object = list(cv_test_data = new_test_data_list, 
+                       cv_fcs = new_fcs_list,
+                       cv_errors = new_fcs_errors_list)
+  
+  return(new_cv_object)
+}
+
+
+
+
+
+
 
 
 
