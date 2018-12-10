@@ -360,10 +360,10 @@ extending_exogenous_for_cv <- function(exodata, h, endo_end, n_cv,
     
     this_cv_fcs_mts <- this_cv_results[["future_exo"]]
     colnames(this_cv_fcs_mts) <- names_exogenous
-    print("names_exogenous")
-    print(names_exogenous)
-    print("this_cv_fcs_mts")
-    print(this_cv_fcs_mts)
+    # print("names_exogenous")
+    # print(names_exogenous)
+    # print("this_cv_fcs_mts")
+    # print(this_cv_fcs_mts)
     
     fcs_per_cv[[i]] <- this_cv_fcs_mts
     models_per_cv[[i]] <- this_cv_models
