@@ -1851,9 +1851,8 @@ variable_freq_by_n <- function(tbl_of_models, h_max = 8, max_rank = 20,
   
   # print(10)
   
-  
   names(tbl_best_small) <- c("vbl", paste("h", seq(h_max), sep = "_"))
-  
+
   # print(11)
   
   tbl_best_small <- tbl_best_small %>% 
