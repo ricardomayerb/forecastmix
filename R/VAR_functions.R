@@ -244,7 +244,10 @@ cv_var_from_model_tbl <- function(h, n_cv,
                                   names_exogenous = c(""),
                                   exo_lag = NULL,
                                   future_exo = NULL,
-                                  future_exo_cv = NULL) {
+                                  future_exo_cv = NULL,
+                                  do_full_sample_fcs = FALSE,
+                                  extended_exo_mts = extended_exo_mts
+                                  ) { 
   
   starting_names <- names(models_tbl)
   has_short_name <- "short_name" %in% starting_names
@@ -265,8 +268,10 @@ cv_var_from_model_tbl <- function(h, n_cv,
   
   if (is.null(fit_column)) {
     print("There is no column with fit varest objects, so we will estimate all VARs now")
+    tic()
     models_tbl <- estimate_var_from_model_tbl(
       models_tbl = models_tbl, var_data = var_data, new_t_threshold = new_t_threshold)
+    toc()
     
     print("Done estimating VARs, now we will compute the forecasts")
     
@@ -274,10 +279,32 @@ cv_var_from_model_tbl <- function(h, n_cv,
     print("Using previously estimates varest objects")
   }
   
+  if (do_full_sample_fcs) {
+    print("Start forecasts of the estimated models")
+    
+    tic()
+    models_tbl <- forecast_var_from_model_tbl(
+      models_tbl = models_tbl, 
+      var_data = var_data,
+      fc_horizon = fc_horizon, 
+      new_t_threshold = c(0, 1.65, 2),
+      target_transform = target_transform, 
+      target_level_ts = target_level_ts, 
+      names_exogenous = names_exogenous, 
+      extended_exo_mts = extended_exo_mts, 
+      fit_column = "fit", keep_varest_obj = TRUE)
+    toc()
+  }
+  
+  # print("as_tibble(models_tbl)")
+  # print(as_tibble(models_tbl))
+  # 
+  # return(as_tibble(models_tbl))
+  
   print("Starting cv")
   # print("models_tbl so far")
   # print(models_tbl)
-  
+  tic()
   models_tbl <-  models_tbl %>%
     mutate(cv_obj = pmap(list(fit, variables, lags, t_threshold),
                          ~ cv_var_from_one_row(var_data = var_data, fit = ..1,
@@ -290,6 +317,7 @@ cv_var_from_model_tbl <- function(h, n_cv,
                                                future_exo_cv = future_exo_cv)
     )
     )
+  toc()
   
   print("transform to yoy")
   
@@ -359,6 +387,8 @@ cv_var_from_model_tbl <- function(h, n_cv,
   if (!keep_fc_objects) {
     models_tbl <- models_tbl %>%
       dplyr::select(vars_select(names(.), -starts_with("fc_ob")))
+  } else {
+    print("keeping forecast list-columns (they are pretty big ...)")
   }
   
   if (!keep_cv_objects) {
@@ -433,9 +463,13 @@ estimate_var_from_model_tbl <- function(models_tbl,
                                         var_data, 
                                         new_t_threshold = NULL, 
                                         names_exogenous = c(""),
-                                        exo_lag = NULL) {
+                                        exo_lag = NULL,
+                                        remove_ranks = TRUE) {
   
   starting_names <- names(models_tbl)
+  # print("starting_names in estimate var from")
+  # print(starting_names)
+  
   has_short_name <- "short_name" %in% starting_names
   has_t_threshold <- "t_threshold" %in% starting_names
   
@@ -445,16 +479,37 @@ estimate_var_from_model_tbl <- function(models_tbl,
   
   rmse_names <- names(models_tbl)[str_detect(names(models_tbl), "rmse")]
   
-  models_tbl <- models_tbl %>% 
-    gather(key = "rmse_h", value = "rmse", rmse_names) %>% 
-    dplyr::select(vars_select(names(.), -starts_with("rank"))) %>% 
-    group_by(rmse_h) %>% 
-    arrange(rmse_h, rmse) %>% 
-    mutate(rank_h = rank(rmse)) %>% 
-    ungroup() %>% 
-    mutate(lags = unlist(lags),
-           t_threshold = unlist(t_threshold),
-           model_type = "VAR")
+  # print("rmse_names")
+  # print(rmse_names)
+  
+  if (remove_ranks) {
+    models_tbl <- models_tbl %>%
+      gather(key = "rmse_h", value = "rmse", rmse_names) %>%
+      dplyr::select(vars_select(names(.), -starts_with("rank"))) %>%
+      group_by(rmse_h) %>%
+      arrange(rmse_h, rmse) %>%
+      mutate(rank_h = rank(rmse)) %>%
+      ungroup() %>%
+      mutate(lags = unlist(lags),
+             t_threshold = unlist(t_threshold),
+             model_type = "VAR")
+    
+  } else {
+    models_tbl <- models_tbl %>% 
+      gather(key = "rmse_h", value = "rmse", rmse_names) %>% 
+      group_by(rmse_h) %>% 
+      arrange(rmse_h, rmse) %>% 
+      mutate(rank_h = rank(rmse)) %>% 
+      ungroup() %>% 
+      mutate(lags = unlist(lags),
+             t_threshold = unlist(t_threshold),
+             model_type = "VAR")
+  }
+  
+
+  
+  
+
   
   if (!has_short_name) {
     models_tbl <- models_tbl %>% 
@@ -465,9 +520,14 @@ estimate_var_from_model_tbl <- function(models_tbl,
     models_tbl <- models_tbl %>% dplyr::select(short_name, everything())
   }
   
+  # one_model_per_row <- models_tbl %>% 
+  #   distinct(short_name, .keep_all = TRUE)
+  
+  
   one_model_per_row <- models_tbl %>% 
     dplyr::select(-c(rmse, rmse_h, rank_h)) %>% 
     distinct(short_name, .keep_all = TRUE)
+  
   
   if (is.null(new_t_threshold)) {
     one_model_per_row <- one_model_per_row %>%
@@ -510,6 +570,14 @@ fit_VAR_rest <- function(var_data, variables, p,
                          t_thresh = FALSE, type = "const",
                          names_exogenous = c(""),
                          exo_lag = NULL)  {
+  
+  # print("en fit var rest")
+  # 
+  # print("variables")
+  # print(variables)
+  # 
+  # print("var_data")
+  # print(colnames(var_data))
   
   this_var_data <- var_data[, variables]
   this_var_data <- na.omit(this_var_data)
@@ -631,6 +699,8 @@ forecast_var_from_model_tbl <- function(models_tbl,
 ) {
   
   starting_names <- names(models_tbl)
+  # print("starting_names in forecasts var from")
+  # print(starting_names)
   has_short_name <- "short_name" %in% starting_names
   has_t_threshold <- "t_threshold" %in% starting_names
   
@@ -650,7 +720,8 @@ forecast_var_from_model_tbl <- function(models_tbl,
   if (is.null(fit_column)) {
     print("There is no column with fit varest objects, so we will estimate all VARs now")
     models_tbl <- estimate_var_from_model_tbl(
-      models_tbl = models_tbl, var_data = var_data, new_t_threshold = new_t_threshold)
+      models_tbl = models_tbl, var_data = var_data, 
+      new_t_threshold = new_t_threshold)
     
     print("Done estimating VARs, now we will compute the forecasts")
     
