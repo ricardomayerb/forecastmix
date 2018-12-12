@@ -185,32 +185,71 @@ all_rmse_from_cv_obj <- function(cv_obj) {
 }
 
 
-ave_fc_from_cv <- function(cv_tbl, best_n_to_keep = "all") {
+
+ave_fc_from_cv <- function(cv_tbl, best_n_to_keep = "all", is_wide = TRUE) {
+  
+  cv_tbl_na <- filter(cv_tbl, is.na(target_mean_fc_yoy))
+  cv_tbl <- filter(cv_tbl, !is.na(target_mean_fc_yoy))
+  
+  print("cases where the forecast resulted in NA:")
+  print(cv_tbl_na[["short_name"]])
+  
+  if (is_wide) {
+    rmse_names <- names(cv_tbl)[str_detect(names(cv_tbl), "rmse")]
+    cv_tbl <- cv_tbl %>%
+      gather(key = "rmse_h", value = "rmse", rmse_names) %>%
+      dplyr::select(vars_select(names(.), -starts_with("rank"))) %>%
+      group_by(rmse_h) %>%
+      arrange(rmse_h, rmse) %>%
+      mutate(rank_h = rank(rmse)) %>%
+      ungroup() %>%
+      mutate(lags = unlist(lags),
+             model_type = "VAR")
+  } else {
+    rmse_names <- unique(cv_tbl$rmse_h)
+  }
   
   if (best_n_to_keep == "all") {
     cv_tbl <- cv_tbl
   }
   
   if (is.numeric(best_n_to_keep)) {
-    cv_tbl <- cv_tbl %>% 
+    cv_tbl <- cv_tbl %>%
       arrange(rmse_h, rmse) %>%
-      group_by(rmse_h) %>% 
-      mutate(rank_h = rank(rmse)) %>% 
-      filter(rank_h <= best_n_to_keep) %>% 
+      group_by(rmse_h) %>%
+      mutate(rank_h = rank(rmse)) %>%
+      filter(rank_h <= best_n_to_keep) %>%
       mutate(inv_mse = 1/(rmse*rmse),
              model_weight_h = inv_mse/sum(inv_mse),
-             weighted_fc_h = fc_yoy*model_weight_h,
-             average_fc_h = sum(weighted_fc_h)
-      ) %>% 
+             weighted_fc_h = map2(target_mean_fc_yoy, model_weight_h, ~ .x * .y)
+      ) %>%
       ungroup()
   }
   
-  ave_fc <- cv_tbl %>% 
-    group_by(rmse_h) %>% 
-    summarise(ave_fc_h = sum(weighted_fc_h))
+  a_fc <- cv_tbl$weighted_fc_h[[1]]
   
-  return(ave_fc)
+  ave_by_h_fc <- vector(mode = "numeric", length = length(rmse_names))
+  
+  for (r in seq(1, length(rmse_names))) {
+    this_rmse <- rmse_names[r]
+    
+    this_h_fc <- cv_tbl %>% 
+      dplyr::filter(rmse_h == this_rmse) %>% 
+      dplyr::select(weighted_fc_h) 
+    
+    this_h_fc <- reduce(this_h_fc[[1]], rbind)
+    this_h_fc <- colSums(this_h_fc)
+    this_h_fc <- this_h_fc[r]
+    
+    ave_by_h_fc[r] <- this_h_fc
+  }
+  
+  ave_by_h_fc <- ts(data = ave_by_h_fc, frequency = frequency(a_fc),
+                    start = start(a_fc))
+
+  return(list(cv_tbl = cv_tbl, ave_by_h_fc = ave_by_h_fc))
 }
+
 
 check_resid_VAR <- function(fit_VAR, type = "PT.adjusted", lags.pt = 12,
                             pval_ref = 0.05) {
