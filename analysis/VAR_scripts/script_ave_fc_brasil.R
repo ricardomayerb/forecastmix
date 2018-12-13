@@ -147,19 +147,19 @@ ave_fc_from_cv <- function(cv_tbl, best_n_to_keep = "all", is_wide = TRUE) {
   }
 
   
-  ave_fc <- cv_tbl %>%
-    group_by(rmse_h) %>%
-    summarise(ave_fc_h = colSums(reduce(weighted_fc_h, rbind)))
-  return(list(ave_fc = ave_fc, cv_tbl = cv_tbl))
-  # return(cv_tbl)
+  # ave_fc <- cv_tbl %>%
+  #   group_by(rmse_h) %>%
+  #   summarise(ave_fc_h = colSums(reduce(weighted_fc_h, rbind)))
+  # return(list(ave_fc = ave_fc, cv_tbl = cv_tbl))
+  return(cv_tbl)
   
 }
 
 
 quasi_ave <- ave_fc_from_cv(cv_less_nott, best_n_to_keep = 20)
 
-quasi_ave %>% group_by(rmse_h) %>% 
-  summarise(mats = map(weighted_fc_h, ~ reduce(.x, rbind) ))
+# quasi_ave %>% group_by(rmse_h) %>% 
+#   summarise(mats = map(weighted_fc_h, ~ reduce(.x, rbind) ))
 
 yoo <- quasi_ave$weighted_fc_h 
 yoo[[1]]
