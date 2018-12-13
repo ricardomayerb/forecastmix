@@ -1,9 +1,10 @@
 source('./R/VAR_functions.R')
 
-country <- "Ecuador"
+country <- "Paraguay"
 print(paste0("this country: ", country))
 # names_exogenous <- c("ip_us", "ip_ue", "ip_asia")
-names_exogenous <- c("ip_us", "ip_ue", "ip_asia")
+names_exogenous <- c("act_eco_bra", "ip_bra", 
+                     "ip_us", "ip_ue", "ip_asia")
 forecast_exercise_year <- 2018
 forecast_exercise_number <- 3
 fc_horizon <- 8

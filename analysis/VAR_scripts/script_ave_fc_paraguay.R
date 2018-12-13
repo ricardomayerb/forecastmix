@@ -5,8 +5,8 @@ forecast_exercise_number <- 3
 output_path <- paste0("./analysis/VAR_output/edd_exercises/",
                       forecast_exercise_year, 
                       "_exercise_", forecast_exercise_number, "/")
-country <- "Ecuador"
-bra_search_results_name <- "vr_Ecuador_auto_3s4_2s5_norest" 
+country <- "Paraguay"
+bra_search_results_name <- "vr_Paraguay_auto_3s4_2s5_norest" 
 bra_search_results <- readRDS(paste0(output_path, bra_search_results_name, ".rds"))
 
 VAR_data_for_estimation <- bra_search_results$var_data

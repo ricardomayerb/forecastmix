@@ -937,44 +937,21 @@ max_effective_lag <- function(var_obj) {
   return(max_lag_unrest)
 }
 
-
-read_compare_var_res <- function(filename_new, filename_old, h_max = 7, 
+read_compare_var_res <- function(var_res_new, var_res_old, h_max = 8, 
                                  rank_h_max = 30) {
-  
-  
-  if (is.character(filename_new)) {
-    var_res_new <- readRDS(filename_new)
-    var_res_old <- readRDS(filename_old)
-  } else {
-    var_res_new <- filename_new
-    var_res_old <- filename_old
-  }
-  
-  
-  if ("f_vbls_all_sizes" %in% names(var_res_new)) {
-    var_res_new <- var_res_new[["consolidated_var_res"]]
-  }
-  
-  if ("f_vbls_all_sizes" %in% names(var_res_old)) {
-    var_res_old <- var_res_old[["consolidated_var_res"]]
-  }
   
   var_res_new <- var_res_new %>% 
     mutate(short_name = map2(variables, lags, ~make_model_name(.x, .y, remove_base = FALSE)),
            model_function = "new") %>% 
-    dplyr::select(-t_threshold) %>% 
-    dplyr::select(-lag_sel_method) %>% 
-    dplyr::select(-rmse_8) %>% 
-    dplyr::select(-rank_8)
+    dplyr::select(-lag_sel_method) 
   
+  var_res_old$t_treshold <- 0 
   var_res_old <- var_res_old %>% 
     mutate(short_name = map2(variables, lags, ~make_model_name(.x, .y, remove_base = FALSE)),
            model_function = "old",
-           var_size = map_dbl(variables, length)) %>% 
-    dplyr::select(-rmse_8) %>% 
-    dplyr::select(-rank_8)
+           var_size = map_dbl(variables, length)) 
   
-  old_and_new <- stack_models(list(var_res_new, var_res_old))
+  old_and_new <- stack_models(list(var_res_new, var_res_old))  
   
   plot_best_consolidated <- single_plot_rmse_all_h(old_and_new, is_wide = TRUE, 
                                                    h_max = h_max, rank_h_max = rank_h_max)
@@ -989,39 +966,25 @@ read_compare_var_res <- function(filename_new, filename_old, h_max = 7,
     filter(var_size == 4) %>% 
     dplyr::select(variables) %>% 
     unlist() %>% 
-    unique()
+    unique() %>% sort()
   
   size4_vbls_old <-  var_res_old %>% 
     filter(var_size == 4) %>% 
     dplyr::select(variables) %>% 
     unlist() %>% 
-    unique()
+    unique() %>% sort()
   
   size5_vbls_new <-  var_res_new %>% 
     filter(var_size == 5) %>% 
     dplyr::select(variables) %>% 
     unlist() %>% 
-    unique()
+    unique() %>% sort()
   
   size5_vbls_old <-  var_res_old %>% 
     filter(var_size == 5) %>% 
     dplyr::select(variables) %>% 
     unlist() %>% 
-    unique()
-  
-  print("Size 4 VARs: variables in new that are not in old:")
-  print(size4_vbls_new[!size4_vbls_new %in% size4_vbls_old])
-  
-  print("Size 4 VARs: variables in old that are not in new:")
-  print(size4_vbls_old[!size4_vbls_old %in% size4_vbls_new])
-  
-  
-  
-  print("Size 5 VARs: variables in new that are not in old:")
-  print(size5_vbls_new[!size5_vbls_new %in% size5_vbls_old])
-  
-  print("Size 5 VARs: variables in old that are not in new:")
-  print(size5_vbls_old[!size5_vbls_old %in% size5_vbls_new])
+    unique() %>% sort()
   
   return(list(size4_vbls_new = size4_vbls_new, size4_vbls_old = size4_vbls_old,
               size5_vbls_new = size5_vbls_new, size5_vbls_old = size5_vbls_old,
@@ -1604,6 +1567,9 @@ stack_models <- function(models_list) {
   
   all_models <- all_models %>% dplyr::distinct(short_name, .keep_all = TRUE)
   all_models_ranked <- add_rmse_rankings(all_models)
+  
+  all_models_ranked <- all_models_ranked %>% 
+    dplyr::select(model_function, everything())
   
   return(all_models_ranked)
 }
