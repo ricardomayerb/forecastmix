@@ -104,6 +104,10 @@ year_2019
 mean(year_2018)
 mean(year_2019)
 
+
+saveRDS(list(target_yoy_realized_and_fc, quasi_ave_10, quasi_ave_20, quasi_ave_30), file = paste0(country, "_quasi_ave.rds"))
+
+
 # tic()
 # fc_from_cv_tbl <- forecast_var_from_model_tbl(
 #   models_tbl = bra_models_tbl_smaller,

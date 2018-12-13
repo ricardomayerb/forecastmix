@@ -5,8 +5,8 @@ forecast_exercise_number <- 3
 output_path <- paste0("./analysis/VAR_output/edd_exercises/",
                       forecast_exercise_year, 
                       "_exercise_", forecast_exercise_number, "/")
-country <- "Brasil"
-bra_search_results_name <- "vr_Brasil_auto_3s4_2s5_norest" 
+country <- "Colombia"
+bra_search_results_name <- "vr_Colombia_auto_3s4_2s5_norest" 
 bra_search_results <- readRDS(paste0(output_path, bra_search_results_name, ".rds"))
 
 VAR_data_for_estimation <- bra_search_results$var_data
@@ -55,9 +55,6 @@ extension_of_exo <- extending_exogenous(exodata = exodata_fullsample, h = 8,
                                         endo_end = end_target_in_VAR)
 toc()
 
-# extension_of_exo[["future_exo"]]
-# extension_of_exo[["extended_exo"]]
-# extension_of_exo[["arima_models"]]
 
 tic()
 cv_extension_of_exo <- extending_exogenous_for_cv(
@@ -68,11 +65,11 @@ toc()
 bra_no_t <- bra_models_tbl_smaller %>% dplyr::select(-t_treshold)
 
 tic()
-cv_less_nott <- cv_var_from_model_tbl(
+cv_less <- cv_var_from_model_tbl(
   h = fc_horizon,
   n_cv = n_cv,
   training_length = training_length,
-  models_tbl = bra_no_t,
+  models_tbl = bra_models_tbl_smaller,
   var_data = VAR_data_for_estimation,
   new_t_threshold = c(0, 1.65, 2),
   target_level_ts = rgdp_level_ts,
@@ -84,10 +81,10 @@ cv_less_nott <- cv_var_from_model_tbl(
   extended_exo_mts = extension_of_exo[["extended_exo"]])
 toc()
 
-quasi_ave_5 <- ave_fc_from_cv(cv_less_nott, best_n_to_keep = 5)
-quasi_ave_10 <- ave_fc_from_cv(cv_less_nott, best_n_to_keep = 10)
-quasi_ave_20 <- ave_fc_from_cv(cv_less_nott, best_n_to_keep = 20)
-quasi_ave_30 <- ave_fc_from_cv(cv_less_nott, best_n_to_keep = 30)
+quasi_ave_5 <- ave_fc_from_cv(cv_less, best_n_to_keep = 5)
+quasi_ave_10 <- ave_fc_from_cv(cv_less, best_n_to_keep = 10)
+quasi_ave_20 <- ave_fc_from_cv(cv_less, best_n_to_keep = 20)
+quasi_ave_30 <- ave_fc_from_cv(cv_less, best_n_to_keep = 30)
 
 print(quasi_ave_5$ave_by_h_fc)
 print(quasi_ave_10$ave_by_h_fc)
@@ -107,9 +104,21 @@ year_2019
 mean(year_2018)
 mean(year_2019)
 
+saveRDS(list(target_yoy_realized_and_fc, quasi_ave_10, quasi_ave_20, 
+             quasi_ave_30, bra_models_tbl_smaller), 
+        file = paste0(country, "_quasi_ave.rds"))
 
-saveRDS(list(target_yoy_realized_and_fc, quasi_ave_10, quasi_ave_20, quasi_ave_30), file = paste0(country, "_quasi_ave.rds"))
-
+# tic()
+# fc_from_cv_tbl <- forecast_var_from_model_tbl(
+#   models_tbl = bra_models_tbl_smaller,
+#   var_data = VAR_data_for_estimation,
+#   fc_horizon = fc_horizon,
+#   new_t_threshold = c(0, 1.65, 2),
+#   target_transform = rgdp_transformation,
+#   target_level_ts = rgdp_level_ts,
+#   names_exogenous = names_exogenous,
+#   extended_exo_mts = extension_of_exo[["extended_exo"]])
+# toc()
 
 
 # tic()
