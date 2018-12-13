@@ -1,6 +1,5 @@
 source('./R/combinations_functions.R')
 
-smaller_max_VAR_models_per_h <- 30
 forecast_exercise_year <- 2018
 forecast_exercise_number <- 3
 output_path <- paste0("./analysis/VAR_output/edd_exercises/",
@@ -38,6 +37,7 @@ rgdp_level_ts <- data_ts[, "rgdp"]
 rgdp_level_ts <- na.omit(rgdp_level_ts)
 rgdp_yoy_ts <- make_yoy_ts(rgdp_level_ts)
 
+smaller_max_VAR_models_per_h <- 30
 
 bra_models_tbl_smaller <- as_tibble(bra_models_tbl) %>% 
   filter(rank_1 <= smaller_max_VAR_models_per_h | rank_2 <= smaller_max_VAR_models_per_h | 
@@ -60,120 +60,117 @@ toc()
 # extension_of_exo[["arima_models"]]
 
 tic()
-shoo_cv_rw <- extending_exogenous_for_cv(
+cv_extension_of_exo <- extending_exogenous_for_cv(
   exodata = exodata_fullsample, h = 8, endo_end = end_target_in_VAR, 
   n_cv = n_cv, same_model_across_cv = FALSE)
 toc()
 
-foo <- bra_models_tbl_smaller %>% dplyr::select(-t_treshold)
-
-tic()
-fc_from_cv_tbl_nott <- forecast_var_from_model_tbl(
-  models_tbl = foo, 
-  var_data = VAR_data_for_estimation,
-  fc_horizon = fc_horizon, 
-  new_t_threshold = c(0, 1.65, 2),
-  target_transform = rgdp_transformation, 
-  target_level_ts = rgdp_level_ts, 
-  names_exogenous = names_exogenous, 
-  extended_exo_mts = extension_of_exo[["extended_exo"]])
-toc()
-
-
-tic()
-fc_from_cv_tbl <- forecast_var_from_model_tbl(
-  models_tbl = bra_models_tbl_smaller, 
-  var_data = VAR_data_for_estimation,
-  fc_horizon = fc_horizon, 
-  new_t_threshold = c(0, 1.65, 2),
-  target_transform = rgdp_transformation, 
-  target_level_ts = rgdp_level_ts, 
-  names_exogenous = names_exogenous, 
-  extended_exo_mts = extension_of_exo[["extended_exo"]])
-toc()
-
-
+bra_no_t <- bra_models_tbl_smaller %>% dplyr::select(-t_treshold)
 
 tic()
 cv_less_nott <- cv_var_from_model_tbl(
   h = fc_horizon,
   n_cv = n_cv,
   training_length = training_length,
-  models_tbl = foo,
+  models_tbl = bra_no_t,
   var_data = VAR_data_for_estimation,
   new_t_threshold = c(0, 1.65, 2),
   target_level_ts = rgdp_level_ts,
   target_transform = rgdp_transformation,
   names_exogenous = names_exogenous,
   future_exo = extension_of_exo[["future_exo"]],
-  future_exo_cv = shoo_cv_rw[["future_exo_cv"]],
+  future_exo_cv = cv_extension_of_exo[["future_exo_cv"]],
   keep_fc_objects = TRUE, do_full_sample_fcs = TRUE, 
   extended_exo_mts = extension_of_exo[["extended_exo"]])
 toc()
 
+quasi_ave_5 <- ave_fc_from_cv(cv_less_nott, best_n_to_keep = 5)
+quasi_ave_10 <- ave_fc_from_cv(cv_less_nott, best_n_to_keep = 10)
+quasi_ave_20 <- ave_fc_from_cv(cv_less_nott, best_n_to_keep = 20)
+quasi_ave_30 <- ave_fc_from_cv(cv_less_nott, best_n_to_keep = 30)
 
-ave_fc_from_cv <- function(cv_tbl, best_n_to_keep = "all", is_wide = TRUE) {
-  
-  if (is_wide) {
-    
-    rmse_names <- names(cv_tbl)[str_detect(names(cv_tbl), "rmse")]
-
-    cv_tbl <- cv_tbl %>%
-      gather(key = "rmse_h", value = "rmse", rmse_names) %>%
-      dplyr::select(vars_select(names(.), -starts_with("rank"))) %>%
-      group_by(rmse_h) %>%
-      arrange(rmse_h, rmse) %>%
-      mutate(rank_h = rank(rmse)) %>%
-      ungroup() %>%
-      mutate(lags = unlist(lags),
-             model_type = "VAR")
-  }
-
-  if (best_n_to_keep == "all") {
-    cv_tbl <- cv_tbl
-  }
-
-  if (is.numeric(best_n_to_keep)) {
-    cv_tbl <- cv_tbl %>%
-      arrange(rmse_h, rmse) %>%
-      group_by(rmse_h) %>%
-      mutate(rank_h = rank(rmse)) %>%
-      filter(rank_h <= best_n_to_keep) %>%
-      mutate(inv_mse = 1/(rmse*rmse),
-             model_weight_h = inv_mse/sum(inv_mse),
-             weighted_fc_h = map2(target_mean_fc_yoy, model_weight_h, ~ .x * .y)
-      ) %>%
-      ungroup()
-  }
-
-  
-  # ave_fc <- cv_tbl %>%
-  #   group_by(rmse_h) %>%
-  #   summarise(ave_fc_h = colSums(reduce(weighted_fc_h, rbind)))
-  # return(list(ave_fc = ave_fc, cv_tbl = cv_tbl))
-  return(cv_tbl)
-  
-}
+print(quasi_ave_5$ave_by_h_fc)
+print(quasi_ave_10$ave_by_h_fc)
+print(quasi_ave_20$ave_by_h_fc)
+print(quasi_ave_30$ave_by_h_fc)
 
 
-quasi_ave <- ave_fc_from_cv(cv_less_nott, best_n_to_keep = 20)
-
-# quasi_ave %>% group_by(rmse_h) %>% 
-#   summarise(mats = map(weighted_fc_h, ~ reduce(.x, rbind) ))
-
-yoo <- quasi_ave$weighted_fc_h 
-yoo[[1]]
-unlist(yoo[[1]])
-yoo[[1]]
-yoo[[2]]
-yoo[[1]] + yoo[[2]]
-loo <- list(yoo[[1]], yoo[[2]])
-reduce(loo, sum)
-map(loo, sum)
-reduce(loo, rbind)
-colSums(reduce(loo, rbind))
 
 
+# tic()
+# fc_from_cv_tbl_nott <- forecast_var_from_model_tbl(
+#   models_tbl = bra_no_t, 
+#   var_data = VAR_data_for_estimation,
+#   fc_horizon = fc_horizon, 
+#   new_t_threshold = c(0, 1.65, 2),
+#   target_transform = rgdp_transformation, 
+#   target_level_ts = rgdp_level_ts, 
+#   names_exogenous = names_exogenous, 
+#   extended_exo_mts = extension_of_exo[["extended_exo"]])
+# toc()
+# 
+# 
+# tic()
+# fc_from_cv_tbl <- forecast_var_from_model_tbl(
+#   models_tbl = bra_models_tbl_smaller, 
+#   var_data = VAR_data_for_estimation,
+#   fc_horizon = fc_horizon, 
+#   new_t_threshold = c(0, 1.65, 2),
+#   target_transform = rgdp_transformation, 
+#   target_level_ts = rgdp_level_ts, 
+#   names_exogenous = names_exogenous, 
+#   extended_exo_mts = extension_of_exo[["extended_exo"]])
+# toc()
+# 
+
+
+# foo <- quasi_ave_30$cv_tbl
+# 
+# 
+# # quasi_ave %>% group_by(rmse_h) %>% 
+# #   summarise(mats = map(weighted_fc_h, ~ reduce(.x, rbind) ))
+# 
+# yoo <- quasi_ave$weighted_fc_h 
+# yoo[[1]]
+# unlist(yoo[[1]])
+# yoo[[1]]
+# yoo[[2]]
+# yoo[[1]] + yoo[[2]]
+# loo <- list(yoo[[1]], yoo[[2]])
+# reduce(loo, sum)
+# map(loo, sum)
+# reduce(loo, rbind)
+# colSums(reduce(loo, rbind))
+# 
+# a_fc <- quasi_ave$weighted_fc_h[[1]]
+# start(a_fc)
+# frequency(a_fc)
+# 
+# 
+# rmse_names <- unique(quasi_ave$rmse_h)
+# ave_by_h_fc <- vector(mode = "numeric", length = length(rmse_names))
+# for (r in seq(1, length(rmse_names))) {
+#   this_rmse <- rmse_names[r]
+#   
+#   this_h_fc <- quasi_ave %>% 
+#     dplyr::filter(rmse_h == this_rmse) %>% 
+#     dplyr::select(weighted_fc_h) 
+#   
+#   this_h_fc <- reduce(this_h_fc[[1]], rbind)
+#   this_h_fc <- colSums(this_h_fc)
+#   this_h_fc <- this_h_fc[r]
+#   
+#   ave_by_h_fc[r] <- this_h_fc
+#   
+#   print(this_h_fc)
+#   print("")
+#     
+# }
+# 
+# ave_by_h_fc
+# ave_by_h_fc <- ts(data = ave_by_h_fc, frequency = frequency(a_fc),
+#                   start = start(a_fc))
+# ave_by_h_fc
 
 # tic()
 # cv_less <- cv_var_from_model_tbl(
