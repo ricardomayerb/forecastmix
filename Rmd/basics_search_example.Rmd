@@ -1,0 +1,80 @@
+---
+title: "The basics, search example"
+author: "Ricardo Mayer"
+date: "12/6/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+```
+
+```{r source-and-lib, message=FALSE, warning=FALSE}
+source('./R/combinations_functions.R')
+
+# Peru
+# "rgdp", "pib", "manuf", "pib_construction", "imp_intermediate", "expec_eco", "gto_gob_k", "gto_gob", "cred",  "expec_eco", "rpc"  "rgc"  "imp",  "pib_primary" , "tot"
+
+```
+
+
+## Estimating one VAR model to predict GDP growth
+
+We will start with quarterly and monthly data stored in a couple of Excel files and use a few of our functions to obtain a data set of quarterly series ready to use in our VAR estimation and forecast, but we will not explain how the data munging is done. In particular, we will *not* discuss the following important points:
+    - how the data was obtained
+    - how monthly data was converted to quaterly frequency
+    - how monthly data was *extended* to complete its current final quarter
+    - how (potentially) exogenous data was forecasted in order to make it available to produce conditional forecasts
+    
+All those points are discussed in the data preparation document, see *here*
+
+### VAR-ready data set
+    
+We will use domestic data from Uruguay and few series that can be considered exogenous to Uruguayain economic activity, namely activity indexes for USA, EU, Asia, Brazil and Argentina (we can choose later whether to treat a give series as exogeous or exogenous when specifying our VARs)
+
+First, we identify the country (Uruguay) and vintage (second vintage of data gathered in 2018)
+
+
+```{r data_identification}
+country <- "Uruguay"
+forecast_exercise_year <- 2018
+forecast_exercise_number <- 2
+excel_data_path <- paste0("./data/edd_exercises/", forecast_exercise_year, 
+                            "_exercise_", forecast_exercise_number, "/")
+```
+
+Then we load the data, put it in quarterly form and print their names 
+
+```{r loading_data}
+country_data_ts <- get_raw_data_ts(country = country, data_path = excel_data_path)
+external_data_ts <- get_raw_external_data_ts(data_path = excel_data_path)
+data_ts <- ts.union(country_data_ts, external_data_ts)
+colnames(data_ts) <- c(colnames(country_data_ts), colnames(external_data_ts))
+
+print(colnames(data_ts))
+```
+
+Next, for each series we find and apply seasonal and non-seasonal transformation to make them stationay and therefore suitable for VAR estimation
+
+```{r stationary_transformation, cache=TRUE}
+reco_all_variables <- find_statio_diffs(data_ts, country)
+country_transformed_data <- follow_rec(data_ts, reco_all_variables)
+VAR_data_for_estimation  <- country_transformed_data
+```
+In this case, we will use a "diff-yoy" transformation for the real GDP series (first, take seasonal differences on the quarterly series and then ordinary differences on the result) and, as consequence the predictions about real gdp coming straight out the VAR will be forecasts in this metric, too. It is up to us to transform those predicted values into, say, year-on-year proportional changes.    
+
+```{r rgdp_transform}
+rgdp_rec <- reco_all_variables[reco_all_variables$variable == "rgdp", ][["kpss_05_level"]]
+print(paste0("Stationary transformation for rgdp: ", rgdp_rec))
+```
+
+The final step would be to balance the data set, i.e. eliminate trailing and leading missing values, imposing a common start and end dates for all series. However, that is best applied just before estimating the model, to the smaller subset of variables actually present in that specific VAR, preserving as many observations as possible. 
+
+### First VAR: only endogenous variables
+
+Let's form a VAR with rgdp, rpc and imp_capital as variables and illustrate how we treat lags specification, testing, restrictions and evaluation.
+
+
+
+
