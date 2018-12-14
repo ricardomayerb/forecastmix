@@ -535,6 +535,8 @@ forecast_var_from_model_tbl <- function(models_tbl,
                                         names_exogenous = c("")) {
   
   starting_names <- names(models_tbl)
+  print("starting_names")
+  print(starting_names)
   has_short_name <- "short_name" %in% starting_names
   has_t_treshold <- "t_treshold" %in% starting_names
   
