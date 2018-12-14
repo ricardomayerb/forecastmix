@@ -1551,8 +1551,6 @@ stack_models <- function(models_list) {
     dplyr::select(vars_select(names(.), -starts_with("wn"))) %>%
     dplyr::select(vars_select(names(.), -starts_with("rank"))) 
   
-  # print("all_models")
-  # print(all_models)
   
   all_models <- all_models %>%
     mutate(lags = unlist(lags))
@@ -1562,10 +1560,11 @@ stack_models <- function(models_list) {
     mutate(short_name = map2(variables, lags,
                              ~ make_model_name(variables = .x, lags = .y)),
            short_name = unlist(short_name),
+           m_short_name = paste0(short_name, "_", model_function),
            var_size = map_dbl(variables, length)
     )
   
-  all_models <- all_models %>% dplyr::distinct(short_name, .keep_all = TRUE)
+  all_models <- all_models %>% dplyr::distinct(m_short_name, .keep_all = TRUE)
   all_models_ranked <- add_rmse_rankings(all_models)
   
   all_models_ranked <- all_models_ranked %>% 

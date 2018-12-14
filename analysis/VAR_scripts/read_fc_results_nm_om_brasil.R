@@ -60,7 +60,7 @@ nm_tbl_for_comp <- bra[[4]][["cv_tbl"]] %>%
 
 om_tbl_for_comp <- bra_om[[4]][["cv_tbl"]] %>% 
   dplyr::select(-c(model_type, inv_mse, model_weight_h, weighted_fc_h, 
-                   target_mean_fc_yoy, short_name_t, var_size)) %>% 
+                   target_mean_fc_yoy, short_name_t)) %>% 
   dplyr::select(vars_select(names(.), -starts_with("rank"))) %>% 
   spread(key = rmse_h, value = rmse) %>% 
   mutate(var_size = length(variables)) %>% 
@@ -68,16 +68,15 @@ om_tbl_for_comp <- bra_om[[4]][["cv_tbl"]] %>%
          rank_5 = 0, rank_6 = 0, rank_7 = 0, rank_8 = 0) %>% 
   rename(t_treshold = t_threshold)
 
-nm_vs_om <- read_compare_var_res(nm_tbl_for_comp, om_tbl_for_comp)
+names(nm_tbl_for_comp)
+names(om_tbl_for_comp)
+
+nm_vs_om <- read_compare_var_res(var_res_new = nm_tbl_for_comp, var_res_old = om_tbl_for_comp)
+
+print(nm_vs_om$plot_best_consolidated)
+print(nm_vs_om$plot_best_each)
 
 
-
-print(newall_oldall$plot_best_each)
-# print(new3t_oldall$plot_best_each)
-
-
-print(newall_oldall$plot_best_consolidated)
-print(new3t_oldall$plot_best_consolidated)
 
 
 

@@ -1,0 +1,117 @@
+source('./R/combinations_functions.R')
+
+chl <- readRDS("./Chile_quasi_ave.rds")
+chl_om <- readRDS("./Chile_quasi_ave_om.rds")
+
+
+chl_rgdp_20 <- chl[[1]]
+chl_realized <- window(chl_rgdp_20, end = c(2018, 3))
+chl_rgdp_10 <- ts(c(chl_realized, chl[[2]]$ave_by_h_fc), 
+                  frequency = frequency(chl_realized), 
+                  start = start(chl_realized))
+chl_rgdp_30 <- ts(c(chl_realized, chl[[4]]$ave_by_h_fc), 
+                  frequency = frequency(chl_realized), 
+                  start = start(chl_realized))
+chl_2018_10 <- window(chl_rgdp_10, start = c(2018, 1), end = c(2018, 4))
+chl_2018_20 <- window(chl_rgdp_20, start = c(2018, 1), end = c(2018, 4))
+chl_2018_30 <- window(chl_rgdp_30, start = c(2018, 1), end = c(2018, 4))
+chl_2019_10 <- window(chl_rgdp_10, start = c(2019, 1), end = c(2019, 4))
+chl_2019_20 <- window(chl_rgdp_20, start = c(2019, 1), end = c(2019, 4))
+chl_2019_30 <- window(chl_rgdp_30, start = c(2019, 1), end = c(2019, 4))
+print(mean(chl_2018_10))
+print(mean(chl_2018_20))
+print(mean(chl_2018_30))
+print(mean(chl_2019_10))
+print(mean(chl_2019_20))
+print(mean(chl_2019_30))
+
+
+chl_om_rgdp_20 <- chl_om[[1]]
+chl_om_realized <- window(chl_om_rgdp_20, end = c(2018, 3))
+chl_om_rgdp_10 <- ts(c(chl_om_realized, chl_om[[2]]$ave_by_h_fc), 
+                  frequency = frequency(chl_om_realized), 
+                  start = start(chl_om_realized))
+chl_om_rgdp_30 <- ts(c(chl_om_realized, chl_om[[4]]$ave_by_h_fc), 
+                  frequency = frequency(chl_om_realized), 
+                  start = start(chl_om_realized))
+chl_om_2018_10 <- window(chl_om_rgdp_10, start = c(2018, 1), end = c(2018, 4))
+chl_om_2018_20 <- window(chl_om_rgdp_20, start = c(2018, 1), end = c(2018, 4))
+chl_om_2018_30 <- window(chl_om_rgdp_30, start = c(2018, 1), end = c(2018, 4))
+chl_om_2019_10 <- window(chl_om_rgdp_10, start = c(2019, 1), end = c(2019, 4))
+chl_om_2019_20 <- window(chl_om_rgdp_20, start = c(2019, 1), end = c(2019, 4))
+chl_om_2019_30 <- window(chl_om_rgdp_30, start = c(2019, 1), end = c(2019, 4))
+print(mean(chl_om_2018_10))
+print(mean(chl_om_2018_20))
+print(mean(chl_om_2018_30))
+print(mean(chl_om_2019_10))
+print(mean(chl_om_2019_20))
+print(mean(chl_om_2019_30))
+
+
+nm_tbl_for_comp <- chl[[4]][["cv_tbl"]] %>% 
+  dplyr::select(-c(model_type, inv_mse, model_weight_h, weighted_fc_h, 
+                   target_mean_fc_yoy, short_name_t, var_size, t_treshold)) %>% 
+  dplyr::select(vars_select(names(.), -starts_with("rank"))) %>% 
+  spread(key = rmse_h, value = rmse) %>% 
+  mutate(var_size = length(variables)) %>% 
+  mutate(rank_1 = 0, rank_2 = 0, rank_3 = 0, rank_4 = 0, 
+         rank_5 = 0, rank_6 = 0, rank_7 = 0, rank_8 = 0) %>% 
+  rename(t_treshold = t_threshold)
+
+om_tbl_for_comp <- chl_om[[4]][["cv_tbl"]] %>% 
+  dplyr::select(-c(model_type, inv_mse, model_weight_h, weighted_fc_h, 
+                   target_mean_fc_yoy, short_name_t)) %>% 
+  dplyr::select(vars_select(names(.), -starts_with("rank"))) %>% 
+  spread(key = rmse_h, value = rmse) %>% 
+  mutate(var_size = length(variables)) %>% 
+  mutate(rank_1 = 0, rank_2 = 0, rank_3 = 0, rank_4 = 0, 
+         rank_5 = 0, rank_6 = 0, rank_7 = 0, rank_8 = 0) %>% 
+  rename(t_treshold = t_threshold)
+
+names(nm_tbl_for_comp)
+names(om_tbl_for_comp)
+
+var_res_new <- nm_tbl_for_comp
+var_res_old <- om_tbl_for_comp
+
+var_res_new <- var_res_new %>% 
+  mutate(short_name = map2(variables, lags, ~make_model_name(.x, .y, remove_base = FALSE)),
+         model_function = "new") %>% 
+  dplyr::select(-lag_sel_method) 
+
+var_res_old$t_treshold <- 0 
+var_res_old <- var_res_old %>% 
+  mutate(short_name = map2(variables, lags, ~make_model_name(.x, .y, remove_base = FALSE)),
+         model_function = "old",
+         var_size = map_dbl(variables, length)) 
+
+
+
+
+old_and_new <- stack_models(list(var_res_new, var_res_old))  
+h_max <- 8
+rank_h_max <- 30
+
+rmse_names <- paste("rmse", seq(h_max), sep = "_")
+
+is_wide = TRUE
+selected_models_tbl = old_and_new
+
+
+plot_best_consolidated <- single_plot_rmse_all_h(old_and_new, is_wide = TRUE, 
+                                                 h_max = h_max, rank_h_max = rank_h_max)
+
+nm_vs_om <- read_compare_var_res(var_res_new = nm_tbl_for_comp, var_res_old = om_tbl_for_comp)
+
+print(nm_vs_om$plot_best_consolidated)
+print(nm_vs_om$plot_best_each)
+
+
+
+# print(nm_vs_om$plot_best_each)
+
+
+
+
+
+

@@ -173,6 +173,7 @@ each_plot_rmse_all_h <- function(selected_one, selected_two, extra_models = NULL
       mutate(rank_h = rank(rmse),
              horizon = as.numeric(substr(rmse_h, 6, 6))) %>% 
       filter(rank_h < rank_h_max +1) %>% 
+      filter(!is.na(rmse)) %>% 
       ungroup()
     
     selected_two <-  selected_two %>%
@@ -183,6 +184,7 @@ each_plot_rmse_all_h <- function(selected_one, selected_two, extra_models = NULL
       mutate(rank_h = rank(rmse),
              horizon = as.numeric(substr(rmse_h, 6, 6))) %>% 
       filter(rank_h < rank_h_max +1) %>% 
+      filter(!is.na(rmse)) %>% 
       ungroup()
   }
   
@@ -994,6 +996,7 @@ single_plot_rmse_all_h <- function(selected_models_tbl, extra_models = NULL,
       mutate(rank_h = rank(rmse),
              horizon = as.numeric(substr(rmse_h, 6, 6))) %>% 
       filter(rank_h < rank_h_max +1) %>% 
+      filter(!is.na(rmse)) %>% 
       ungroup()
   }
   
