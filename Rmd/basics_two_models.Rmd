@@ -2,7 +2,7 @@
 title: "The basics, with two models"
 author: "Ricardo Mayer"
 date: "12/6/2018"
-output: html_document
+output: tint::tintHtml
 ---
 
 ```{r setup, include=FALSE}

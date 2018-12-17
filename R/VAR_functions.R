@@ -1533,6 +1533,9 @@ search_var_one_size <- function(var_data,
       dplyr::select(short_name, everything())
   }
   
+  accu_rankings_models <- as_tibble(accu_rankings_models)
+  accu_rankings_models$model_function <- "VAR"
+  
   if (return_cv) {
     return(list(accu_rankings_models = accu_rankings_models,
                 cv_objects = cv_objects,
@@ -1546,6 +1549,22 @@ search_var_one_size <- function(var_data,
 
 
 stack_models <- function(models_list) {
+  
+  print("inside stack mdoels")
+  print("length(models_list)")
+  print(length(models_list))
+
+  print("first loop")
+
+  for (m in seq(1, length(models_list))) {
+    print(paste0("m = ", m))
+    this_thing <- as_tibble(models_list[[m]])
+    print(names(this_thing))
+  }
+
+
+  
+  
   
   all_models <- as_tibble(reduce(models_list, rbind)) %>%
     dplyr::select(vars_select(names(.), -starts_with("wn"))) %>%
