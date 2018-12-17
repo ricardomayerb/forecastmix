@@ -998,7 +998,7 @@ read_compare_var_res <- function(var_res_new, var_res_old, h_max = 8,
 
 # search var one size formerly known as try_sizes_vbls_lags
 # then it was modified to work on single size choice
-search_var_one_size <- function(var_data,
+search_var_one_size_old <- function(var_data,
                                 rgdp_yoy_ts,
                                 rgdp_level_ts,
                                 target_v, 
@@ -1093,61 +1093,26 @@ search_var_one_size <- function(var_data,
   one_endog_count <- 0
   
   for (j in seq.int(1, len_sets_of_vars)) {
-    
-    # vec_of_other_vbls <- sets_of_other_variables[[j]]
-    
-    
+
     vec_of_other_vbls <- sets_of_other_variables[,j]
-    # print("in search var one size, vec_of_other_vbls")
-    # print(vec_of_other_vbls)
-    # print("in search var one size, already_chosen")
-    # print(already_chosen)
-    
+
     vbls_for_var <- c(already_chosen, vec_of_other_vbls)
     combinations_of_variables_considered[[j]] <- vbls_for_var
-    
-    
-    # print("vbls for var")
-    # print(vbls_for_var)
-    # 
-    # print("colnames(var_data)")
-    # print(colnames(var_data))
-    
-    
+
     sub_data = var_data[, vbls_for_var]
-    
-    # print("Sub_data for first time")
-    # print(sub_data)
-    
+
     sub_data = na.omit(sub_data)
-    
-    # print("Sub_data after naomit")
-    # print(sub_data)
-    
+
     sub_data_tk_index <- tk_index(var_data, timetk_idx = TRUE)
-    
-    # selectedv <-  c("rgdp", "rpc", "emae_sa", "act_eco_bra")
-    # exoall <- c("ip_us", "ip_bra")
-    
+
     endov <- vbls_for_var[!vbls_for_var %in% names_exogenous] 
     exov <- vbls_for_var[vbls_for_var %in% names_exogenous] 
-    # print("vbls_for_var")
-    # print(vbls_for_var)
-    
+
     if (length(endov) == 1) {
-      # print("inside 1 ondo if")
-      # print("vbls_for_var")
-      # print(vbls_for_var)
-      # print("endov")
-      # print(endov)
-      # print("exov")
-      # print(exov)
       # print("Only one endogenous variable. Skip to next selection")
       one_endog_count <- one_endog_count + 1
       next
     }
-    
-    
     endodata <- sub_data[ , endov]
     exodata <- sub_data[ , exov]
     
@@ -1166,35 +1131,26 @@ search_var_one_size <- function(var_data,
       sel <- vars::VARselect(y = endodata, type = "const", lag.max = info_lag_max,
                              exogen = exo_and_lags)
       sel_criteria <- sel$selection
-      # print("sel_criteria")
-      # print(sel_criteria)
       cri_names <- c(aic = "AIC(n)", hq = "HQ(n)", sc = "SC(n)",
                      fpe = "FPE(n)")
       this_cri <- cri_names[vec_lags]
       named_lags <- sel_criteria[this_cri]
-      # print("named_lags")
-      # print(named_lags)
       p_for_estimation <- unique(unname(named_lags))
       max_found_p <- max(p_for_estimation)
       too_high_p <- p_for_estimation > max_p_for_estimation
-      # print(any(too_high_p))
       p_for_estimation[too_high_p] <- max_p_for_estimation 
-      # print(p_for_estimation)
-      
+
       if (any(too_high_p)) {
-        
-        # print(paste0("One or more lags found larger than max_p_for_estimation (",
-        #              max_p_for_estimation,"). Replace them with max instead"))
-        
         binding_max_p <- binding_max_p + 1
       }
     }
     
     if (is.numeric(vec_lags)) {
+      lag_sel_method <- "manual"
       p_for_estimation <- unique(vec_lags)
       
       if (add_info_based_lags) {
-        
+        lag_sel_method <- "manual_and_info"
         info_lag_max <- 8
         
         exo_and_lags <- make_exomat(exodata = exodata, exov = exov, exo_lag = info_lag_max)
@@ -1221,10 +1177,6 @@ search_var_one_size <- function(var_data,
     }
     
     
-    if (is.numeric(vec_lags)) {
-      lag_sel_method <- "manual"
-    }
-    
     len_lag <- length(p_for_estimation)
     var_fixed_vset_all_lags <- list_along(seq(len_lag))
     fcs_fixed_vset_all_lags <- list_along(seq(len_lag))
@@ -1241,16 +1193,7 @@ search_var_one_size <- function(var_data,
       
       full_sample_var <- vars::VAR(y = endodata, type = "const", p = this_lag, 
                                    exogen = exo_and_lags)
-      
-      # if ("act_eco_bra" %in% vbls_for_var) {
-      #   print("exo_and_lags")
-      #   print(exo_and_lags)
-      #   print("endodata")
-      #   print(endodata)
-      #   print(full_sample_var)
-      # }
-      #   
-      
+
       model_number <- model_number + 1
       
       if (restrict_by_signif) {
@@ -1548,19 +1491,594 @@ search_var_one_size <- function(var_data,
 
 
 
+lags_for_var <- function(vec_lags, add_info_based_lags, max_p_for_estimation,
+                         endodata, exodata = NULL, exov = NULL) {
+  
+  
+  info_lag_max <- max_p_for_estimation
+  
+  if (is.character(vec_lags)) {
+    lag_sel_method <- "info"
+    info_lag_max <-  max_p_for_estimation
+    
+    exo_and_lags <- make_exomat(exodata = exodata, exov = exov, exo_lag = info_lag_max)
+    # print("exo_and_lags")
+    # print(exo_and_lags)
+    
+    sel <- vars::VARselect(y = endodata, type = "const", lag.max = info_lag_max,
+                           exogen = exo_and_lags)
+    print("sel")
+    print(sel)
+    sel_criteria <- sel$selection
+    
+    print("t(sel$criteria)")
+    print(t(sel$criteria))
+    
+    cleaned_criteria <- t(sel$criteria)
+    cleaned_criteria <- cleaned_criteria[is.finite(cleaned_criteria[,2]), ]
+    print(cleaned_criteria)
+    
+    # aic_sel <- which.min(cleaned_criteria[, 1])
+
+    
+    all_sel <- c(which.min(cleaned_criteria[, 1]), which.min(cleaned_criteria[, 2]),
+                 which.min(cleaned_criteria[, 3]), which.min(cleaned_criteria[, 4]))
+    names(all_sel) <- c("AIC(n)", "HQ(n)", "SC(n)", "FPE(n)")
+    print("all_sel") 
+    print(all_sel)
+    
+    
+    cri_names <- c(aic = "AIC(n)", hq = "HQ(n)", sc = "SC(n)",
+                   fpe = "FPE(n)")
+    this_cri <- cri_names[vec_lags]
+    named_lags <- sel_criteria[this_cri]
+    p_for_estimation <- unique(unname(named_lags))
+    max_found_p <- max(p_for_estimation)
+    too_high_p <- p_for_estimation > max_p_for_estimation
+    p_for_estimation[too_high_p] <- max_p_for_estimation 
+  }
+  
+  if (is.numeric(vec_lags)) {
+    lag_sel_method <- "manual"
+    p_for_estimation <- unique(vec_lags)
+    
+    if (add_info_based_lags) {
+      lag_sel_method <- "manual_and_info"
+      info_lag_max <- max_p_for_estimation
+      
+      exo_and_lags <- make_exomat(exodata = exodata, exov = exov, exo_lag = info_lag_max)
+      
+      sel <- vars::VARselect(y = endodata, type = "const", lag.max = info_lag_max, 
+                             exogen = exo_and_lags)
+      sel_criteria <- sel$selection
+      print(sel_criteria)
+      cri_names <- c(aic = "AIC(n)", hq = "HQ(n)", sc = "SC(n)",
+                     fpe = "FPE(n)")
+      this_cri <- cri_names
+      named_lags <- sel_criteria[this_cri]
+      info_based_p_for_estimation <- unique(unname(named_lags))
+      
+      too_high_p <- info_based_p_for_estimation > max_p_for_estimation
+      
+      info_based_p_for_estimation[too_high_p] <- max_p_for_estimation
+      
+      p_for_estimation <- unique(c(p_for_estimation, 
+                                   info_based_p_for_estimation)
+      )
+    }
+    
+  }
+  
+  return(p_for_estimation)
+}
+
+
+search_var_one_size <- function(var_data,
+                                rgdp_yoy_ts,
+                                rgdp_level_ts,
+                                target_v, 
+                                var_size, 
+                                vec_lags = c(1,2,3,4),
+                                names_exogenous = c(""),
+                                exo_lag = NULL,
+                                pre_selected_v = "",
+                                is_cv = FALSE, 
+                                h_max = 5, 
+                                n_cv = 8,
+                                training_length = 24,
+                                return_cv = TRUE,
+                                max_rank = 30,
+                                rgdp_current_form = "yoy",
+                                check_residuals_full_sample = TRUE,
+                                check_residuals_cv = TRUE,
+                                white_noise_target_ratio = 1,
+                                keep_only_white_noise_fs = TRUE,
+                                max_p_for_estimation = 7,
+                                restrict_by_signif = TRUE,
+                                t_tresh = 1.65,
+                                keep_varest = FALSE,
+                                add_info_based_lags = TRUE) {
+  
+  print("names_exogenous")
+  print(names_exogenous)
+  
+  all_names <- colnames(var_data)
+  models_with_cv_excercises <- 0
+  models_with_eqn_dropping <- 0
+  binding_max_p <- 0
+  
+  
+  if (!restrict_by_signif) {
+    t_tresh <- NA
+  }
+  
+  ## j, loop through the combination of variables of a fixed size, e.g. all sets of 5 variables
+  ### k, loop through values of lags
+  
+  model_number <- 0
+  models_unstable <- 0
+  models_non_white_fs <- 0
+  
+  n_pre_selected_v <- length(pre_selected_v[pre_selected_v != ""])
+  
+  already_chosen <- c(target_v, pre_selected_v)
+  already_chosen <- already_chosen[already_chosen != ""]
+  len_already_chosen <- length(already_chosen)
+  len_other_vbls <- var_size - len_already_chosen
+  
+  sets_of_other_variables <- get_sets_of_variables(
+    df = var_data, this_size = var_size, all_variables = all_names, 
+    already_chosen = already_chosen)
+  
+  len_sets_of_vars <- ncol(sets_of_other_variables)
+  
+  var_all_vset_all_lags <- list_along(seq.int(1, len_sets_of_vars))
+  
+  combinations_of_variables_considered <- list_along(seq.int(1, len_sets_of_vars))
+  
+  messa1 <- paste0("This search: VARs with ", target_v, " as target variable, ",
+                   n_pre_selected_v, " variables as pre-chosen variables and ",
+                   len_other_vbls, " other free variables chosen among the ",
+                   ncol(var_data) - len_already_chosen, " available variables.")
+  
+  
+  messa2 <- paste0("That amounts to ", len_sets_of_vars, " different combinations of 
+                   variables, each of them paired with ", length(vec_lags), 
+                   " choices of max. lag to form " ,
+                   len_sets_of_vars*length(vec_lags), " concrete unrestricted VARs.")
+  
+  messa3 <- paste0("Furthermore each unrestricted VAR will produce ", length(t_tresh), 
+                   " more restricted version(s) to be evaluated alonside the unrestricted one.")
+  
+  print("")
+  print(messa1)
+  print(messa2)
+  print(messa3)
+  
+  if (n_pre_selected_v > 0) {
+    print("Prechosen variables (other than the target variables) for this search:")
+    print(pre_selected_v)
+    
+    print("it should match already_chosen vector:")
+    print("already_chosen" )
+    print(already_chosen )
+    
+  }
+  
+  one_endog_count <- 0
+  
+  for (j in seq.int(1, len_sets_of_vars)) {
+    
+    vec_of_other_vbls <- sets_of_other_variables[,j]
+    
+    vbls_for_var <- c(already_chosen, vec_of_other_vbls)
+    combinations_of_variables_considered[[j]] <- vbls_for_var
+    
+    sub_data = var_data[, vbls_for_var]
+    
+    sub_data = na.omit(sub_data)
+    
+    sub_data_tk_index <- tk_index(var_data, timetk_idx = TRUE)
+    
+    endov <- vbls_for_var[!vbls_for_var %in% names_exogenous] 
+    exov <- vbls_for_var[vbls_for_var %in% names_exogenous] 
+    
+    if (length(endov) == 1) {
+      # print("Only one endogenous variable. Skip to next selection")
+      one_endog_count <- one_endog_count + 1
+      next
+    }
+    endodata <- sub_data[ , endov]
+    exodata <- sub_data[ , exov]
+    
+    if (is.null(dim(endodata))) {
+      names(endodata) <- endov
+    } else {
+      colnames(endodata) <- endov
+    }
+    
+    if (is.character(vec_lags)) {
+      lag_sel_method <- "info"
+      info_lag_max <- 8
+      
+      exo_and_lags <- make_exomat(exodata = exodata, exov = exov, exo_lag = info_lag_max)
+      
+      sel <- vars::VARselect(y = endodata, type = "const", lag.max = info_lag_max,
+                             exogen = exo_and_lags)
+      sel_criteria <- sel$selection
+      cri_names <- c(aic = "AIC(n)", hq = "HQ(n)", sc = "SC(n)",
+                     fpe = "FPE(n)")
+      this_cri <- cri_names[vec_lags]
+      named_lags <- sel_criteria[this_cri]
+      p_for_estimation <- unique(unname(named_lags))
+      max_found_p <- max(p_for_estimation)
+      too_high_p <- p_for_estimation > max_p_for_estimation
+      p_for_estimation[too_high_p] <- max_p_for_estimation 
+      
+      if (any(too_high_p)) {
+        binding_max_p <- binding_max_p + 1
+      }
+    }
+    
+    if (is.numeric(vec_lags)) {
+      lag_sel_method <- "manual"
+      p_for_estimation <- unique(vec_lags)
+      
+      if (add_info_based_lags) {
+        lag_sel_method <- "manual_and_info"
+        info_lag_max <- 8
+        
+        exo_and_lags <- make_exomat(exodata = exodata, exov = exov, exo_lag = info_lag_max)
+        
+        sel <- vars::VARselect(y = endodata, type = "const", lag.max = info_lag_max, 
+                               exogen = exo_and_lags)
+        sel_criteria <- sel$selection
+        print(sel_criteria)
+        cri_names <- c(aic = "AIC(n)", hq = "HQ(n)", sc = "SC(n)",
+                       fpe = "FPE(n)")
+        this_cri <- cri_names
+        named_lags <- sel_criteria[this_cri]
+        info_based_p_for_estimation <- unique(unname(named_lags))
+        
+        too_high_p <- info_based_p_for_estimation > max_p_for_estimation
+        
+        info_based_p_for_estimation[too_high_p] <- max_p_for_estimation
+        
+        p_for_estimation <- unique(c(p_for_estimation, 
+                                     info_based_p_for_estimation)
+        )
+      }
+      
+    }
+    
+    
+    len_lag <- length(p_for_estimation)
+    var_fixed_vset_all_lags <- list_along(seq(len_lag))
+    fcs_fixed_vset_all_lags <- list_along(seq(len_lag))
+    
+    for (k in seq.int(1, len_lag)) {
+      this_cv <- list()
+      this_lag <- p_for_estimation[k]
+      
+      if (is.null(exo_lag)) {
+        exo_lag <- this_lag 
+      }
+      
+      exo_and_lags <- make_exomat(exodata = exodata, exov = exov, exo_lag = exo_lag)
+      
+      full_sample_var <- vars::VAR(y = endodata, type = "const", p = this_lag, 
+                                   exogen = exo_and_lags)
+      
+      model_number <- model_number + 1
+      
+      if (restrict_by_signif) {
+        full_sample_var <- try(vars::restrict(full_sample_var, method = "ser", 
+                                              thresh = t_tresh), silent = TRUE)
+      }
+      
+      if (class(full_sample_var) == "try-error") {
+        # print(paste("One or more equations in", paste(colnames(sub_data), collapse = " "),  
+        #             ",have no coefficients passing t-treshold =", t_tresh))
+        some_eqn_drop <- TRUE
+        models_with_eqn_dropping <- models_with_eqn_dropping + 1
+        is_stable <- FALSE
+        is_white_noise_fs <- FALSE
+        this_cv[["t_treshold"]] <-  t_tresh
+        this_cv[["lag_sel_method"]] <- lag_sel_method
+        if (keep_varest) {
+          this_cv[["full_sample_varest"]] <- full_sample_var
+        }
+        
+      } 
+      
+      if (!class(full_sample_var) == "try-error") {
+        var_restrictions <- full_sample_var$restrictions
+        some_eqn_drop <- FALSE
+        
+        this_root <- try(vars::roots(full_sample_var))
+        
+        if (class(this_root) == "try-error") {
+          print("error computing roots. Possible NAs or Inf in x")
+          print(paste0("current variables: "))
+          print(colnames(sub_data))
+          print(paste0("current max lag: ", this_lag))
+          is_stable <- FALSE
+        } else {
+          is_stable <- all(this_root < 1)
+        }
+        
+        if (!is_stable) {
+          # print("Current VAR not stable. No CV analysis will be done")
+          # print(paste("Roots are", paste(this_root, collapse = ", ")))
+          models_unstable <- models_unstable + 1 
+          # print(paste("Unstable models so far:", models_unstable))
+        }
+        if (is_stable & check_residuals_full_sample) {
+          is_white_noise_fs <- check_resid_VAR(full_sample_var)
+          # print("is_white_noise_fs")
+          # print(is_white_noise_fs)
+          if (!is_white_noise_fs) {
+            # print("foo")
+            models_non_white_fs <- models_non_white_fs + 1
+          }
+        } else {
+          is_white_noise_fs <- TRUE
+        }
+        
+        if (is_white_noise_fs & is_stable) {
+          models_with_cv_excercises <- models_with_cv_excercises + 1
+          # print("paso!")
+          # print(models_with_cv_excercises)
+          # print("var_restrictions")
+          # print(var_restrictions)
+          
+          if (is.null(exo_lag)) {
+            exo_lag <- this_lag 
+          }
+          
+          # print("Sub_data before var_cv")
+          # print(sub_data)
+          
+          this_cv <- var_cv(var_data = sub_data, timetk_idx = FALSE,
+                            external_idx = sub_data_tk_index, this_p = this_lag,
+                            this_type = "const", h_max = h_max,
+                            n_cv = n_cv, training_length = training_length, 
+                            test_residuals = check_residuals_cv,
+                            full_sample_resmat = var_restrictions, 
+                            names_exogenous = names_exogenous, exo_lag = exo_lag)
+          cv_num_of_white_noises <- sum(this_cv[["cv_is_white_noise"]])
+          ratio_of_white_noises <- cv_num_of_white_noises/n_cv
+          overall_cv_white_noise <- ratio_of_white_noises >= white_noise_target_ratio
+          this_cv[["overall_cv_white_noise"]] <- overall_cv_white_noise
+          this_cv[["is_white_noise_fse"]] <- TRUE
+          this_cv[["is_stable"]] <- TRUE
+          this_cv[["t_treshold"]] <- t_tresh
+          this_cv[["lag_sel_method"]] <- lag_sel_method
+          if (keep_varest) {
+            this_cv[["full_sample_varest"]] <- full_sample_var
+          }
+          
+          if (keep_varest) {
+            this_cv[["full_sample_varest"]] <- full_sample_var
+          }
+          
+          
+        }
+      }
+      
+      if ( (!is_white_noise_fs) | (!is_stable) | some_eqn_drop) {
+        
+        this_cv <- list(cv_errors = list(NULL),
+                        cv_test_data = list(NULL),
+                        cv_fcs = list(NULL),
+                        mean_cv_rmse = list(NULL),
+                        cv_vbl_names = list(colnames(sub_data)),
+                        cv_lag = list(this_lag),
+                        cv_is_white_noise = list(NULL))
+        
+        this_cv[["overall_cv_white_noise"]] <- list(NULL)
+        this_cv[["is_white_noise_fse"]] <- list(FALSE)
+        this_cv[["is_stable"]] <- is_stable
+        this_cv[["t_treshold"]] <- t_tresh
+        this_cv[["lag_sel_method"]] <- lag_sel_method
+        if (keep_varest) {
+          this_cv[["full_sample_varest"]] <- full_sample_var
+        }
+        
+      }
+      
+      this_cv[["some_eqn_drop"]] <- some_eqn_drop
+      
+      var_fixed_vset_all_lags[[k]] <- this_cv
+    }
+    
+    var_all_vset_all_lags[[j]] <- var_fixed_vset_all_lags
+  }
+  
+  # print("combinations_of_variables_considered")
+  # print(combinations_of_variables_considered)
+  
+  results_all_models <- flatten(var_all_vset_all_lags)
+  
+  results_all_models <- discard(results_all_models, 
+                                ~ is.null(.x[["cv_test_data"]][[1]]))
+  
+  if (length(results_all_models) == 0) {
+    print("No model passed all tests")
+    
+    print(paste("Number of models analyzed:", model_number))
+    print(paste("Total models dropped after significance restrictions applied:", 
+                models_with_eqn_dropping, "out of", model_number))
+    print(paste("Total significant models unstable:", 
+                models_unstable, "out of", model_number - models_with_eqn_dropping))
+    print(paste("Total significant stable models, but with non-white residuals:", 
+                models_non_white_fs, "out of", model_number -
+                  models_with_eqn_dropping - models_unstable ))
+    
+    return(list(accu_rankings_models = list(),
+                cv_objects = list(),
+                combinations_of_variables_considered = combinations_of_variables_considered
+    )
+    )
+  }
+  
+  column_names <- names(results_all_models[[1]])
+  
+  # transitory names to allow conversion to tibble (columns must be names)
+  names(results_all_models) <- seq_along(results_all_models)
+  
+  # transpose tibble, ensure result is still a tibble
+  results_all_models <- as_tibble(t(as_tibble(results_all_models)))
+  
+  
+  names(results_all_models) <- column_names
+  
+  if (rgdp_current_form != "yoy") {
+    if (rgdp_current_form == "diff_yoy") {
+      
+      auxiliary_ts <-  rgdp_yoy_ts
+      
+      results_all_models <- results_all_models %>% 
+        rename(cv_test_data_diff_yoy = cv_test_data,
+               cv_fcs_diff_yoy = cv_fcs)
+      
+      results_all_models <- results_all_models %>% 
+        mutate(cv_test_data = map(
+          cv_test_data_diff_yoy, ~ transform_cv(list_series  = ., 
+                                                series_name = "cv_test_data",
+                                                current_form = rgdp_current_form,
+                                                auxiliary_ts = auxiliary_ts,
+                                                n_cv = n_cv) ),
+          cv_fcs = map(
+            cv_fcs_diff_yoy,  ~ transform_cv(list_series  = .,
+                                             series_name = "cv_fcs",
+                                             current_form = rgdp_current_form,
+                                             auxiliary_ts = auxiliary_ts,
+                                             n_cv = n_cv) ),
+          cv_errors = map2(cv_test_data, cv_fcs, ~ map2(.x, .y, ~ .x - .y) )
+        )
+    }
+    ##### ESTA PARTE HAY QUE CAMBIAR: DIFF
+    if (rgdp_current_form == "diff") {
+      auxiliary_ts <-  rgdp_level_ts
+      
+      results_all_models <- results_all_models %>% 
+        rename(cv_test_data_diff = cv_test_data,
+               cv_fcs_diff = cv_fcs)
+      
+      results_all_models <- results_all_models %>% 
+        mutate(cv_test_data = map(
+          cv_test_data_diff, ~ transform_cv(list_series  = ., 
+                                            series_name = "cv_test_data",
+                                            current_form = rgdp_current_form,
+                                            auxiliary_ts = auxiliary_ts,
+                                            n_cv = n_cv) ),
+          cv_fcs = map(
+            cv_fcs_diff,  ~ transform_cv(list_series  = .,
+                                         series_name = "cv_fcs",
+                                         current_form = rgdp_current_form,
+                                         auxiliary_ts = auxiliary_ts,
+                                         n_cv = n_cv) ),
+          cv_errors = map2(cv_test_data, cv_fcs, ~ map2(.x, .y, ~ .x - .y) )
+        )
+      
+    }
+    
+  }
+  
+  if (keep_only_white_noise_fs){
+    
+    results_all_models <- results_all_models %>% 
+      filter(unlist(is_white_noise_fse))
+    
+  }
+  
+  print(paste("Number of models analyzed:", model_number))
+  print(paste("Total models dropped after significance restrictions applied:", 
+              models_with_eqn_dropping, "out of", model_number))
+  print(paste("Total significant models unstable:", 
+              models_unstable, "out of", model_number - models_with_eqn_dropping))
+  print(paste("Total significant stable models, but with non-white residuals:", 
+              models_non_white_fs, "out of", model_number -
+                models_with_eqn_dropping - models_unstable ))
+  print(paste("As a result,  performed CV on", models_with_cv_excercises, "of them"))
+  print(paste("CV repetitions:", n_cv))
+  print(paste("Total estimations (full sample + cv rounds):", 
+              n_cv*models_with_cv_excercises + model_number))
+  print(paste("Total times p exceeded max_p_for_e:", binding_max_p))
+  
+  
+  if (nrow(results_all_models) > 0) {
+    
+    results_all_models <- get_rmses_h_rankings_h(data = results_all_models,
+                                                 h_max = h_max)
+    
+    results_all_models <- results_all_models %>% 
+      filter_at( vars(starts_with("rank")), any_vars(. <= max_rank)) %>% 
+      mutate(cv_vbl_names = map(cv_vbl_names, 1),
+             cv_lag = map(cv_lag, 1))
+    
+    
+    cv_objects <- results_all_models %>% 
+      dplyr::select(cv_vbl_names, cv_lag, 
+                    cv_errors, cv_test_data, cv_fcs) %>% 
+      rename(variables = cv_vbl_names, lags = cv_lag)
+    
+    
+    if (keep_varest) {
+      accu_rankings_models <- results_all_models %>% 
+        dplyr::select(cv_vbl_names, cv_lag, lag_sel_method, t_treshold,
+                      starts_with("rmse"), starts_with("rank"), 
+                      overall_cv_white_noise, is_white_noise_fse,
+                      full_sample_varest) %>% 
+        rename(variables = cv_vbl_names, lags = cv_lag, 
+               wn_cv = overall_cv_white_noise, wn_fs = is_white_noise_fse)
+    } else {
+      accu_rankings_models <- results_all_models %>% 
+        dplyr::select(cv_vbl_names, cv_lag, lag_sel_method, t_treshold,
+                      starts_with("rmse"), starts_with("rank"), 
+                      overall_cv_white_noise, is_white_noise_fse) %>% 
+        rename(variables = cv_vbl_names, lags = cv_lag, 
+               wn_cv = overall_cv_white_noise, wn_fs = is_white_noise_fse)
+    }
+    
+    accu_rankings_models <- accu_rankings_models %>% 
+      mutate(short_name = map2(variables, lags,
+                               ~ make_model_name(variables = .x, lags = .y))
+      )
+    
+    accu_rankings_models <- accu_rankings_models %>% 
+      dplyr::select(short_name, everything())
+  }
+  
+  accu_rankings_models <- as_tibble(accu_rankings_models)
+  accu_rankings_models$model_function <- "VAR"
+  
+  if (return_cv) {
+    return(list(accu_rankings_models = accu_rankings_models,
+                cv_objects = cv_objects,
+                combinations_of_variables_considered = combinations_of_variables_considered))
+  } else {
+    return(list(accu_rankings_models = accu_rankings_models,
+                combinations_of_variables_considered = combinations_of_variables_considered))
+  }
+}
+
+
+
 stack_models <- function(models_list) {
   
-  print("inside stack mdoels")
-  print("length(models_list)")
-  print(length(models_list))
-
-  print("first loop")
-
-  for (m in seq(1, length(models_list))) {
-    print(paste0("m = ", m))
-    this_thing <- as_tibble(models_list[[m]])
-    print(names(this_thing))
-  }
+  # print("inside stack mdoels")
+  # print("length(models_list)")
+  # print(length(models_list))
+  # 
+  # print("first loop")
+  # 
+  # for (m in seq(1, length(models_list))) {
+  #   print(paste0("m = ", m))
+  #   this_thing <- as_tibble(models_list[[m]])
+  #   print(names(this_thing))
+  # }
 
 
   

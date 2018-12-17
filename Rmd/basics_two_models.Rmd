@@ -2,7 +2,7 @@
 title: "The basics, with two models"
 author: "Ricardo Mayer"
 date: "12/6/2018"
-output: tint::tintHtml
+output: html_document
 ---
 
 ```{r setup, include=FALSE}
@@ -67,9 +67,58 @@ print(paste0("Stationary transformation for rgdp: ", rgdp_rec))
 
 The final step would be to balance the data set, i.e. eliminate trailing and leading missing values, imposing a common start and end dates for all series. However, that is best applied just before estimating the model, to the smaller subset of variables actually present in that specific VAR, preserving as many observations as possible. 
 
-### First VAR: only endogenous variables
+### Propose, test and keep or discard specifications
 
-Let's form a VAR with rgdp, rpc and imp_capital as variables and illustrate how we treat lags specification, testing, restrictions and evaluation.
+Given a data set with stationary variables, obteined in the previous section, a VAR especification consists in a set of endogenous variables, exogenous variables, a maximum lag value and a restriction over coefficients. Lets begin with the following specification
+
+  - set of endogenous variables: rgdp, imp_intermediate, rpc
+  - set of exogenous variables: none  (we will add them later)
+  - a value for the maximum lag: 5
+  - a restriction over coefficients: none or, as we will see, setting our threshold to zero. 
+
+```{r inital_var_specification}
+subset_of_variables <- c("rgdp", "imp_intermediate", "rpc")
+var_data <- VAR_data_for_estimation[, subset_of_variables]
+var_data <- na.omit(var_data)
+this_lag <- 5
+
+var_fit <- vars::VAR(y = var_data, p = this_lag, type = "const")
+```
+
+#### Proposing various lag values
+
+For searching purposes we could propose a single maximum lag value, like 5, or a manually specify set of values, as 
+c(3,5,6) or use some information-based criteria or add both approaches. 
+The function lags_for_var, in this package, helps us to do just that
+
+
+
+
+
+Then we do the following:
+
+-  First, possibly set some coffiecients to zero. In practice, coefficients that are large in magnitude by statistically insignificant can cause instability (in the sense of causing roots of modulus greater than one), so we try some restricted models in addition to the initial one. Currently such restrictions are based of the t-values of each coefficients.
+
+- The next step consist in computing the roots of the characteristic polynomial and discard all unstable VARs
+
+- Surviving models are subject to a portmanteau test of their residuals, discarding models where the null of white noise of the residuals is rejected
+
+Let's carry the steps above.
+
+```{r some_tests}
+# unrestricted
+var_fit_u <- vars::VAR(y = var_data, p = this_lag , type = "const")
+var_fit_r_165 <- restrict(var_fit_u, method = "ser", thresh = 1.65)
+var_fit_r_200 <- restrict(var_fit_u, method = "ser", thresh = 2)
+
+print(var_fit_u)
+print(var_fit_r_165)
+print(var_fit_r_200)
+
+
+
+```
+
 
 
 

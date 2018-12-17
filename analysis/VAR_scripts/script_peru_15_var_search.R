@@ -3,7 +3,7 @@ source('./R/VAR_functions.R')
 country <- "Peru"
 print(paste0("this country: ", country))
 # names_exogenous <- c("ip_us", "ip_ue", "ip_asia")
-names_exogenous <- c("ip_us", "ip_ue", "ip_asia")
+names_exogenous <- c("ip_us", "ip_asia")
 forecast_exercise_year <- 2018
 forecast_exercise_number <- 3
 fc_horizon <- 8
@@ -68,10 +68,9 @@ external_data_ts <- get_raw_external_data_ts(data_path = excel_data_path)
 data_ts <- ts.union(country_data_ts, external_data_ts)
 colnames(data_ts) <- c(colnames(country_data_ts), colnames(external_data_ts))
 
-variables_subset <- c("rgdp", "pib", 
-                      "imp_intermediate",  "gto_gob_k", "gto_gob",
-                      "cred",  "expec_eco", "rpc", "rgc", "imp", 
-                      "pib_primary", "tot", "ip_us", "ip_ue", "ip_asia")
+variables_subset <- c("rgdp", "pib", "imp_intermediate",  "gto_gob_k", "gto_gob",
+                      "cred",  "expec_eco", "rpc",  "imp", 
+                      "tot", "ip_us", "ip_asia")
 
 data_ts <- data_ts[, variables_subset]
 
@@ -112,7 +111,7 @@ exodata_fullsample <- VAR_data_for_estimation[, names_exogenous]
 
 # tic()
 # print("extending (after stationary transformation) exogenous variables for forecasts")
-# extension_of_exo <- extending_exogenous(exodata = exodata_fullsample, h = 8, 
+# extension_of_exo <- extending_exogenous(exodata = exodata_fullsample, h = 8,
 #                                         endo_end = end_target_in_VAR)
 # toc()
 # 
@@ -120,7 +119,7 @@ exodata_fullsample <- VAR_data_for_estimation[, names_exogenous]
 # tic()
 # print("extending (after stationary transformation) exogenous variables for cv")
 # cv_extension_of_exo  <- extending_exogenous_for_cv(
-#   exodata = exodata_fullsample, h = 8, endo_end = end_target_in_VAR, 
+#   exodata = exodata_fullsample, h = 8, endo_end = end_target_in_VAR,
 #   n_cv = number_of_cv, same_model_across_cv = FALSE)
 # toc()
 # 
