@@ -1491,8 +1491,10 @@ search_var_one_size_old <- function(var_data,
 
 
 
-lags_for_var <- function(vec_lags, add_info_based_lags, max_p_for_estimation,
-                         endodata, exodata = NULL, exov = NULL) {
+lags_for_var <- function(vec_lags,  max_p_for_estimation,
+                         add_info_based_lags = FALSE,
+                         endodata, exodata = NULL, exov = NULL,
+                         discard_negative = FALSE) {
   
   
   info_lag_max <- max_p_for_estimation
@@ -1507,32 +1509,21 @@ lags_for_var <- function(vec_lags, add_info_based_lags, max_p_for_estimation,
     
     sel <- vars::VARselect(y = endodata, type = "const", lag.max = info_lag_max,
                            exogen = exo_and_lags)
-    print("sel")
-    print(sel)
+
     sel_criteria <- sel$selection
-    
-    print("t(sel$criteria)")
-    print(t(sel$criteria))
     
     cleaned_criteria <- t(sel$criteria)
     cleaned_criteria <- cleaned_criteria[is.finite(cleaned_criteria[,2]), ]
-    print(cleaned_criteria)
     
-    # aic_sel <- which.min(cleaned_criteria[, 1])
+    if (nrow(cleaned_criteria) < nrow(t(sel$criteria))) {
+      print("Caution: NaNs or -Inf values in some of the info criteria")
+    }
 
-    
-    all_sel <- c(which.min(cleaned_criteria[, 1]), which.min(cleaned_criteria[, 2]),
+    info_based_p_for_estimation <- c(which.min(cleaned_criteria[, 1]), which.min(cleaned_criteria[, 2]),
                  which.min(cleaned_criteria[, 3]), which.min(cleaned_criteria[, 4]))
-    names(all_sel) <- c("AIC(n)", "HQ(n)", "SC(n)", "FPE(n)")
-    print("all_sel") 
-    print(all_sel)
-    
-    
-    cri_names <- c(aic = "AIC(n)", hq = "HQ(n)", sc = "SC(n)",
-                   fpe = "FPE(n)")
-    this_cri <- cri_names[vec_lags]
-    named_lags <- sel_criteria[this_cri]
-    p_for_estimation <- unique(unname(named_lags))
+    names(info_based_p_for_estimation) <- c("AIC(n)", "HQ(n)", "SC(n)", "FPE(n)")
+
+    p_for_estimation <- unique(info_based_p_for_estimation)
     max_found_p <- max(p_for_estimation)
     too_high_p <- p_for_estimation > max_p_for_estimation
     p_for_estimation[too_high_p] <- max_p_for_estimation 
@@ -1551,13 +1542,17 @@ lags_for_var <- function(vec_lags, add_info_based_lags, max_p_for_estimation,
       sel <- vars::VARselect(y = endodata, type = "const", lag.max = info_lag_max, 
                              exogen = exo_and_lags)
       sel_criteria <- sel$selection
-      print(sel_criteria)
-      cri_names <- c(aic = "AIC(n)", hq = "HQ(n)", sc = "SC(n)",
-                     fpe = "FPE(n)")
-      this_cri <- cri_names
-      named_lags <- sel_criteria[this_cri]
-      info_based_p_for_estimation <- unique(unname(named_lags))
+      cleaned_criteria <- t(sel$criteria)
+      cleaned_criteria <- cleaned_criteria[is.finite(cleaned_criteria[,2]), ]
       
+      if (nrow(cleaned_criteria) < nrow(t(sel$criteria))) {
+        print("Caution: NaNs or -Inf values in some of the info criteria")
+      }
+      
+      info_based_p_for_estimation <- c(which.min(cleaned_criteria[, 1]), which.min(cleaned_criteria[, 2]),
+                   which.min(cleaned_criteria[, 3]), which.min(cleaned_criteria[, 4]))
+      names(info_based_p_for_estimation) <- c("AIC(n)", "HQ(n)", "SC(n)", "FPE(n)")
+
       too_high_p <- info_based_p_for_estimation > max_p_for_estimation
       
       info_based_p_for_estimation[too_high_p] <- max_p_for_estimation
