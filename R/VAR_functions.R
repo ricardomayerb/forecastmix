@@ -288,6 +288,9 @@ cv_var_from_model_tbl <- function(h, n_cv,
                                   extended_exo_mts = extended_exo_mts
                                   ) { 
   
+  # print("in cvvarfrommodel exo vbls")
+  # print(names_exogenous)
+  
   starting_names <- names(models_tbl)
   has_short_name <- "short_name" %in% starting_names
   has_t_threshold <- "t_threshold" %in% starting_names
@@ -309,7 +312,8 @@ cv_var_from_model_tbl <- function(h, n_cv,
     print("There is no column with fit varest objects, so we will estimate all VARs now")
     tic()
     models_tbl <- estimate_var_from_model_tbl(
-      models_tbl = models_tbl, var_data = var_data, new_t_threshold = new_t_threshold)
+      models_tbl = models_tbl, var_data = var_data, new_t_threshold = new_t_threshold, 
+      names_exogenous = names_exogenous)
     toc()
     
     print("Done estimating VARs, now we will compute the forecasts")
@@ -440,6 +444,7 @@ cv_var_from_model_tbl <- function(h, n_cv,
   return(models_tbl)
 } 
 
+
 cv_var_from_one_row <- function(var_data, 
                                 fit, 
                                 variables, 
@@ -451,6 +456,9 @@ cv_var_from_one_row <- function(var_data,
                                 this_type = "const", 
                                 future_exo_cv = NULL,
                                 this_thresh = 0) {
+  
+  # print("in cv var from one row")
+  # print(names_exogenous)
   
   # print("inside cvvaronerow")
   # print("this_thresh")
@@ -504,6 +512,9 @@ estimate_var_from_model_tbl <- function(models_tbl,
                                         names_exogenous = c(""),
                                         exo_lag = NULL,
                                         remove_ranks = TRUE) {
+  
+  # print("in estimate var from model tbl")
+  # print(names_exogenous)
   
   starting_names <- names(models_tbl)
   # print("starting_names in estimate var from")
@@ -736,6 +747,9 @@ forecast_var_from_model_tbl <- function(models_tbl,
                                         names_exogenous = c(""),
                                         extended_exo_mts = NULL
 ) {
+  
+  # print("in forecast var from model tbl")
+  # print(names_exogenous)
   
   starting_names <- names(models_tbl)
   # print("starting_names in forecasts var from")
@@ -1491,6 +1505,20 @@ search_var_one_size_old <- function(var_data,
 
 
 
+#' Title provides a set of maximum lag values
+#'
+#' @param vec_lags 
+#' @param max_p_for_estimation 
+#' @param add_info_based_lags 
+#' @param endodata 
+#' @param exodata 
+#' @param exov 
+#' @param discard_negative 
+#'
+#' @return
+#' @export
+#'
+#' @examples
 lags_for_var <- function(vec_lags,  max_p_for_estimation,
                          add_info_based_lags = FALSE,
                          endodata, exodata = NULL, exov = NULL,
@@ -1512,6 +1540,9 @@ lags_for_var <- function(vec_lags,  max_p_for_estimation,
 
     sel_criteria <- sel$selection
     
+    print("sel")
+    print(sel)
+    
     cleaned_criteria <- t(sel$criteria)
     cleaned_criteria <- cleaned_criteria[is.finite(cleaned_criteria[,2]), ]
     
@@ -1522,7 +1553,10 @@ lags_for_var <- function(vec_lags,  max_p_for_estimation,
     info_based_p_for_estimation <- c(which.min(cleaned_criteria[, 1]), which.min(cleaned_criteria[, 2]),
                  which.min(cleaned_criteria[, 3]), which.min(cleaned_criteria[, 4]))
     names(info_based_p_for_estimation) <- c("AIC(n)", "HQ(n)", "SC(n)", "FPE(n)")
-
+    
+    print("info_based_p_for_estimation")
+    print(info_based_p_for_estimation)
+    
     p_for_estimation <- unique(info_based_p_for_estimation)
     max_found_p <- max(p_for_estimation)
     too_high_p <- p_for_estimation > max_p_for_estimation
@@ -2121,6 +2155,9 @@ var_cv <- function(var_data,
                    exo_lag = NULL,
                    future_exo_cv = NULL,
                    this_thresh = 0) {
+  
+  # print("in estimate var_cv")
+  # print(names_exogenous)
   
   # print("")
   # print("start var cv")
