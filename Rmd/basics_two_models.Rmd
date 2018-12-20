@@ -67,29 +67,44 @@ var_fit <- vars::VAR(y = var_data, p = this_lag, type = "const")
 
 For searching purposes we could propose a single maximum lag value, like 5, or a manually specify set of values, as 
 c(3,5,6) or use some information-based criteria or add both approaches. 
-The function lags_for_var, in this package, helps us to do just that. 
+The function lags_for_var, in this package, helps us to do just that. If we only specify manual values it will simply return the same value or vector, but if we chose "info" or "add_info_based_lags = TRUE" it will compute Akaike, Bayesian, SC and FPE criteria and choose the optimal lag for each of them, eliminate repeated values and return the resultig vector or its union with a manually specified vector of lags.
 
 ```{r proposing lags}
 manual_single <- lags_for_var(vec_lags = 5, max_p_for_estimation = 9, endodata = var_data)
 
 manual_multiple <- lags_for_var(vec_lags = c(5, 7), max_p_for_estimation = 9, endodata = var_data)
 
-info_based <- lags_for_var(vec_lags = "info", max_p_for_estimation = 9, endodata = var_data)
+info_based <- lags_for_var(vec_lags = "info", max_p_for_estimation = 9, endodata = var_data, ret_info_results = TRUE)
 
 manual_and_info <- lags_for_var(vec_lags = c(5, 7), add_info_based_lags = TRUE, max_p_for_estimation = 9, endodata = var_data)
 
 print(manual_single)
 print(manual_multiple)
-print(info_based)
+print(info_based$info_criteria)
 print(manual_and_info)
 ```
+In this case, the Akaike statistic is minimized at nine lags, the Schwartz statistic at one lag and both the prediction error and hanna-quinn statistics are minimized at 4 lags. In principle, we could try all values from 1 to 9 or even higher, but, besides the costs of extra computatons a note of caution is due: unrestricted VARs tend to increase the number of coeffcients very rapidly with the maximum value of lags and given that some our data matrices can be relative short we should be wary of lag-happy specifications. For instance, the following code will estimates all VARs using from 1 to 12 lags and report to us the degrees of freedom of the residuals for each lag choice:
 
-If we only specify manual values it will simply return the same value or vector, but if we chose "info" or "add_info_based_lags = TRUE" it will compute Akaike, Bayesian, SC and FPE criteria and choose the optimal lag for each of them, eliminate repeated values and return the resultig vector or its union with a manually specified vector of lags.
+```{r}
+var_fit_1_to_13 <-  map(1:13, ~ vars::VAR(y = var_data, p = . , type = "const"))
 
+df_1_to_13 <- map_dbl(var_fit_1_to_13, c("varresult", "rgdp", "df.residual"))
+names(df_1_to_13) <- 1:13
+print(df_1_to_13)
+
+```
+
+So, for instance, with one lag we have 44 degrees of freedom but only 12 if we choose nine lags and it is not even possible to fit a model with 12 lags with the amount of data we have.
+
+Let's try a value like $p = 4$ for the rest of our examples, but nothing preclude us to use several values, as in 
+$p = 1, 2, \ldots 6$.
+
+
+### Try some zero-restrictions 
 
 Then we do the following:
 
--  First, possibly set some coffiecients to zero. In practice, coefficients that are large in magnitude by statistically insignificant can cause instability (in the sense of causing roots of modulus greater than one), so we try some restricted models in addition to the initial one. Currently such restrictions are based of the t-values of each coefficients.
+-  First, possibly set some cofficients to zero. In practice, coefficients that are large in magnitude by statistically insignificant can cause instability (in the sense of causing roots of modulus greater than one), so we try some restricted models in addition to the initial one. Currently such restrictions are based of the t-values of each coefficients.
 
 - The next step consist in computing the roots of the characteristic polynomial and discard all unstable VARs
 

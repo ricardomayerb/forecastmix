@@ -95,6 +95,9 @@ nm_tbl_for_comp_e <- ury_e[[4]][["cv_tbl"]] %>%
          rank_5 = 0, rank_6 = 0, rank_7 = 0, rank_8 = 0) %>% 
   rename(t_treshold = t_threshold)
 
+nm_tbl_for_comp_e <- nm_tbl_for_comp_e %>% 
+  dplyr::select(-c(model_function, m_short_name))
+
 
 om_tbl_for_comp <- ury_om[[4]][["cv_tbl"]] %>% 
   dplyr::select(-c(model_type, inv_mse, model_weight_h, weighted_fc_h, 
@@ -133,15 +136,22 @@ var_res_old <- var_res_old %>%
 
 
 
-
 old_and_new <- stack_models(list(var_res_new, var_res_old))  
+
 h_max <- 8
 rank_h_max <- 30
 rmse_names <- paste("rmse", seq(h_max), sep = "_")
 is_wide = TRUE
 selected_models_tbl = old_and_new
 
+names(var_res_new_e)
+names(var_res_new)
+names(var_res_old)
+
 old_and_new_e <- stack_models(list(var_res_new_e, var_res_old))  
+
+
+
 
 # selected_models_tbl = old_and_new
 # plot_best_consolidated <- single_plot_rmse_all_h(old_and_new, is_wide = TRUE, 

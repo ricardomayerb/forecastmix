@@ -1522,7 +1522,7 @@ search_var_one_size_old <- function(var_data,
 lags_for_var <- function(vec_lags,  max_p_for_estimation,
                          add_info_based_lags = FALSE,
                          endodata, exodata = NULL, exov = NULL,
-                         discard_negative = FALSE) {
+                         discard_negative = FALSE, ret_info_results = FALSE) {
   
   
   info_lag_max <- max_p_for_estimation
@@ -1540,8 +1540,8 @@ lags_for_var <- function(vec_lags,  max_p_for_estimation,
 
     sel_criteria <- sel$selection
     
-    print("sel")
-    print(sel)
+    # print("sel")
+    # print(sel)
     
     cleaned_criteria <- t(sel$criteria)
     cleaned_criteria <- cleaned_criteria[is.finite(cleaned_criteria[,2]), ]
@@ -1554,8 +1554,8 @@ lags_for_var <- function(vec_lags,  max_p_for_estimation,
                  which.min(cleaned_criteria[, 3]), which.min(cleaned_criteria[, 4]))
     names(info_based_p_for_estimation) <- c("AIC(n)", "HQ(n)", "SC(n)", "FPE(n)")
     
-    print("info_based_p_for_estimation")
-    print(info_based_p_for_estimation)
+    # print("info_based_p_for_estimation")
+    # print(info_based_p_for_estimation)
     
     p_for_estimation <- unique(info_based_p_for_estimation)
     max_found_p <- max(p_for_estimation)
@@ -1598,7 +1598,14 @@ lags_for_var <- function(vec_lags,  max_p_for_estimation,
     
   }
   
-  return(p_for_estimation)
+  if (ret_info_results) {
+    return(list(p_for_estimation = p_for_estimation, 
+                info_criteria = info_based_p_for_estimation))
+  } else {
+    return(p_for_estimation)
+  }
+  
+  
 }
 
 
