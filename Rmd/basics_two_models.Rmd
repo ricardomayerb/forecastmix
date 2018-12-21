@@ -2,7 +2,9 @@
 title: "The basics, with two models"
 author: "Ricardo Mayer"
 date: "12/6/2018"
-output: html_document
+output:
+  html_document: default
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -98,6 +100,19 @@ So, for instance, with one lag we have 44 degrees of freedom but only 12 if we c
 
 Let's try a value like $p = 4$ for the rest of our examples, but nothing preclude us to use several values, as in 
 $p = 1, 2, \ldots 6$.
+
+```{r avar5}
+var_data_5 <- na.omit(
+  all_data_for_VAR_estimation[, 
+    c("rgdp", "imp_intermediate", "rpc", "fbcf", "m2")])
+
+var_fit_1_to_13_var5 <-  map(1:13, ~ vars::VAR(y = var_data_5, p = . , type = "const"))
+
+df_1_to_13_var5 <- map_dbl(var_fit_1_to_13_var5, c("varresult", "rgdp", "df.residual"))
+names(df_1_to_13_var5) <- 1:13
+print(df_1_to_13_var5)
+```
+
 
 
 ### Try some zero-restrictions 
