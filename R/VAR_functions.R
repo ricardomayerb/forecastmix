@@ -251,10 +251,11 @@ ave_fc_from_cv <- function(cv_tbl, best_n_to_keep = "all", is_wide = TRUE) {
 }
 
 
-check_resid_VAR <- function(fit_VAR, type = "PT.adjusted", lags.pt = 12,
+check_resid_VAR <- function(fit_VAR, type = "PT.asymptotic", lags.pt = 16,
                             pval_ref = 0.05) {
   
-  test_object <- try(serial.test(fit_VAR), silent = TRUE)
+  test_object <- try(serial.test(fit_VAR, type = type, lags.pt = lags.pt),
+                     silent = TRUE)
   # print(class(test_object))
   
   if (class(test_object) == "try-error") {

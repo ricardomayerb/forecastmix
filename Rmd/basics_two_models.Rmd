@@ -1,5 +1,5 @@
 ---
-title: "The basics, with two models"
+title: "The basics: steps with one specification"
 author: "Ricardo Mayer"
 date: "12/6/2018"
 output:
@@ -60,12 +60,12 @@ Given a data set with stationary variables, obteined in the previous section, a 
 subset_of_variables <- c("rgdp", "imp_intermediate", "rpc")
 var_data <- all_data_for_VAR_estimation[, subset_of_variables]
 var_data <- na.omit(var_data)
-this_lag <- 5
+this_lag <- 4
 
 var_fit <- vars::VAR(y = var_data, p = this_lag, type = "const")
 ```
 
-### Proposing various lag values
+### Proposing lag values
 
 For searching purposes we could propose a single maximum lag value, like 5, or a manually specify set of values, as 
 c(3,5,6) or use some information-based criteria or add both approaches. 
@@ -96,15 +96,14 @@ print(df_1_to_13)
 
 ```
 
-So, for instance, with one lag we have 44 degrees of freedom but only 12 if we choose nine lags and it is not even possible to fit a model with 12 lags with the amount of data we have.
+So, for instance, with one lag we have 44 degrees of freedom but only 12 if we choose nine lags and it is not even possible to fit a model with 12 lags with the amount of data we have, let alone to compute some statistic based on the residuals.
 
-Let's try a value like $p = 4$ for the rest of our examples, but nothing preclude us to use several values, as in 
-$p = 1, 2, \ldots 6$.
+And for further ilustration, here is the same count of degrees of freedom if we use five variables instead of three
 
-```{r avar5}
-var_data_5 <- na.omit(
-  all_data_for_VAR_estimation[, 
-    c("rgdp", "imp_intermediate", "rpc", "fbcf", "m2")])
+
+```{r avar5, echo=FALSE}
+var_data_5 <- na.omit(all_data_for_VAR_estimation[, 
+                        c("rgdp", "imp_intermediate", "rpc", "fbcf", "m2")])
 
 var_fit_1_to_13_var5 <-  map(1:13, ~ vars::VAR(y = var_data_5, p = . , type = "const"))
 
@@ -114,26 +113,89 @@ print(df_1_to_13_var5)
 ```
 
 
+The is no loss of generality in choosing to work the rest of this document with just one lag choice: $p = 4$. In the next vignette we will show how to work with several specifications, including the case of several lag values for a given set of variables.
 
-### Try some zero-restrictions 
+### Try some zero-restrictions on coefficients
 
-Then we do the following:
+The proliferation of parameters induced by choosig more variables or longer lags, leads to the desire of at least try more parsimonious formulations of our VARs. There are several ways to implement more parameter-frugal models, but one easy, direct one is to impose zero restrictions on parameters based on t-statistics. So far, it is the only procedure in this package that looks into more parsimonious version of a VAR. The steps are fairly simple:
 
--  First, possibly set some cofficients to zero. In practice, coefficients that are large in magnitude by statistically insignificant can cause instability (in the sense of causing roots of modulus greater than one), so we try some restricted models in addition to the initial one. Currently such restrictions are based of the t-values of each coefficients.
+  1. Fit a VAR (just as we did in the previous section)
+  2. Choose a threshold value for the t-statistic, e.g. 1.65 or 2 (or zero to signal an unrestricted model)
+  3. Use the restrict function from the vars package and set the options method to "ser" and thresh to the value you chose in the previous step
+  4. If the threshold is set to, say, 1.65 then every coefficient whith a t-statistic lower than 1.65 will be set to zero (the model will be fit using a restriction matrix with zeros on those positions and ones elsewhere) 
+  4. The output of restrict if your new VAR object and can be tested, printed and used in the same way of unrestricted ones
 
-- The next step consist in computing the roots of the characteristic polynomial and discard all unstable VARs
 
-- Surviving models are subject to a portmanteau test of their residuals, discarding models where the null of white noise of the residuals is rejected
-
-Let's carry the steps above.
 
 ```{r some_tests}
+# unrestrcited
 var_fit_u <- vars::VAR(y = var_data, p = this_lag , type = "const")
+
+# restricted: all coeficients from var_fit_u with t-statictics less than 1.65 are set to zero
 var_fit_r_165 <- restrict(var_fit_u, method = "ser", thresh = 1.65)
+
+# same as above but threshold is 2
 var_fit_r_200 <- restrict(var_fit_u, method = "ser", thresh = 2)
+
+# a treshold of zero should render the unrestricted model
+var_fit_r_000 <- restrict(var_fit_u, method = "ser", thresh = 0)
+
+print(summary(var_fit_r_200$varresult$rgdp))
 ```
 
+Looking at the outupt of model var_fit_r_200 we can see a considerable reduction in the number of estimated parameters which reflects itself in the larger number of degrees of freedom of the residuals (41 in rgdp equation and, not printed, 42 for the other two equations), compared against 32 in the unrestricted case. Notice that it may even be the case that one (or more) of the equations drops out entirely if no coefficients survive this restriction. If, for instance, that happens to the rpc equation then it will be no longe a 3-variables VAR and it will not be added to the list of 3-variables specifications for what comes next.
 
+
+### Check model stability
+
+The next step consists in checkig wheter the estimated VAR model is stable, i.e. if 
+all roots of its characteristic polynomial fall inside the unitary circle.
+
+```{r check_stability}
+roots_u <- vars::roots(var_fit_u)
+print(roots_u)
+is_stable <- all(roots_u < 1)
+print(is_stable)
+```
+Only stable models are kept. Sometimes large coefficient estimates but with very low precision cause instability, which is another reason to explore restricted variants whith fewer but more significant coefficients.
+
+### Test whether residuals are white noise
+
+Surviving models are subject to a portmanteau test of their residuals, discarding models where the null of white noise of the residuals is rejected
+
+```{r whitenoise}
+residuals_white_noise <- check_resid_VAR(var_fit_u)
+print(residuals_white_noise)
+```
+
+So in this case we cannot reject the null hipotesis of white-noiseness of the residuals.
+Behid the scenes the function checkresidVAR uses vars::serial.test to carry on the test and then translate the output into a logical statement based on the reported p-value:
+
+```{r serial_test}
+stest_output <- serial.test(var_fit_u)
+stest_output
+```
+
+Default arguments of check_resid_VAR are set to match those of serial.test. One option that could be worth exploring is the type of test: the default test is based on the asymptotic distribution of the statistics, but we can try another statistic that tries to adjust by sample size by using type = "PT.adjusted", which will be passed down to serial.test  and see if it reaches the same conclusion of the asymptotic test:
+
+
+
+```{r serial_test_adj}
+# this can be done by using 
+stest_output_adj <- serial.test(var_fit_u, type = "PT.adjusted")
+print(stest_output_adj)
+
+# so check_resid_VAR would still return TRUE
+residuals_white_noise_adj <- check_resid_VAR(var_fit_u, type = "PT.adjusted")
+print(residuals_white_noise_adj)
+
+```
+
+### Specification is ready for forecasting asessesment
+
+So far our unrestricted VAR(4) with three variables is stable, with white noise residuals. Only after that is verified we move onto forecasting and forecast performance evaluation, otherwise we pick the next speficication on our list and repeat the checking process.
+
+## Forecast evaluation: time series cross validation
 
 
 
