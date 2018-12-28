@@ -1,10 +1,11 @@
 ---
-title: "The basics: steps with one specification"
+title: 'The basics: steps with one specification'
 author: "Ricardo Mayer"
 date: "12/6/2018"
 output:
-  html_document: default
+  word_document: default
   pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -225,6 +226,52 @@ one_specification
 
 The function fit_VAR_rest basically calls vars::VAR and vars::restrict, but also handles what to do when estimation fails and it generates the exogenous variables matrix if needed. 
 
+Accesing the elements inside this tibble is straightforward
+
+```{r accesstibble}
+# traditional way is one_specification$variables[[1]]),
+# but I prefer purrr's pluck syntax, it seems clearer to me.
+pluck(one_specification, "variables", 1)
+
+# the integer 1 refers here to the first element of the chosen column
+# i.e. to the first row of the tibble
+pluck(one_specification, "lag", 1)
+
+pluck(one_specification, "t_threshold", 1)
+
+pluck(one_specification, "is_stable", 1)
+
+pluck(one_specification, "is_white_noise", 1)
+
+# this gets the all the fitted model fitted models, stored in the 
+# "fit" column, then take the first of them.
+first_fitted <- pluck(one_specification, "fit", 1)
+
+# the usual print method for objects of class varest
+print(first_fitted)
+
+# top level content of a varest object
+names(pluck(one_specification, "fit", 1))
+
+pluck(one_specification, "fit", 1, "obs")
+
+
+# elements inside varresult
+names(pluck(one_specification, "fit", 1, "varresult"))
+names(pluck(one_specification, "fit", 1, "varresult", "rgdp"))
+
+
+# A longer instruction: from one_specification, first take column "fit", 
+# then take the first element of that column, then go inside "varresult", 
+# then to "rgdp" and finally get the fitted.values object
+pluck(one_specification, "fit", 1, "varresult", "rgdp", "coefficients")
+
+# the traditional way is to write:
+# one_specification[["fit"]][[1]][["varresult"]][["rgdp"]][["coefficients"]]
+# or maybe, since its common to access columns with $, to write this
+# one_specification$fit[[1]][["varresult"]][["rgdp"]][["coefficients"]]
+
+```
 
 
 
@@ -232,5 +279,42 @@ The function fit_VAR_rest basically calls vars::VAR and vars::restrict, but also
 
 ## Forecast evaluation: time series cross validation
 
+### Out of sample forecasts
+
+To produce an ordiary forecast using a fitted VAR, you can use vars::predict function, but we have written the function 
+forecast_VAR_one_row specifically with the previous tibble structure in mind and to handle the case of exogenous regressors transparently. Both function return an object of class varest, which in this case will contain the same output from a fitted model plus the mean forecasts and estimates of some percentiles for each equation (e.g. for rgdp, rpc and imp_intermediate)
+
+```{r forecastfullsample}
+
+# number of periods to forecast, in this case it is 8 quarters
+fc_horizon <- 8
+
+# add a new column containig the forecast objects
+one_specification <- one_specification %>% 
+    mutate(fc_object_raw = map2(fit, variables,
+                                ~ forecast_VAR_one_row(
+                                  fit = .x, variables = .y, h = fc_horizon
+                                  )
+                                )
+           )
+
+# this would return the entire forecast object of our first model
+fc_raw_1 <- pluck(one_specification, "fc_object_raw", 1) 
+
+# a time series with the mean forecast from the rgdp equation 
+print(pluck(fc_raw_1, "forecast", "rgdp", "mean"))
+
+```
+
+### Changing the transformation of a series
+
+In this case the rgdp data for the country was transformed to a "diff-yoy" format (a seasonal difference first and then ordinary diferences) to render it statioary and suitable for the VAR. So the fitted values and forecast also are diff-yoy values of rgdp. In finite samples and only approximate models is not true that the best models predicting a diff-yoy of rgdp are also the best models predicting yoy rgdp (which is the measure we ultimately want to present), so our ranking of models must be explicitely done in terms of errors about yoy rgdp. This demands that we transform our forecasted diff-yoy values and conver them into forecasted yoy values. In the next section we will use the later to form relevant forecast errors
+
+### Training-sample forecast: time series cross validation
+s
+
+### Forecast errors and accuracy measures
+
+s
 
 

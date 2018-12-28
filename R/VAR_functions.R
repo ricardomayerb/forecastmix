@@ -687,7 +687,7 @@ fit_VAR_rest <- function(var_data, variables, p,
 
 
 forecast_VAR_one_row <- function(fit, h, variables, extended_exo_mts, 
-                                 names_exogenous, exo_lag = NULL)  {
+                                 names_exogenous = c(""), exo_lag = NULL)  {
   
   are_there_exo <- any(names_exogenous %in% variables)
 
