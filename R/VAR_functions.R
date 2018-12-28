@@ -630,6 +630,10 @@ fit_VAR_rest <- function(var_data, variables, p,
   # print("var_data")
   # print(colnames(var_data))
   
+  if (t_thresh == 0) {
+    t_thresh <- FALSE
+  }
+  
   this_var_data <- var_data[, variables]
   this_var_data <- na.omit(this_var_data)
   

@@ -194,6 +194,41 @@ print(residuals_white_noise_adj)
 
 So far our unrestricted VAR(4) with three variables is stable, with white noise residuals. Only after that is verified we move onto forecasting and forecast performance evaluation, otherwise we pick the next speficication on our list and repeat the checking process.
 
+### Can we put all this in a tibble?
+
+Sure we do. The idea is to form a long tibble with all candidate specifications. In concrete each row represent a specification: variables, lag and threshold. Then create columns that contains fitted models, stability checks, residual tests and, as we will see shortly, forecasts and forecast evaluation measures.
+
+```{r onemodeltibble_1}
+
+current_variables <- c("rgdp", "rpc", "imp_intermediate")
+current_lag <- 4
+current_thresh <- 0
+
+# Basic infotmation for specification: variables, lag and restriction
+one_specification_basics <- tibble(variables = list(current_variables),
+                            lag = current_lag,
+                            t_threshold = current_thresh)
+
+# Our function fit_VAR_rest calls both vars::VAR and vars::restrict
+# After fitting the model we apply stability and residual tests
+one_specification <- one_specification_basics %>% 
+  mutate(fit =  pmap(list(variables, lag, t_threshold),
+                     ~ fit_VAR_rest(all_data_for_VAR_estimation, 
+                                    variables = ..1, p = ..2, t_thresh = ..3)),
+         is_stable = map_lgl(fit, ~ all(vars::roots(.x) < 1)),
+         is_white_noise = map_lgl(fit, ~ check_resid_VAR(.x))
+         )
+
+one_specification
+```
+
+The function fit_VAR_rest basically calls vars::VAR and vars::restrict, but also handles what to do when estimation fails and it generates the exogenous variables matrix if needed. 
+
+
+
+
+
+
 ## Forecast evaluation: time series cross validation
 
 
