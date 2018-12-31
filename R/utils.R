@@ -21,7 +21,7 @@ any_fc_2_fc_yoy <- function(current_fc, rgdp_transformation, rgdp_level_ts) {
     return(yoy_fc)
   }
   
-  if (is.na(current_fc)) {
+  if (all(is.na(current_fc))) {
     yoy_fc <- NA
     return(yoy_fc)
   }
