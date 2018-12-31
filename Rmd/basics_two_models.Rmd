@@ -15,8 +15,6 @@ knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
 source('./R/combinations_functions.R')
 ```
 
-
-
 We will start with a ready to use data set with quarterly, stationary series than can be used in an ordinary VAR, and we will not explain how the data munging is done. In particular, we will *not* discuss the following important points:
     - how the data was obtained
     - how monthly data was converted to quaterly frequency
@@ -42,6 +40,9 @@ var_output_path <- paste0("./analysis/VAR_output//edd_exercises/", forecast_exer
 
 all_data_for_VAR_estimation  <- readRDS(paste0(var_output_path, "VAR_data_", country, ".rds"))
 # print(colnames(VAR_data_for_estimation))
+
+
+
 ```
 
 In this case, we used a  "diff-yoy" transformation for the real GDP series (first, take seasonal differences on the quarterly series and then ordinary differences on the result) and, as consequence the predictions about real gdp coming straight out the VAR will be forecasts in this metric, too. It is up to us to transform those predicted values into, say, year-on-year proportional changes.    
@@ -245,14 +246,10 @@ pluck(one_specification, "is_white_noise", 1)
 # "fit" column, then take the first of them.
 first_fitted <- pluck(one_specification, "fit", 1)
 
-# the usual print method for objects of class varest
-print(first_fitted)
-
 # top level content of a varest object
-names(pluck(one_specification, "fit", 1))
+print(names(first_fitted))
 
 pluck(one_specification, "fit", 1, "obs")
-
 
 # elements inside varresult
 names(pluck(one_specification, "fit", 1, "varresult"))
@@ -262,17 +259,14 @@ names(pluck(one_specification, "fit", 1, "varresult", "rgdp"))
 # A longer instruction: from one_specification, first take column "fit", 
 # then take the first element of that column, then go inside "varresult", 
 # then to "rgdp" and finally get the fitted.values object
-pluck(one_specification, "fit", 1, "varresult", "rgdp", "coefficients")
+pluck(one_specification, "fit", 1, "varresult", "rgdp", "fitted.values")
 
 # the traditional way is to write:
-# one_specification[["fit"]][[1]][["varresult"]][["rgdp"]][["coefficients"]]
+# one_specification[["fit"]][[1]][["varresult"]][["rgdp"]][["fitted.values"]]
 # or maybe, since its common to access columns with $, to write this
-# one_specification$fit[[1]][["varresult"]][["rgdp"]][["coefficients"]]
+# one_specification$fit[[1]][["varresult"]][["rgdp"]][["fitted.values"]]
 
 ```
-
-
-
 
 
 ## Forecast evaluation: time series cross validation
@@ -306,7 +300,37 @@ print(pluck(fc_raw_1, "forecast", "rgdp", "mean"))
 
 ### Changing the transformation of a series
 
-In this case the rgdp data for the country was transformed to a "diff-yoy" format (a seasonal difference first and then ordinary diferences) to render it statioary and suitable for the VAR. So the fitted values and forecast also are diff-yoy values of rgdp. In finite samples and only approximate models is not true that the best models predicting a diff-yoy of rgdp are also the best models predicting yoy rgdp (which is the measure we ultimately want to present), so our ranking of models must be explicitely done in terms of errors about yoy rgdp. This demands that we transform our forecasted diff-yoy values and conver them into forecasted yoy values. In the next section we will use the later to form relevant forecast errors
+In this case the rgdp data for the country was transformed to a "diff-yoy" format (a seasonal difference first and then ordinary diferences) to render it statioary and suitable for the VAR. So the fitted values and forecast also are diff-yoy values of rgdp. In finite samples and only approximate models is not true that the best models predicting a diff-yoy of rgdp are also the best models predicting yoy rgdp (which is the measure we ultimately want to present), so our ranking of models must be explicitely done in terms of errors about yoy rgdp. This demands that we transform our forecasted diff-yoy values and conver them into forecasted yoy values. In the next section we will use the later to form relevant forecast errors.
+
+Let's transform our rgdp mean forecast from diff-yoy to yoy (first difference is a linear operation, so we can interchange it with expectations) 
+
+```{r getrgdpyoy, include=FALSE}
+
+excel_data_path <- paste0("./data/edd_exercises/", forecast_exercise_year, 
+                            "_exercise_", forecast_exercise_number, "/")
+
+country_data_ts <- get_raw_data_ts(country = country, data_path = excel_data_path)
+external_data_ts <- get_raw_external_data_ts(data_path = excel_data_path)
+data_ts <- ts.union(country_data_ts, external_data_ts)
+colnames(data_ts) <- c(colnames(country_data_ts), colnames(external_data_ts))
+
+rgdp_level <- data_ts[,"rgdp"]
+rgdp_level <- na.omit(data_ts[,"rgdp"])
+rgdp_yoy <- make_yoy_ts(rgdp_level)
+```
+
+We generally have access to level data of a variable and our function will create a yoy version of it and then use yoy data to obtain yoy version of forecasts
+
+```{r diffyoytoyoy}
+
+fc_mean_rgdp_diffyoy <- pluck(fc_raw_1, "forecast", "rgdp", "mean")
+fc_mean_rgdp_yoy <- any_fc_2_fc_yoy(fc_mean_rgdp_diffyoy, rgdp_transformation = "diff_yoy", rgdp_level_ts = rgdp_level)
+
+fc_mean_rgdp_diffyoy
+fc_mean_rgdp_yoy
+
+```
+
 
 ### Training-sample forecast: time series cross validation
 s
