@@ -333,7 +333,33 @@ fc_mean_rgdp_yoy
 
 
 ### Training-sample forecast: time series cross validation
-s
+As we advanced above, we want to measure the errors in forecasting YoY growth of rgdp. Remember that for this country rgdp realized data is in diff-yoy form, just as its forecasted values. The function cv_var_from_one_row takes our model contained in a tibble's row and does a time-series cross validation of whatever series we flag as our "target variable". It returns objects with forecasted values, realized values and their differences (i.e. forecasting errors). However, unless the target variable was itself in yoy form, then those errors are not the ones we sought. In the case of Uruguay we will take the eight rgdp series of realizations, the eight forecasted series, transform each one to YoY and compute new, yoy, errors. Once we have yoy-forecasting error 
+
+```{r cvonerow}
+
+training_length <- 25
+n_cv <- 8
+
+
+one_specification <-  one_specification %>%
+    mutate(cv_obj = pmap(list(fit, variables, lag, t_threshold),
+                         ~ cv_var_from_one_row(var_data = all_data_for_VAR_estimation,
+                                               fit = ..1,
+                                               variables = ..2, lags = ..3,
+                                               this_thresh = ..4,
+                                               h = fc_horizon, n_cv = n_cv,
+                                               training_length = training_length
+                                               )
+                         )
+           )
+
+
+diff_yoy_test_data <- pluck(one_specification, "cv_obj", 1, "cv_test_data") 
+diff_yoy_fcs <- pluck(one_specification, "cv_obj", 1, "cv_fcs") 
+diff_yoy_errors <- map2(diff_yoy_test_data, diff_yoy_fcs, ~ .x - .y) 
+
+```
+
 
 ### Forecast errors and accuracy measures
 
