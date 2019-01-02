@@ -483,8 +483,10 @@ cv_var_from_one_row <- function(var_data,
   # print("colnames(sub_data)")
   # print(colnames(sub_data))
   
-  sub_data_tk_index <- tk_index(var_data, timetk_idx = TRUE)
+  # print(1)
   
+  sub_data_tk_index <- tk_index(sub_data, timetk_idx = TRUE, silent = TRUE)
+
   # print("about to this_cv")
   # print("future_exo_cv")
   # print(future_exo_cv)
@@ -2158,7 +2160,7 @@ var_cv <- function(var_data,
                    n_cv = 8,
                    h_max = 8, 
                    train_test_marks = NULL,
-                   training_length = 20,
+                   training_length = "common_max",
                    timetk_idx = TRUE,
                    external_idx = NULL, 
                    test_residuals = TRUE,
@@ -2168,7 +2170,7 @@ var_cv <- function(var_data,
                    future_exo_cv = NULL,
                    this_thresh = 0) {
   
-  # print("in estimate var_cv")
+  # print("in var_cv")
   # print(names_exogenous)
   
   # print("")
@@ -2201,6 +2203,13 @@ var_cv <- function(var_data,
     exo_lag <- this_p
   }
   
+  
+  if (training_length == "common_max") {
+    total_obs <- nrow(var_data)
+    training_length <- total_obs - h_max - (n_cv - 1)
+    print(paste0("common_max = ", training_length))
+  }
+  
   if (is.null(train_test_marks)) {
     train_test_dates <- make_test_dates_list(ts_data = var_data, 
                                              type = "tscv",
@@ -2211,6 +2220,10 @@ var_cv <- function(var_data,
                                              external_idx = external_idx)
     
     train_test_dates <- train_test_dates[["list_of_year_quarter"]]
+    
+    print("train_test_dates")
+    print(train_test_dates)
+    
   }
 
   exo_and_lags <- make_exomat(exodata = exodata, exov = exov, exo_lag = exo_lag)
@@ -2233,15 +2246,14 @@ var_cv <- function(var_data,
   cv_is_white_noise <- vector(mode = "logical", length = n_cv)
 
   total_obs <- nrow(var_data)
-  cv_obs_used <- n_cv + training_length + h_max
+  cv_obs_used <- n_cv + training_length + h_max - 1
   
   if (total_obs < cv_obs_used) {
     print(paste("Warning: For selected variables, balanced sample has only", 
                 total_obs, "obs. Fixed-length cv needs", cv_obs_used, " obs."))
     
     print(paste0("Forecast length: ", h_max, ". Training length: ", 
-                 training_length, ". CV rounds: ", n_cv, ". Total: ", 
-                 n_cv + training_length + h_max))
+                 training_length, ". CV rounds: ", n_cv))
   }
   
   

@@ -3,6 +3,7 @@ title: 'The basics: steps with one specification'
 author: "Ricardo Mayer"
 date: "12/6/2018"
 output:
+  pdf_document: default
   html_document: default
 ---
 
@@ -333,13 +334,49 @@ fc_mean_rgdp_yoy
 
 
 ### Training-sample forecast: time series cross validation
-As we advanced above, we want to measure the errors in forecasting YoY growth of rgdp. Remember that for this country rgdp realized data is in diff-yoy form, just as its forecasted values. The function cv_var_from_one_row takes our model contained in a tibble's row and does a time-series cross validation of whatever series we flag as our "target variable". It returns objects with forecasted values, realized values and their differences (i.e. forecasting errors). However, unless the target variable was itself in yoy form, then those errors are not the ones we sought. In the case of Uruguay we will take the eight rgdp series of realizations, the eight forecasted series, transform each one to YoY and compute new, yoy, errors. Once we have yoy-forecasting error 
+
+In this case we have data until 2018Q2, thus if we estimate the model using data until 2016Q2 we could make forecasts about rgdp in 2016Q3, 2016Q4, etc. until 2018Q2 and we could contrast such predictions against actual realizations. That's how we obtain prediction error. Concretely such an exercise would provide one 1-step-ahead forecast error, one 2-steps-ahead forecast error, etc. up to one 8-steps-ahead forecast error. But what if we want a second value of, say, a 8-steps-ahead forecast error? well, we could estimate again our model with data up to 2016, forecast 2016Q2, 2016Q3 up to 2018Q1 and that last value is an 8-steps ahead prediction, and we do have actual data for 2018Q1 and there fore we have got a second 8-steps-ahead forecast error, but we have also got a second 1-step-ahead error with the prediction aboput 2016Q2 and a second 2-steps-ahead forecast error using this last forecasted value of 2016Q3, etc. It easy to see how estimating the model a third time with data up 2017Q4 will provide us a third batch of 1,2,3 ... and 8 steps-ahead forecasting error. We repeat this backward process until we have as many forecast error of each forecast horizon as we want or are possible given our data. Each one of those estimate-forecast-contrast over different subsamples of data is call a cross-validation run.
+
+In the example below the parameter n_cv controls the number of cross validation runs and we set n_cv equal to 10, so we should end up with ten 1-step-ahead errors, ten 2-steps-ahead errors and so on. Let's compute those ten cv runs and print the forecasts made in each cv round.
+
 
 ```{r cvonerow}
+training_length <- 28 # seven years of data
+n_cv <- 10
 
-training_length <- 25
-n_cv <- 8
 
+one_specification_28 <-  one_specification %>%
+    mutate(cv_obj = pmap(list(fit, variables, lag, t_threshold),
+                         ~ cv_var_from_one_row(var_data = all_data_for_VAR_estimation,
+                                               fit = ..1,
+                                               variables = ..2, lags = ..3,
+                                               this_thresh = ..4,
+                                               h = fc_horizon, n_cv = n_cv,
+                                               training_length = training_length
+                                               )
+                         )
+           )
+
+
+diff_yoy_test_data_28 <- pluck(one_specification_28, "cv_obj", 1, "cv_test_data") 
+diff_yoy_fcs_28 <- pluck(one_specification_28, "cv_obj", 1, "cv_fcs") 
+diff_yoy_errors_28 <- map2(diff_yoy_test_data_28, diff_yoy_fcs_28, ~ .x - .y) 
+
+print(diff_yoy_fcs_28[[1]])
+print(diff_yoy_fcs_28[[2]])
+print(diff_yoy_fcs_28[[10]])
+```
+
+
+As expected, since the forecast horizon is eight quarters, each cv-rounds has eight forecast of rgdp. The first set is the more "recent" one, starting at 2016Q3 and the last one starts forecasting at 2014Q2.
+
+The portion of data used to asess forecast accuracy is called test data, and the portion used to estimate the model is called the training data. We already know where the first training dataset ends, 2016Q2, but where it starts?. One answer could be 2006Q2, the beggining of the original VAR data. In that case trainig sample size is 41 observations. But what about the tenth cv round? Given that training sample ends in 2014Q1, starting in 2006Q2 implies a trining sample size of 32. Do we want this heterogeneity in training sample sizes? Maybe. Perhaps we want to neutralize the effect of different sample sizes and restrict all 10 cv rounds to use, say, 28 observations in their training sets to estimate the models. The first line in the previous chunk, training_length <- 28, does precisely that. Of course you could have used  training_length <- 32 or 25 if that is what you need/want. However, the availability of data will not allow you to use training_length <- 33 because there is not enough observations in your data set. For one cv round training sample size is T-h, where T is the total number of observations usable for VAR (that is, after transforming variables, which tipically imply some loss of observations) and h is the forecast horizon, which is in the sample size we need for the test set in order to compute forecast errors. In our case, N=49 and h=8. So if we want to do just one cv round (not advisable) you could reserve 8 observations for testing and use 41 observations for estimation (49-8). If you want a second cv round, for that round your test set moves one quarter back to the origin, so instead of 41 observations you have only 40 before the test set. It's easy to see that in general the maximum training sample size for the n-th cv round is $T-h-n+1$. The tenth cv round in our case can use at most $49-8-10-1$ observations in its training sample. Notice that T depends on the particular choice of variables: since it has to be a balanced dataset, T is effectively the length of the shortest among the chosen variables.  
+
+The following code will impose the largest possible common sample size for all cv rounds (32 in this case) with out having to compute it youself, which is handy when you are trying many different variable choices and therefore postentially many different total observations.
+
+```{r cvcommonmax}
+training_length <- "common_max" # it should be 32 for this data and variables
+n_cv <- 10
 
 one_specification <-  one_specification %>%
     mutate(cv_obj = pmap(list(fit, variables, lag, t_threshold),
@@ -353,16 +390,37 @@ one_specification <-  one_specification %>%
                          )
            )
 
+```
 
-diff_yoy_test_data <- pluck(one_specification, "cv_obj", 1, "cv_test_data") 
-diff_yoy_fcs <- pluck(one_specification, "cv_obj", 1, "cv_fcs") 
-diff_yoy_errors <- map2(diff_yoy_test_data, diff_yoy_fcs, ~ .x - .y) 
+
+Finally if you want to allow as many observations as possible in each cv rounds (e.g. 41 observations in the first round, 40 in the second and 32 in the tenth round) you have to set to training length to per_cv_maxs as below:
+
+
+
+
+```{r cvpercvmax}
+training_length <- "per_cv_maxs" # it should be 32 for this data and variables
+n_cv <- 10
+
+one_specification_pcm <-  one_specification %>%
+    mutate(cv_obj = pmap(list(fit, variables, lag, t_threshold),
+                         ~ cv_var_from_one_row(var_data = all_data_for_VAR_estimation,
+                                               fit = ..1,
+                                               variables = ..2, lags = ..3,
+                                               this_thresh = ..4,
+                                               h = fc_horizon, n_cv = n_cv,
+                                               training_length = training_length
+                                               )
+                         )
+           )
 
 ```
 
 
+
+
 ### Forecast errors and accuracy measures
 
-s
+As we advanced above, we want to measure the errors in forecasting YoY growth of rgdp. Remember that for this country rgdp realized data is in diff-yoy form, just as its forecasted values. The function cv_var_from_one_row takes our model contained in a tibble's row and does a time-series cross validation of whatever series we flag as our "target variable". It returns objects with forecasted values, realized values and their differences (i.e. forecasting errors). However, unless the target variable was itself in yoy form, then those errors are not the ones we sought. In the case of Uruguay we will take the eight rgdp series of realizations, the eight forecasted series, transform each one to YoY and compute new, yoy, errors. Once we have yoy-forecasting error 
 
 

@@ -896,9 +896,19 @@ make_test_dates_list <- function(ts_data, type = "tscv", n = 8, h_max = 6,
   list_of_dates <- list_along(seq(1:n))
   list_of_year_quarter <- list_along(seq(1:n))
   
+  training_length_choice <- training_length
+  
   if (type == "tscv") {
     
     for (i in seq.int(1:n)) {
+      
+      # print(paste0("i = ", i))
+      
+      if (training_length_choice == "per_cv_maxs") {
+        training_length <- data_length - h_max - (i - 1)
+        # print("training_length")
+        # print(training_length)
+      }
       
       from_the_right <-  i - 1
       
@@ -907,6 +917,10 @@ make_test_dates_list <- function(ts_data, type = "tscv", n = 8, h_max = 6,
       end_training_pos <- start_test_pos - 1
       start_training_pos <- end_training_pos - training_length + 1
       
+      # print("start_training_pos")
+      # print(start_training_pos)
+      # print("end_training_pos")
+      # print(end_training_pos)
       
       end_test_date <- date_time_index[end_test_pos]
       start_test_date <- date_time_index[start_test_pos] 
