@@ -2221,14 +2221,13 @@ var_cv <- function(var_data,
     
     train_test_dates <- train_test_dates[["list_of_year_quarter"]]
     
-    print("train_test_dates")
-    print(train_test_dates)
+    # print("train_test_dates")
+    # print(train_test_dates)
     
   }
 
   exo_and_lags <- make_exomat(exodata = exodata, exov = exov, exo_lag = exo_lag)
-
-
+  
   if (is.null(dim(endodata))) {
     names(endodata) <- endov
   } else {
@@ -2246,16 +2245,17 @@ var_cv <- function(var_data,
   cv_is_white_noise <- vector(mode = "logical", length = n_cv)
 
   total_obs <- nrow(var_data)
-  cv_obs_used <- n_cv + training_length + h_max - 1
-  
-  if (total_obs < cv_obs_used) {
-    print(paste("Warning: For selected variables, balanced sample has only", 
-                total_obs, "obs. Fixed-length cv needs", cv_obs_used, " obs."))
-    
-    print(paste0("Forecast length: ", h_max, ". Training length: ", 
-                 training_length, ". CV rounds: ", n_cv))
+
+  if (is.numeric(training_length)) {
+    cv_obs_used <- n_cv + training_length + h_max - 1
+    if (total_obs < cv_obs_used) {
+      print(paste("Warning: For selected variables, balanced sample has only", 
+                  total_obs, "obs. Fixed-length cv needs", cv_obs_used, " obs."))
+      
+      print(paste0("Forecast length: ", h_max, ". Training length: ", 
+                   training_length, ". CV rounds: ", n_cv))
+    }
   }
-  
   
   for (i in seq_along(1:n_cv)) {
     
@@ -2266,7 +2266,12 @@ var_cv <- function(var_data,
     
     this_tes_s <- train_test_dates[[i]]$tes_s
     this_tes_e <- train_test_dates[[i]]$tes_e
-
+    
+    # print(this_tra_s)
+    # print(this_tra_e)
+    # print(this_tes_s)
+    # print(this_tes_e)
+    
     training_y <- window(endodata, 
                          start = this_tra_s,
                          end = this_tra_e)
@@ -3635,15 +3640,15 @@ var_search_old <- function(country,
 transform_all_cv <- function(cv_object, current_form,
                              target_level_ts, n_cv) {
   
-  if (is.na(cv_object)) {
+  if (all(is.na(cv_object))) {
     return(cv_object)
   }
-  
+
   if (current_form == "yoy") {
     #noting to transform
     return(cv_object)
   }
-  
+
   old_test_data_list <- cv_object[["cv_test_data"]]
   old_fcs_list <- cv_object[["cv_fcs"]]
   

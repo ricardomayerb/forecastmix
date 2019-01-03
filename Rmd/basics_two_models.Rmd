@@ -299,38 +299,7 @@ print(pluck(fc_raw_1, "forecast", "rgdp", "mean"))
 
 ```
 
-### Changing the transformation of a series
 
-In this case the rgdp data for the country was transformed to a "diff-yoy" format (a seasonal difference first and then ordinary diferences) to render it statioary and suitable for the VAR. So the fitted values and forecast also are diff-yoy values of rgdp. In finite samples and only approximate models is not true that the best models predicting a diff-yoy of rgdp are also the best models predicting yoy rgdp (which is the measure we ultimately want to present), so our ranking of models must be explicitely done in terms of errors about yoy rgdp. This demands that we transform our forecasted diff-yoy values and conver them into forecasted yoy values. In the next section we will use the later to form relevant forecast errors.
-
-Let's transform our rgdp mean forecast from diff-yoy to yoy (first difference is a linear operation, so we can interchange it with expectations) 
-
-```{r getrgdpyoy, include=FALSE}
-
-excel_data_path <- paste0("./data/edd_exercises/", forecast_exercise_year, 
-                            "_exercise_", forecast_exercise_number, "/")
-
-country_data_ts <- get_raw_data_ts(country = country, data_path = excel_data_path)
-external_data_ts <- get_raw_external_data_ts(data_path = excel_data_path)
-data_ts <- ts.union(country_data_ts, external_data_ts)
-colnames(data_ts) <- c(colnames(country_data_ts), colnames(external_data_ts))
-
-rgdp_level <- data_ts[,"rgdp"]
-rgdp_level <- na.omit(data_ts[,"rgdp"])
-rgdp_yoy <- make_yoy_ts(rgdp_level)
-```
-
-We generally have access to level data of a variable and our function will create a yoy version of it and then use yoy data to obtain yoy version of forecasts
-
-```{r diffyoytoyoy}
-
-fc_mean_rgdp_diffyoy <- pluck(fc_raw_1, "forecast", "rgdp", "mean")
-fc_mean_rgdp_yoy <- any_fc_2_fc_yoy(fc_mean_rgdp_diffyoy, rgdp_transformation = "diff_yoy", rgdp_level_ts = rgdp_level)
-
-fc_mean_rgdp_diffyoy
-fc_mean_rgdp_yoy
-
-```
 
 
 ### Training-sample forecast: time series cross validation
@@ -372,10 +341,55 @@ As expected, since the forecast horizon is eight quarters, each cv-rounds has ei
 
 The portion of data used to asess forecast accuracy is called test data, and the portion used to estimate the model is called the training data. We already know where the first training dataset ends, 2016Q2, but where it starts?. One answer could be 2006Q2, the beggining of the original VAR data. In that case trainig sample size is 41 observations. But what about the tenth cv round? Given that training sample ends in 2014Q1, starting in 2006Q2 implies a trining sample size of 32. Do we want this heterogeneity in training sample sizes? Maybe. Perhaps we want to neutralize the effect of different sample sizes and restrict all 10 cv rounds to use, say, 28 observations in their training sets to estimate the models. The first line in the previous chunk, training_length <- 28, does precisely that. Of course you could have used  training_length <- 32 or 25 if that is what you need/want. However, the availability of data will not allow you to use training_length <- 33 because there is not enough observations in your data set. For one cv round training sample size is T-h, where T is the total number of observations usable for VAR (that is, after transforming variables, which tipically imply some loss of observations) and h is the forecast horizon, which is in the sample size we need for the test set in order to compute forecast errors. In our case, N=49 and h=8. So if we want to do just one cv round (not advisable) you could reserve 8 observations for testing and use 41 observations for estimation (49-8). If you want a second cv round, for that round your test set moves one quarter back to the origin, so instead of 41 observations you have only 40 before the test set. It's easy to see that in general the maximum training sample size for the n-th cv round is $T-h-n+1$. The tenth cv round in our case can use at most $49-8-10-1$ observations in its training sample. Notice that T depends on the particular choice of variables: since it has to be a balanced dataset, T is effectively the length of the shortest among the chosen variables.  
 
+
+If you try to impose a common sample size for a given number cv rounds (or, equivalently too many cv rounds for a given length of the training sample) that will need, in at least one of the rounds,  more data than it is available, you will receive a wanring and the program will crash due to the existence of missign values in the data matrix of the VAR:
+
+```{r cvtoolongtraining}
+training_length <- 28 # seven years of data
+n_cv <- 10
+
+one_specification_33 <-  one_specification %>%
+    mutate(cv_obj = pmap(list(fit, variables, lag, t_threshold),
+                         ~ cv_var_from_one_row(var_data = all_data_for_VAR_estimation,
+                                               fit = ..1,
+                                               variables = ..2, lags = ..3,
+                                               this_thresh = ..4,
+                                               h = fc_horizon, n_cv = n_cv,
+                                               training_length = training_length
+                                               )
+                         )
+           )
+```
+
+
 The following code will impose the largest possible common sample size for all cv rounds (32 in this case) with out having to compute it youself, which is handy when you are trying many different variable choices and therefore postentially many different total observations.
 
 ```{r cvcommonmax}
 training_length <- "common_max" # it should be 32 for this data and variables
+n_cv <- 10
+
+one_specification_commax <-  one_specification %>%
+    mutate(cv_obj = pmap(list(fit, variables, lag, t_threshold),
+                         ~ cv_var_from_one_row(var_data = all_data_for_VAR_estimation,
+                                               fit = ..1,
+                                               variables = ..2, lags = ..3,
+                                               this_thresh = ..4,
+                                               h = fc_horizon, n_cv = n_cv,
+                                               training_length = training_length
+                                               )
+                         )
+           )
+
+```
+
+
+Finally if you want to allow as many observations as possible in each cv rounds, setting a *fixed origin* in 2006Q2 for all rounds   (and therefore using 41 observations in the first round, 40 in the second ... until 32 in the tenth round) you have to set to training length to per_cv_maxs as below:
+
+
+
+
+```{r cvpercvmax}
+training_length <- "per_cv_maxs" # it should be 32 for this data and variables
 n_cv <- 10
 
 one_specification <-  one_specification %>%
@@ -393,34 +407,176 @@ one_specification <-  one_specification %>%
 ```
 
 
-Finally if you want to allow as many observations as possible in each cv rounds (e.g. 41 observations in the first round, 40 in the second and 32 in the tenth round) you have to set to training length to per_cv_maxs as below:
+
+
+### Forecast errors: from diff_yoy to yoy
+
+So far, we have managed to produce ten sets of forecasts and their correspondent data realization (and therefore forecast errors). But, since rgdp for Uruguay's VAR is in diff-yoy form, these are not the forecasts we are really interested in (i.e. yoy growth) and need to be transformed back into yoy form. It turns out that rankings based on diff-yoy forecast errors are not identical to ranking based on yoy forecast errors. Since we want to ultimately select models with good yoy-predicting record, we need to transform our cv-outputs to yoy form before computing any performance measure.
+
+The plan is fairly simple: take diff-yoy forecasts and using yoy-data turn them into yoy-forecasts, then take diff-yoy test data and again using yoy-data, obtain yoy test data. After that, compute yoy forecasting error. In general, a sufficient input is level historical data, that can be turned in yoy form if needed as in this case.
 
 
 
+In this case the rgdp data for the country was transformed to a "diff-yoy" format (a seasonal difference first and then ordinary diferences) to render it statioary and suitable for the VAR. So the fitted values and forecast also are diff-yoy values of rgdp. In finite samples and only approximate models is not true that the best models predicting a diff-yoy of rgdp are also the best models predicting yoy rgdp (which is the measure we ultimately want to present), so our ranking of models must be explicitely done in terms of errors about yoy rgdp. This demands that we transform our forecasted diff-yoy values and conver them into forecasted yoy values. In the next section we will use the later to form relevant forecast errors.
 
-```{r cvpercvmax}
-training_length <- "per_cv_maxs" # it should be 32 for this data and variables
-n_cv <- 10
+Let's transform our rgdp mean forecast from diff-yoy to yoy (first difference is a linear operation, so we can interchange it with expectations) 
 
-one_specification_pcm <-  one_specification %>%
-    mutate(cv_obj = pmap(list(fit, variables, lag, t_threshold),
-                         ~ cv_var_from_one_row(var_data = all_data_for_VAR_estimation,
-                                               fit = ..1,
-                                               variables = ..2, lags = ..3,
-                                               this_thresh = ..4,
-                                               h = fc_horizon, n_cv = n_cv,
-                                               training_length = training_length
-                                               )
-                         )
-           )
+```{r getrgdpyoy, include=FALSE}
+
+excel_data_path <- paste0("./data/edd_exercises/", forecast_exercise_year, 
+                            "_exercise_", forecast_exercise_number, "/")
+
+country_data_ts <- get_raw_data_ts(country = country, data_path = excel_data_path)
+external_data_ts <- get_raw_external_data_ts(data_path = excel_data_path)
+data_ts <- ts.union(country_data_ts, external_data_ts)
+colnames(data_ts) <- c(colnames(country_data_ts), colnames(external_data_ts))
+
+rgdp_level <- data_ts[,"rgdp"]
+rgdp_level <- na.omit(data_ts[,"rgdp"])
+rgdp_yoy <- make_yoy_ts(rgdp_level)
+```
+
+We generally have access to level data of a variable and our function will create a yoy version of it and then use yoy data to obtain yoy version of forecasts
+
+```{r diffyoytoyoy}
+
+# first model in the tible, rgdp forecasts from all ten rounds:
+fc_rgdp_raw_all_rounds <- pluck(one_specification, "cv_obj", 1, "cv_fcs")
+# first model in the tible, rgdp test data from all ten rounds:
+td_rgdp_raw_all_rounds <- pluck(one_specification, "cv_obj", 1, "cv_test_data")
+
+# only from the 4th round:
+fc_rgdp_raw_cv4 <- fc_rgdp_raw_all_rounds[[4]]
+td_rgdp_raw_cv4 <- td_rgdp_raw_all_rounds[[4]]
+
+
+fc_rgdp_yoy_cv4 <- any_fc_2_fc_yoy(fc_rgdp_raw_cv4, rgdp_transformation = "diff_yoy", rgdp_level_ts = rgdp_level)
+td_rgdp_yoy_cv4 <- any_fc_2_fc_yoy(td_rgdp_raw_cv4, rgdp_transformation = "diff_yoy", rgdp_level_ts = rgdp_level)
+
+
 
 ```
 
+Let's take a closer look, because it is important to get this critical step right. Take the rgdp series, then its yoy transformation and finally the conversion from diffyoy to yoy of test data, as way to verify that is working correctly
+
+```{r verifydiffyoytoyoy_data}
+
+rgdp_yoy <- make_yoy_ts(rgdp_level)
+
+rgdp_level_subset <- window(rgdp_level, start = c(2014, 3), end = c(2017, 3))
+rgdp_yoy_subset <- window(rgdp_yoy, start = c(2015, 3), end = c(2017, 3))
+rgdp_diffyoy_subset <- diff(rgdp_yoy_subset)
 
 
 
-### Forecast errors and accuracy measures
+data_verify <- ts.union(rgdp_level_subset, rgdp_yoy_subset, td_rgdp_yoy_cv4, 
+               rgdp_diffyoy_subset, td_rgdp_raw_cv4)
 
-As we advanced above, we want to measure the errors in forecasting YoY growth of rgdp. Remember that for this country rgdp realized data is in diff-yoy form, just as its forecasted values. The function cv_var_from_one_row takes our model contained in a tibble's row and does a time-series cross validation of whatever series we flag as our "target variable". It returns objects with forecasted values, realized values and their differences (i.e. forecasting errors). However, unless the target variable was itself in yoy form, then those errors are not the ones we sought. In the case of Uruguay we will take the eight rgdp series of realizations, the eight forecasted series, transform each one to YoY and compute new, yoy, errors. Once we have yoy-forecasting error 
+colnames(data_verify) <- c("level", "yoy", "cv_yoy", "diff_yoy", "cv_diff_yoy")
+
+
+manual_second_yoy <- (rgdp_level_subset[6] - rgdp_level_subset[2])/rgdp_level_subset[2]
+manual_third_yoy <- (rgdp_level_subset[7] - rgdp_level_subset[3])/rgdp_level_subset[3]
+manual_first_diffyoy <- rgdp_yoy_subset[2] - rgdp_yoy_subset[1]
+manual_second_diffyoy <- rgdp_yoy_subset[3] - rgdp_yoy_subset[2]
+
+names(manual_second_yoy) <- "manual"
+names(manual_first_diffyoy) <- "manual"
+names(manual_third_yoy) <- "manual"
+names(manual_second_diffyoy) <- "manual"
+
+
+# put all of them together for comparison
+print(data_verify)
+
+
+# they should be all equal
+print(c(manual_second_yoy, data_verify[6, "yoy"], data_verify[6, "cv_yoy"]))
+
+# they should be all equal
+print(c(manual_third_yoy, data_verify[7, "yoy"], data_verify[7, "cv_yoy"]))
+
+# they should be all equal
+print(c(manual_first_diffyoy, data_verify[6, "diff_yoy"], data_verify[6, "cv_diff_yoy"]))
+
+# they should be all equal
+print(c(manual_second_diffyoy, data_verify[7, "diff_yoy"], data_verify[7, "cv_diff_yoy"]))
+
+```
+
+The data_very matrix show the initial input (level of rgdp), the intermediate input (yoy growth of rgdp), a direct computation of diff_yoy and the cv version of rgdp which is also diff_yoy and the reconstructed yoy version of test data. You can corroborate by yourself that the transformations are correct, but we provide two manual verifications for dates 2015Q4 and 2016Q1. The crucial input is the yoy growth of rgdp in 2014Q3: we use this coupled with cv_diff_yoy to infer the  values in cv_yoy. Notice that the discrepancy in starting dates between yoy and cv_yoy columns does make sense: cv_yoy is needed to obtain forecast errors and forecast do not begin in this case (4th round of cv) until 2015Q4.
+
+
+Now, lets repeat the assesment for the forecasted values of rgdp. We will use the realized data of 2015Q3 yoy rgdp and forecasted values of diff-yoy rgdp since 2015Q4 to infer the corresponding yoy. For brevity we will recontruct manually only the first two yoy forecasts 
+
+```{r verifydiffyoytoyoy_fc}
+
+rgdp_yoy_2015q3 <- window(rgdp_yoy, start=c(2015, 3), end=c(2015,3))
+
+cv_diffyoy_fc_2015q4 <- window(fc_rgdp_raw_cv4, start=c(2015, 4), end=c(2015,4))
+cv_diffyoy_fc_2016q1 <- window(fc_rgdp_raw_cv4, start=c(2016, 1), end=c(2016,1))
+
+# first yoy forecast use yoy data and diff_yoy forecast
+manual_fc_yoy_2015q4 <- as.numeric(rgdp_yoy_2015q3) + as.numeric(cv_diffyoy_fc_2015q4)
+
+# second yoy forecast use previous yoy forecast and diff_yoy forecast
+manual_fc_yoy_2016q1 <- as.numeric(manual_fc_yoy_2015q4) + as.numeric(cv_diffyoy_fc_2016q1)
+
+# compare this manually computed values to those given by the function
+# these should be equal
+print(c(manual_fc_yoy_2015q4, fc_rgdp_yoy_cv4[1]))
+
+# these should be equal
+print(c(manual_fc_yoy_2016q1, fc_rgdp_yoy_cv4[2]))
+
+
+
+```
+
+So it works too for predictions as well.
+
+
+Finally we can get to the yoy forecast errors for that fourth cv-round:
+
+```{r}
+# fe mean forecast errors
+fe_rgdp_yoy_cv4 <- td_rgdp_yoy_cv4  - fc_rgdp_yoy_cv4 
+fe_rgdp_yoy_cv4
+```
+
+
+The same must be applied to the other nine cv rounds, fortunately there is a helping function that does exactly that:
+
+```{r transform_entire_cv_obj}
+
+one_specification <- one_specification %>%
+        rename(cv_obj_diff_yoy = cv_obj) %>%
+        mutate(cv_obj_yoy = map(cv_obj_diff_yoy,
+                                ~ transform_all_cv( .,
+                                      current_form = "diff_yoy",
+                                      target_level_ts =  rgdp_level,
+                                      n_cv = n_cv)
+              )
+        )
+  
+# these are the errors we want to evaluate in the end
+pluck(one_specification, "cv_obj_yoy", 1, "cv_errors")
+                                
+```
+Now our tibble contains the original predictions and prediction errors (cv_obj_diff_yoy) and the transformed ones (cv_obj_yoy).
+
+
+### Accuracy measures from forecast errors
+
+```{r rmseyoy}
+one_specification <- one_specification %>%
+    mutate(rmse_yoy_all_h = map(cv_obj_yoy, all_rmse_from_cv_obj))
+
+rmse_tibble <- one_specification$rmse_yoy_all_h[[1]]
+names(rmse_tibble) <- paste0("rmse_", seq(1, length(rmse_tibble)))
+
+print(rmse_tibble)
+
+```
 
 
