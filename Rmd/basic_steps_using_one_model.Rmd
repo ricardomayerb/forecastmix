@@ -1,5 +1,5 @@
 ---
-title: 'The basics: steps with one specification'
+title: 'Model specification and accuracy measures with one model, step by step.'
 author: "Ricardo Mayer"
 date: "12/6/2018"
 output:
@@ -605,5 +605,37 @@ print(mae_tibble)
 ```
 
 In a next document, in the context of multiple models, how to rank them according to these accuracy measures.
+
+
+### Save objects for future reference
+
+```{r savingobjects}
+
+target_transformation  <- "diff_yoy"
+country <- "Uruguay"
+all_VAR_data_transformed <- all_data_for_VAR_estimation
+all_data_raw <- data_ts
+models_tbl <- one_specification
+
+saveRDS(object = list(country_name = country, 
+                      target_transformation = target_transformation, 
+                      raw_data = all_data_raw,
+                      transformed_data = all_VAR_data_transformed,
+                      models_tbl = models_tbl), 
+        file = "./data/examples/example_one_model_ury.rds")
+
+
+# saveRDS(object = list(country_name = country, 
+#                       target_transformation = target_transformation, 
+#                       raw_data = all_data_raw,
+#                       transformed_data = all_VAR_data_transformed),
+#         file = "./data/examples/example_data_ury.rds")
+
+
+```
+
+
+
+
 
 

@@ -185,6 +185,23 @@ all_rmse_from_cv_obj <- function(cv_obj) {
 }
 
 
+all_mae_from_cv_obj <- function(cv_obj) {
+  cv_errors <- cv_obj[["cv_errors"]]
+  # print(cv_errors)
+  n_cv <- length(cv_errors)
+  # print(n_cv)
+  # print(cv_errors[[1]])
+  t_periods <-  length(cv_errors[[1]])
+  # print(t_periods)
+  
+  # matrix is n_cv x t_periods, i.e. a column represent fixed period, varying cv
+  matrix_errors <- reduce(cv_errors, rbind) 
+  rownames(matrix_errors) <- NULL
+  mae <- colMeans(abs(matrix_errors))
+  
+  return(mae)
+}
+
 
 ave_fc_from_cv <- function(cv_tbl, best_n_to_keep = "all", is_wide = TRUE) {
   

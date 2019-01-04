@@ -1,0 +1,89 @@
+---
+title: 'Multiple models: a two-models speedy case'
+author: "Ricardo Mayer"
+date: "12/6/2018"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+```
+
+```{r source-and-lib, message=FALSE, warning=FALSE}
+source('./R/combinations_functions.R')
+```
+
+We will start with a ready to use data set with quarterly, stationary series than can be used in an ordinary VAR, and we will not explain how the data munging is done. In particular, we will *not* discuss the following important points:
+    - how the data was obtained
+    - how monthly data was converted to quaterly frequency
+    - how monthly data was *extended* to complete its current final quarter
+    - how (potentially) exogenous data was forecasted in order to make it available to produce conditional forecasts
+    - how each series was transformed using seasonal and oridinary differeces to render them stationary
+    
+All those points are discussed in the data preparation document, see *here*
+
+## VAR-ready data set
+    
+We will use the example dataset with domestic series from Uruguay and few external series. The rds file contains the country's name, the transformation applied to rgdp to render it stationary and two data sets: the original or raw data and one ready to used in VAR estimation,  containing only stationary versions of the original series. 
+
+
+```{r loading_data}
+data_object_ury <- readRDS("./data/examples/example_data_ury.rds")
+print(names(data_object_ury))
+country <- data_object_ury$country_name
+target_transformation <- data_object_ury$target_transformation
+raw_data <- data_object_ury$raw_data
+var_data <- data_object_ury$transformed_data
+print(target_transformation)
+```
+
+In this case, all VARs will use a  "diff-yoy" transformation of the real GDP series (i.e. first, take seasonal differences on the quarterly series and then ordinary differences on the result).    
+
+## Generate specifications (and pick just two)
+
+### Counting specifications
+
+The total number of potential specifications depends on a number of factors:
+ - number of variable combinations. Which in turn depends on:
+    - the total number of variables in the data set
+    - the number of variables in the VAR (the "size" of the VAR: 2, 3, 4 ...)
+    - the number of exogenous variables in the data set. This is because we generally choose leave out VARs where there is only one endogenous variable and all the rest are exogenous. That's more properly called an ARIMAX model. The default is to ignore such models when they show up, but it can be changed.
+ - number of maximum lags to consider: e.g. 3, 4, 5 and 6
+ - number of restricted version to consider: unrestricted, t = 1.65 and t = 2
+ 
+ With two restricted version, plus the unrestricted one and four possible lag choices, we generate 12 specification per each variable combination we submit. A more modest inquiry may examine only unrestricted models for two lag choices, in which case ge only geerate 2 specifications per tuple of variables. Say we have 500 combinations of variables to try out, that would tipically imply between 2x500 = 1000 and 12x500 = 6000 specifications to estimate, test and do cross-validation. 
+ 
+Let's compute the number of combinations of variables for different var sizes
+
+```{r countingcombinations}
+
+count_combn <- function(size, n_total, n_exo, n_fixed = 0) {
+
+  ncomb_simple <- choose(n = (n_total - n_fixed), k = size)
+  
+  ncomb_fixed_and_exo <- choose(n = n_exo, k = (size - 1))
+  
+  ncomb_notpureexo <- ncomb_simple - ncomb_fixed_and_exo 
+  
+  # return(list(n_combn = ncomb_notpureexo, n_arimaxtype = ncomb_fixed_and_exo,
+  #             n_combn_nodistinction = ncomb_simple))
+  
+  return(c(n_combn = ncomb_notpureexo, n_arimaxtype = ncomb_fixed_and_exo,
+              n_combn_nodistinction = ncomb_simple))
+}
+
+count_combn(size = 2, n_total = 31, n_exo = 6)
+count_combn(size = 3, n_total = 31, n_exo = 6)
+count_combn(size = 4, n_total = 31, n_exo = 6)
+count_combn(size = 5, n_total = 31, n_exo = 6)
+count_combn(size = 6, n_total = 31, n_exo = 6)
+
+ncombs <- map(2:6, ~ count_combn(size = .x, n_total = 31, n_exo = 6))
+ntable <- cbind(size = 2:6, reduce(ncombs, rbind))
+print(as_tibble(ntable))
+```
+
+ 
