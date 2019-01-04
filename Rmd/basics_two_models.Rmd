@@ -3,8 +3,8 @@ title: 'The basics: steps with one specification'
 author: "Ricardo Mayer"
 date: "12/6/2018"
 output:
-  pdf_document: default
   html_document: default
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -560,13 +560,32 @@ one_specification <- one_specification %>%
         )
   
 # these are the errors we want to evaluate in the end
-pluck(one_specification, "cv_obj_yoy", 1, "cv_errors")
+cv_errors_yoy <- pluck(one_specification, "cv_obj_yoy", 1, "cv_errors")
                                 
 ```
 Now our tibble contains the original predictions and prediction errors (cv_obj_diff_yoy) and the transformed ones (cv_obj_yoy).
 
 
 ### Accuracy measures from forecast errors
+
+If we collect yhe third element of each of the ten series of forecast errors we can have a notion of how good or bad this particular model is at making 3-steps-ahead forecast.
+
+```{r rmseyoy_manual}
+
+all_3stepa <- map_dbl(cv_errors_yoy, 3)
+sq_3stepa <- all_3stepa^2
+mse_3stepa <- mean(sq_3stepa)
+rmse_3stepa <- sqrt(mse_3stepa)
+
+print(rmse_3stepa)
+
+mae_3stepa <- mean(abs(all_3stepa))
+print(mae_3stepa)
+
+```
+
+
+the helper function all_rmse_from_cv_obj does it for all forecast horizons
 
 ```{r rmseyoy}
 one_specification <- one_specification %>%
@@ -578,5 +597,7 @@ names(rmse_tibble) <- paste0("rmse_", seq(1, length(rmse_tibble)))
 print(rmse_tibble)
 
 ```
+
+
 
 
