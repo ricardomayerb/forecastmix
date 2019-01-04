@@ -75,12 +75,6 @@ count_combn <- function(size, n_total, n_exo, n_fixed = 0) {
               n_combn_nodistinction = ncomb_simple))
 }
 
-count_combn(size = 2, n_total = 31, n_exo = 6)
-count_combn(size = 3, n_total = 31, n_exo = 6)
-count_combn(size = 4, n_total = 31, n_exo = 6)
-count_combn(size = 5, n_total = 31, n_exo = 6)
-count_combn(size = 6, n_total = 31, n_exo = 6)
-
 ncombs <- map(2:6, ~ count_combn(size = .x, n_total = 31, n_exo = 6))
 ntable <- cbind(size = 2:6, reduce(ncombs, rbind))
 print(as_tibble(ntable))
