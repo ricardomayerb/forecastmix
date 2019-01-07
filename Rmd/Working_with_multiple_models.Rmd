@@ -42,9 +42,8 @@ print(target_transformation)
 
 In this case, all VARs will use a  "diff-yoy" transformation of the real GDP series (i.e. first, take seasonal differences on the quarterly series and then ordinary differences on the result).    
 
-## Generate specifications (and pick just two)
 
-### Counting specifications
+## Counting specifications
 
 The total number of potential specifications depends on a number of factors:
  - number of variable combinations. Which in turn depends on:
@@ -54,30 +53,121 @@ The total number of potential specifications depends on a number of factors:
  - number of maximum lags to consider: e.g. 3, 4, 5 and 6
  - number of restricted version to consider: unrestricted, t = 1.65 and t = 2
  
- With two restricted version, plus the unrestricted one and four possible lag choices, we generate 12 specification per each variable combination we submit. A more modest inquiry may examine only unrestricted models for two lag choices, in which case ge only geerate 2 specifications per tuple of variables. Say we have 500 combinations of variables to try out, that would tipically imply between 2x500 = 1000 and 12x500 = 6000 specifications to estimate, test and do cross-validation. 
+ With two restricted version, plus the unrestricted one and four possible lag choices, we generate 12 specification per each variable combination we submit. A more modest inquiry may examine only unrestricted models for two lag choices, in which case ge only generate 2 specifications per tuple of variables. Say we have 500 combinations of variables to try out, that would tipically imply between 2x500 = 1000 and 12x500 = 6000 specifications to estimate, test and do cross-validation. 
  
-Let's compute the number of combinations of variables for different var sizes
+A formula of the number of combinations, ignoring the distinction between endogenous and exogenpus variables, can be written as:
+
+$$ncomb = \frac{(n - n_f)!}{(n - n_f - s - n_f)! ~ (s-n_f)!} = \frac{(n_a)!}{(n_a - s_a)! ~ (s_a)!}$$
+
+Where $n$ is the total number of variables in the data set, $s$ is the number of distinct variables in the VAR (the "size") and $n_f$ is the number of *fixed variables*, i.e. those that need to be in any VAR (tipically $rgdp$ in our examples but it is *always* an endogenous variable and since we have at least one target variable it is at least equal to one). It can be more succintly expressed in the number of adjusted (for combinatorial purposes) numbers of variables to choose from,  $n_a := n -n_f$, and the adjusted  numbers of slots to fill, $s_a := s - n_f$. 
+
+If we wanted to exclude those VAR with just one endogenous variables, then we can adjust $ncomb$ above by this quantity (notice that this case can only happen when we have only one endogenous variable acting as fixed variable):
+
+$$ncomb_x = \frac{n_x!}{(n_x - (s-1))! ~ (s-1)!}$$
+Where $n_x$ is the number of variables that we consider as exogenous. Notice that this number is zero in whenever there is less objects to choose from than the number of slots to be fill i.e when $n_x < s-1$.
+
+Finally, we could define
+
+$$ncomb^* = ncomb - ncomb_x$$
+
+as the number of combinations, adjusted by ignoring VARs with only one endogenous variables. The table below shows, however that for the case of Uruguay (and it will be the case for the rest of our countries) it makes very little difference in the final number of variable combinations.
+ 
 
 ```{r countingcombinations}
 
-count_combn <- function(size, n_total, n_exo, n_fixed = 0) {
-
-  ncomb_simple <- choose(n = (n_total - n_fixed), k = size)
+count_combn <- function(var_size, n_total, n_exo, n_fixed = 0) {
   
-  ncomb_fixed_and_exo <- choose(n = n_exo, k = (size - 1))
+  n_free <- n_total - n_fixed
+  
+  k_free <- var_size - n_fixed
+
+  ncomb_simple <- choose(n = n_free, k = k_free)
+  
+  ncomb_fixed_and_exo <- choose(n = n_exo, k = k_free)
   
   ncomb_notpureexo <- ncomb_simple - ncomb_fixed_and_exo 
   
-  # return(list(n_combn = ncomb_notpureexo, n_arimaxtype = ncomb_fixed_and_exo,
-  #             n_combn_nodistinction = ncomb_simple))
-  
-  return(c(n_combn = ncomb_notpureexo, n_arimaxtype = ncomb_fixed_and_exo,
-              n_combn_nodistinction = ncomb_simple))
+  return(c(ncomb = ncomb_simple, ncomb_x = ncomb_fixed_and_exo,
+              ncombn_adjusted = ncomb_notpureexo))
 }
 
-ncombs <- map(2:6, ~ count_combn(size = .x, n_total = 31, n_exo = 6))
-ntable <- cbind(size = 2:6, reduce(ncombs, rbind))
-print(as_tibble(ntable))
+ncombs <- map(2:6, ~ count_combn(var_size = .x, n_total = 31, n_exo = 6, n_fixed = 1))
+ntable <- as_tibble(cbind(n = ncol(var_data), n_fixed = 1, size = 2:6, reduce(ncombs, rbind)))
+print(ntable)
 ```
 
  
+Notice how rapidly the number of combinations increases with VAR size. Since $comb_x$ is relatively small here, for the next table we will consider $ncomb$ alone. Depending on the number of different lags and restrictions the final number of specification will tipically  be from two (no restrictions and two lag choices) to twelve times (two restrictions and four lag choices) the number of variable combinations. In the following table we consider the resulting number of specification under those two scenarios plus the number of estimations made taking into account ten rounds of cross validations in addition to the full sample original estimate. Since at least some models will fail the tests, only a fraction of them will qualify to be passed to cross-validation. The table below assume that between 20 to 90 percent of the models will pass. So the minimum number of VAR estimation to do happens in the no-restriction, two lag choices and 20% of qulifiying, whereas the maximum number of estimation would happens if 90% of the models pass the test and we are trying four lag choices and two restrictions.
+
+
+```{r nspecifications}
+
+nspectable <- ntable %>% dplyr::select(size, ncomb)
+
+nspectable <- nspectable %>% 
+  mutate(nVAR_2 = ncomb*2, nVAR_12 = ncomb*12, cv_min = nVAR_2*0.2*10, cv_max = nVAR_12*0.9*10)
+
+print(nspectable)
+
+
+```
+
+Even with a modest size of 4, we can be dealing with 50,000 specification (and tests) and almost half a million estimations. Projecting how long those estimatiation would take, needs to consider that restricted estimations are slower than unrestrited ones and we will leave that for later. By this time we just want to notice that in order to use VAR of size 5 we either confine ourselves to unrestricted models and few lag choices or we need to find a strategy to select variables that lowers the number of possible combinations to be explored.
+
+To expede wthing up in this document we will restrict oour attention to size-3 VARs, usig at first two variable combinations and at the end using all of them.
+
+
+
+## Generate specifications 
+
+### Generate all tuples of variables for a given size
+
+```{r tuplesofvbls}
+var_size <- 3 
+all_variables <- colnames(var_data)
+target_variable <- "rgdp"
+non_target_fixed <- c("")
+if (non_target_fixed %in% c(c(""), c(" "), c("  "))) {
+  print("koo")
+  fixed_variables <- target_variable
+} else {
+  fixed_variables <- c(target_variable, non_target_fixed) 
+}
+fixed_variables 
+vbls_to_choose_from <- all_variables[! all_variables %in% fixed_variables]
+free_slots <- var_size - length(fixed_variables)
+ncombinations <- count_combn(var_size = var_size, n_total = length(all_variables),
+                             n_fixed = length(fixed_variables), n_exo = 0)
+ncomb_3 <- unname(ncombinations["ncomb"])
+ncomb_3
+
+all_nontarget_combn_size_3 <- combn(x = vbls_to_choose_from, m = free_slots)
+
+all_combn_size_3_list <- map(array_tree(all_nontarget_combn_size_3, 2), ~ c(fixed_variables, .x))
+
+
+
+all_combn_size_3_tbl <- tibble(variables = all_combn_size_3_list, size = var_size)
+
+print(all_combn_size_3_list[1:4])
+print(head(all_combn_size_3_tbl))
+
+length(all_combn_size_3_list)
+
+```
+
+
+
+
+
+### Adding lag choices and restrictions
+
+```{r addlagsrest}
+
+lag_choices <- c(3,4,5)
+t_thresholds <- c(0, 1.65)
+
+
+
+```
+
