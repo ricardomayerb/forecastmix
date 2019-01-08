@@ -686,8 +686,15 @@ get_reco_from_sta <- function(stdata, variable_name) {
 
 
 
-make_model_name <- function(variables, lags, model_function = NULL, 
+make_model_name <- function(variables, lags, t_threshold = NULL, model_function = NULL, 
                             base_variable = "rgdp", remove_base = FALSE) {
+  
+  if(is.null(t_threshold) | t_threshold == 0 | !is.numeric(t_threshold)){
+    threshold_string <-  "000"
+  } else {
+    threshold_string <- as.character(100*t_threshold)
+  }
+    
   
   variables <- sort(variables)
   
@@ -696,19 +703,23 @@ make_model_name <- function(variables, lags, model_function = NULL,
   
   if (!remove_base) {
     if (is.null(model_function)) {
-      short_name <- paste(colap_variables, lags, sep = "__")
+      short_name <- paste(colap_variables, lags, threshold_string, 
+                          sep = "__")
       model_name <- short_name
     } else {
-      long_name <- paste(model_function, colap_variables, lags, sep = "__")
+      long_name <- paste(model_function, colap_variables, lags, 
+                         threshold_string,  sep = "__")
       model_name <- long_name
     }
   } else {
     if (is.null(model_function)) {
-      short_name <- paste(colap_variables, lags, sep = "__")
+      short_name <- paste(colap_variables, lags, threshold_string,
+                          sep = "__")
       short_name <- str_remove(short_name, "rgdp_")
       model_name <- short_name
     } else {
-      long_name <- paste(model_function, colap_variables, lags, sep = "__")
+      long_name <- paste(model_function, colap_variables, lags,
+                         threshold_string,  sep = "__")
       long_name <- str_remove(long_name, "rgdp_")
       model_name <- long_name
     }

@@ -526,7 +526,7 @@ cv_var_from_one_row <- function(var_data,
 }
 
 
-estimate_var_from_model_tbl <- function(models_tbl, 
+estimate_var_from_model_tbl_old <- function(models_tbl, 
                                         var_data, 
                                         new_t_threshold = NULL, 
                                         names_exogenous = c(""),
@@ -547,56 +547,27 @@ estimate_var_from_model_tbl <- function(models_tbl,
     models_tbl <- models_tbl %>% mutate(t_threshold = FALSE)
   }
   
-  rmse_names <- names(models_tbl)[str_detect(names(models_tbl), "rmse")]
   
-  # print("rmse_names")
-  # print(rmse_names)
-  
-  if (remove_ranks) {
-    models_tbl <- models_tbl %>%
-      gather(key = "rmse_h", value = "rmse", rmse_names) %>%
-      dplyr::select(vars_select(names(.), -starts_with("rank"))) %>%
-      group_by(rmse_h) %>%
-      arrange(rmse_h, rmse) %>%
-      mutate(rank_h = rank(rmse)) %>%
-      ungroup() %>%
-      mutate(lags = unlist(lags),
-             t_threshold = unlist(t_threshold),
-             model_type = "VAR")
-    
-  } else {
-    models_tbl <- models_tbl %>% 
-      gather(key = "rmse_h", value = "rmse", rmse_names) %>% 
-      group_by(rmse_h) %>% 
-      arrange(rmse_h, rmse) %>% 
-      mutate(rank_h = rank(rmse)) %>% 
-      ungroup() %>% 
-      mutate(lags = unlist(lags),
-             t_threshold = unlist(t_threshold),
-             model_type = "VAR")
-  }
-  
+  models_tbl <- models_tbl %>% 
+        mutate(model_type = "VAR",
+               )
 
   
-  
+
 
   
   if (!has_short_name) {
     models_tbl <- models_tbl %>% 
-      mutate(short_name = map2(variables, lags,
-                               ~ make_model_name(variables = .x, lags = .y)),
+      mutate(short_name = pmap(list(variables, lags, t_threshold),
+                               ~ make_model_name(variables = ..1, lags = ..2,
+                                                 t_threshold = ..3)),
              short_name = unlist(short_name))
     
     models_tbl <- models_tbl %>% dplyr::select(short_name, everything())
   }
   
-  # one_model_per_row <- models_tbl %>% 
-  #   distinct(short_name, .keep_all = TRUE)
-  
-  
   one_model_per_row <- models_tbl %>% 
-    dplyr::select(-c(rmse, rmse_h, rank_h)) %>% 
-    distinct(short_name, .keep_all = TRUE)
+     distinct(short_name, .keep_all = TRUE)
   
   
   if (is.null(new_t_threshold)) {
@@ -636,24 +607,21 @@ estimate_var_from_model_tbl <- function(models_tbl,
 }
 
 
-fit_VAR_rest <- function(var_data, variables, p,
+fit_VAR_rest_old <- function(var_data, variables, p,
                          t_thresh = FALSE, type = "const",
                          names_exogenous = c(""),
                          exo_lag = NULL)  {
-  
-  # print("en fit var rest")
-  # 
-  # print("variables")
-  # print(variables)
-  # 
-  # print("var_data")
-  # print(colnames(var_data))
+
   
   if (t_thresh == 0) {
     t_thresh <- FALSE
   }
   
+
   this_var_data <- var_data[, variables]
+  # print("this_var_data")
+  # print(this_var_data)
+  
   this_var_data <- na.omit(this_var_data)
   
   vbls_for_var <- colnames(this_var_data)
@@ -691,7 +659,6 @@ fit_VAR_rest <- function(var_data, variables, p,
     
   }
 
-  
   if (is.numeric(t_thresh)) {
     # print(paste0("applying t-tresh = ", t_thresh))
     this_fit <- try(vars::restrict(this_fit, method = "ser", 
@@ -703,6 +670,94 @@ fit_VAR_rest <- function(var_data, variables, p,
   }
   return(this_fit)
 }
+
+
+fit_VAR_rest <- function(var_data, variables, p,
+                         t_thresh = FALSE, type = "const",
+                         names_exogenous = c(""),
+                         exo_lag = NULL)  {
+  
+  if(length(t_thresh) == 1) {
+    if (t_thresh == 0 | is.null(t_thresh)) {
+      t_thresh <- FALSE
+    }
+  }
+  
+  
+  this_var_data <- var_data[, variables]
+  this_var_data <- na.omit(this_var_data)
+  
+  vbls_for_var <- colnames(this_var_data)
+  endov <- vbls_for_var[!vbls_for_var %in% names_exogenous] 
+  exov <- vbls_for_var[vbls_for_var %in% names_exogenous] 
+  
+  if (length(endov) == 1) {
+    this_fit <- NA
+    print("only one endogenous variable, not a real VAR, returning NA")
+    return(this_fit)
+  }
+  
+  endodata <- this_var_data[ , endov]
+  exodata <- this_var_data[ , exov]
+  
+  if (is.null(dim(endodata))) {
+    names(endodata) <- endov
+  } else {
+    colnames(endodata) <- endov
+  }
+  
+  if (is.null(exo_lag)) {
+    exo_lag <- p
+  }
+  
+  exo_and_lags <- make_exomat(exodata = exodata, exov = exov, exo_lag = exo_lag)
+  n <- nrow(var_data)
+  
+  if (is.null(exo_and_lags)) {
+    unrestricted_fit <- vars::VAR(y = endodata, p = p, type = type) 
+    
+  } else {
+    unrestricted_fit <- vars::VAR(y = endodata, p = p, type = type, 
+                          exogen = exo_and_lags)
+  }
+  
+  
+  # print(unrestricted_fit)
+  
+  if (is.numeric(t_thresh)) {
+    nrest <- length(t_thresh)
+    list_of_varests <- list_along(seq(1, nrest+1)) 
+    list_of_varests[[1]] <- unrestricted_fit
+    
+    # print("t_thresh")
+    # print(t_thresh)
+    
+    for (i in seq(1, nrest)) {
+      this_thresh <- t_thresh[i]
+      # print(this_thresh)
+      
+      this_fit <- try(vars::restrict(unrestricted_fit, method = "ser", 
+                                     thresh = this_thresh), silent = TRUE)
+      
+      
+      if (class(this_fit) == "try-error") {
+        this_fit <- "one_or_more_eqn_drops"
+      }
+      
+      list_of_varests[[i+1]] <- this_fit
+    }
+    
+    thresholds_and_fits <- tibble(t_threshold = c(0, t_thresh),
+                                  fit = list_of_varests)
+    
+    return(thresholds_and_fits)
+    
+  } else {
+    return(unrestricted_fit)
+  }
+  
+}
+
 
 
 forecast_VAR_one_row <- function(fit, h, variables, extended_exo_mts, 
