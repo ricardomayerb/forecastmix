@@ -1598,11 +1598,14 @@ search_var_one_size_old <- function(var_data,
 #' @export
 #'
 #' @examples
-lags_for_var <- function(vec_lags,  max_p_for_estimation,
+lags_for_var_old <- function(vec_lags,
+                         max_p_for_estimation,
                          add_info_based_lags = FALSE,
-                         endodata, exodata = NULL, exov = NULL,
-                         discard_negative = FALSE, ret_info_results = FALSE) {
-  
+                         endodata,
+                         exodata = NULL,
+                         exov = NULL,
+                         discard_negative = FALSE, 
+                         ret_info_results = FALSE) {
   
   info_lag_max <- max_p_for_estimation
   
@@ -1611,17 +1614,12 @@ lags_for_var <- function(vec_lags,  max_p_for_estimation,
     info_lag_max <-  max_p_for_estimation
     
     exo_and_lags <- make_exomat(exodata = exodata, exov = exov, exo_lag = info_lag_max)
-    # print("exo_and_lags")
-    # print(exo_and_lags)
-    
+
     sel <- vars::VARselect(y = endodata, type = "const", lag.max = info_lag_max,
                            exogen = exo_and_lags)
 
     sel_criteria <- sel$selection
-    
-    # print("sel")
-    # print(sel)
-    
+
     cleaned_criteria <- t(sel$criteria)
     cleaned_criteria <- cleaned_criteria[is.finite(cleaned_criteria[,2]), ]
     
@@ -1632,10 +1630,7 @@ lags_for_var <- function(vec_lags,  max_p_for_estimation,
     info_based_p_for_estimation <- c(which.min(cleaned_criteria[, 1]), which.min(cleaned_criteria[, 2]),
                  which.min(cleaned_criteria[, 3]), which.min(cleaned_criteria[, 4]))
     names(info_based_p_for_estimation) <- c("AIC(n)", "HQ(n)", "SC(n)", "FPE(n)")
-    
-    # print("info_based_p_for_estimation")
-    # print(info_based_p_for_estimation)
-    
+
     p_for_estimation <- unique(info_based_p_for_estimation)
     max_found_p <- max(p_for_estimation)
     too_high_p <- p_for_estimation > max_p_for_estimation
@@ -1686,6 +1681,119 @@ lags_for_var <- function(vec_lags,  max_p_for_estimation,
   
   
 }
+
+
+
+
+#' Title provides a set of maximum lag values
+#'
+#' @param vec_lags 
+#' @param max_p_for_estimation 
+#' @param add_info_based_lags 
+#' @param variables 
+#' @param exonames
+#' @param discard_negative 
+#'
+#' @return
+#' @export
+#'
+#' @examples
+lags_for_var <- function(var_data,
+                         variables,
+                         vec_lags,
+                         max_p_for_estimation,
+                         add_info_based_lags = FALSE,
+                         exov = NULL,
+                         discard_negative = FALSE, 
+                         ret_info_results = FALSE) {
+  
+  
+  this_data <- var_data[, variables]
+  this_data <- na.omit(this_data)
+  
+  endonames <- variables[!variables %in% exov]
+  endodata <- this_data[, endonames]
+  
+  if (is.null(exov)) {
+    exodata <- NULL
+  } else {
+    exodata <- this_data[, exov]
+  }
+  
+  info_lag_max <- max_p_for_estimation
+  
+  if (is.character(vec_lags)) {
+    lag_sel_method <- "info"
+    info_lag_max <-  max_p_for_estimation
+    
+    exo_and_lags <- make_exomat(exodata = exodata, exov = exov, exo_lag = info_lag_max)
+    
+    sel <- vars::VARselect(y = endodata, type = "const", lag.max = info_lag_max,
+                           exogen = exo_and_lags)
+    
+    sel_criteria <- sel$selection
+    
+    cleaned_criteria <- t(sel$criteria)
+    cleaned_criteria <- cleaned_criteria[is.finite(cleaned_criteria[,2]), ]
+    
+    if (nrow(cleaned_criteria) < nrow(t(sel$criteria))) {
+      print("Caution: NaNs or -Inf values in some of the info criteria")
+    }
+    
+    info_based_p_for_estimation <- c(which.min(cleaned_criteria[, 1]), which.min(cleaned_criteria[, 2]),
+                                     which.min(cleaned_criteria[, 3]), which.min(cleaned_criteria[, 4]))
+    names(info_based_p_for_estimation) <- c("AIC(n)", "HQ(n)", "SC(n)", "FPE(n)")
+    
+    p_for_estimation <- unique(info_based_p_for_estimation)
+    max_found_p <- max(p_for_estimation)
+    too_high_p <- p_for_estimation > max_p_for_estimation
+    p_for_estimation[too_high_p] <- max_p_for_estimation 
+  }
+  
+  if (is.numeric(vec_lags)) {
+    lag_sel_method <- "manual"
+    p_for_estimation <- unique(vec_lags)
+    
+    if (add_info_based_lags) {
+      lag_sel_method <- "manual_and_info"
+      info_lag_max <- max_p_for_estimation
+      
+      exo_and_lags <- make_exomat(exodata = exodata, exov = exov, exo_lag = info_lag_max)
+      
+      sel <- vars::VARselect(y = endodata, type = "const", lag.max = info_lag_max, 
+                             exogen = exo_and_lags)
+      sel_criteria <- sel$selection
+      cleaned_criteria <- t(sel$criteria)
+      cleaned_criteria <- cleaned_criteria[is.finite(cleaned_criteria[,2]), ]
+      
+      if (nrow(cleaned_criteria) < nrow(t(sel$criteria))) {
+        print("Caution: NaNs or -Inf values in some of the info criteria")
+      }
+      
+      info_based_p_for_estimation <- c(which.min(cleaned_criteria[, 1]), which.min(cleaned_criteria[, 2]),
+                                       which.min(cleaned_criteria[, 3]), which.min(cleaned_criteria[, 4]))
+      names(info_based_p_for_estimation) <- c("AIC(n)", "HQ(n)", "SC(n)", "FPE(n)")
+      
+      too_high_p <- info_based_p_for_estimation > max_p_for_estimation
+      
+      info_based_p_for_estimation[too_high_p] <- max_p_for_estimation
+      
+      p_for_estimation <- unique(c(p_for_estimation, 
+                                   info_based_p_for_estimation)
+      )
+    }
+    
+  }
+  
+  if (ret_info_results) {
+    return(list(p_for_estimation = p_for_estimation, 
+                info_criteria = info_based_p_for_estimation))
+  } else {
+    return(p_for_estimation)
+  }
+  
+}
+
 
 
 search_var_one_size <- function(var_data,

@@ -3,8 +3,8 @@ title: 'Multiple models: a two-models speedy case'
 author: "Ricardo Mayer"
 date: "12/6/2018"
 output:
-  pdf_document: default
   html_document: default
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -164,17 +164,41 @@ length(all_combn_size_3_list)
 
 ```{r addlagsrest}
 
+maxlag <- 7
 lag_choices <- c(3,4,5)
-# t_thresholds <- c(1.65, 2)
+do_manual_lags <- is.numeric(lag_choices)
+# do_manual_lags <- FALSE
+
+add_info_based_lags <- TRUE
+use_info_lags <- TRUE
+
+# add_info_based_lags <- FALSE
+# use_info_lags <- FALSE
+
+if (do_manual_lags) {
+  manual_lags <- lag_choices
+} else {
+  manual_lags <- NULL
+}
+
+if(add_info_based_lags | use_info_lags) {
+  do_info_lags <- TRUE
+  this_info_lags <- map(all_combn_size_3_tbl[1:12, ]$variables,
+    ~ lags_for_var(var_data, .x, vec_lags = "info", max_p_for_estimation = 9))
+} else {
+  do_info_lags <- FALSE
+  this_info_lags <- list_along(all_combn_size_3_tbl[1:12, ]$variables)
+}
+
+
+t_thresholds <- c(1.65, 2)
 # t_thresholds <- c(1.65)
 # t_thresholds <- 2
-t_thresholds <- 0
+# t_thresholds <- 0
 
 if (length(t_thresholds) > 1) {
   t_thresholds <- t_thresholds[!t_thresholds == 0]
 }
-
-t_thresholds
 
 keep_unrestricted <- TRUE
 
@@ -187,37 +211,43 @@ if(length(t_thresholds) == 1 &
   is_unrestricted <- FALSE
 }
 
-all_specifications <- all_combn_size_3_tbl %>% 
-  mutate(lags = list(lag_choices)) %>% 
+
+vc12 <-  all_combn_size_3_tbl[1:12, ] %>% 
+  mutate(manual_lags = list(manual_lags),
+         info_lags = this_info_lags,
+         lags = map2(manual_lags, info_lags, ~ sort(unique(c(.x, .y)))),
+         lags = map(lags, ~ .x[.x <= maxlag ])
+         ) %>% 
+  dplyr::select(-c(manual_lags, info_lags)) %>% 
   unnest(lags, .drop = FALSE) %>% 
   mutate(t_threshold = list(t_thresholds))
 
-all_specifications_0 <- all_combn_size_3_tbl %>% 
-  mutate(lags = list(lag_choices)) %>% 
+
+vc12_0 <-  all_combn_size_3_tbl[1:12, ] %>% 
+  mutate(manual_lags = list(manual_lags),
+         info_lags = this_info_lags,
+         lags = map2(manual_lags, info_lags, ~ sort(unique(c(.x, .y)))),
+         lags = map(lags, ~ .x[.x <= maxlag ])
+         ) %>% 
+  dplyr::select(-c(manual_lags, info_lags)) %>% 
   unnest(lags, .drop = FALSE) %>% 
-  mutate(t_threshold = list(t_0))
+  mutate(t_threshold = list(0))
 
-head(all_specifications)
 
-all_specifications_list <- transpose(all_specifications)
-
-as12 <- all_specifications[1:12, ]
-as12_0 <- all_specifications_0[1:12, ]
-
-wf0 <- as12_0 %>% 
+wf0 <- vc12_0 %>%
   mutate(fit = pmap(list(variables, lags, t_threshold),
                     ~ fit_VAR_rest(var_data, variables = ..1, p = ..2, t_thresh = ..3))
          )
 
-wf <- as12 %>% 
+wf <- vc12 %>%
   mutate(fit = pmap(list(variables, lags, t_threshold),
                     ~ fit_VAR_rest(var_data, variables = ..1, p = ..2, t_thresh = ..3))
-         ) 
+         )
 
 
 if(!is_unrestricted) {
-  wf <- wf %>% 
-    dplyr::select(-t_threshold) %>% 
+  wf <- wf %>%
+    dplyr::select(-t_threshold) %>%
     unnest(fit, .drop = FALSE)
 }
 
@@ -227,6 +257,47 @@ wffit <- pluck(wf, "fit")
 
 
 
+
+# all_specifications <- all_combn_size_3_tbl %>% 
+#   mutate(lags = list(lag_choices)) %>% 
+#   unnest(lags, .drop = FALSE) %>% 
+#   mutate(t_threshold = list(t_thresholds))
+# 
+# all_specifications_0 <- all_combn_size_3_tbl %>% 
+#   mutate(lags = list(lag_choices)) %>% 
+#   unnest(lags, .drop = FALSE) %>% 
+#   mutate(t_threshold = list(t_0))
+# 
+# head(all_specifications)
+# 
+# all_specifications_list <- transpose(all_specifications)
+# 
+# as12 <- all_specifications[1:12, ]
+# as12_0 <- all_specifications_0[1:12, ]
+# 
+# wf0 <- as12_0 %>% 
+#   mutate(fit = pmap(list(variables, lags, t_threshold),
+#                     ~ fit_VAR_rest(var_data, variables = ..1, p = ..2, t_thresh = ..3))
+#          )
+# 
+# wf <- as12 %>% 
+#   mutate(fit = pmap(list(variables, lags, t_threshold),
+#                     ~ fit_VAR_rest(var_data, variables = ..1, p = ..2, t_thresh = ..3))
+#          ) 
+# 
+# 
+# if(!is_unrestricted) {
+#   wf <- wf %>% 
+#     dplyr::select(-t_threshold) %>% 
+#     unnest(fit, .drop = FALSE)
+# }
+# 
+# wffit0 <- pluck(wf0, "fit")
+# wffit <- pluck(wf, "fit")
+
+
+
+############################### foooo
 # with_fit <- estimate_var_from_model_tbl(as12, var_data)
 
 # tic()
@@ -237,6 +308,106 @@ wffit <- pluck(wf, "fit")
 # withfit_list <- map(transpose(all_specifications),
 #                     ~ pmap(list(list(.x[[1]]), .x[[3]], .x[[4]])  , ~ fit_VAR_rest(var_data = var_data, variables = ..1, p = ..2, t_thresh = ..3)))
 # toc()
+
+
+```
+
+```{r fnforspec}
+all_specifications <- function(var_size, all_variables, target_variable = "rgdp",
+                               non_target_fixed = c(""), lag_choices = 1, 
+                               use_info_lags = FALSE, maxlag = 7, 
+                               t_thresholds = 0, names_exogenous = c(""),
+                               var_data = NULL) {
+  
+  non_target_fixed <- c("")
+  if (non_target_fixed %in% c(c(""), c(" "), c("  "))) {
+    fixed_variables <- target_variable
+  } else {
+    fixed_variables <- c(target_variable, non_target_fixed) 
+  }
+  
+  vbls_to_choose_from <- all_variables[! all_variables %in% fixed_variables]
+  
+  free_slots <- var_size - length(fixed_variables)
+  
+  n_exo <- length(names_exogenous)
+  
+  ncombinations <- count_combn(var_size = var_size, n_total = length(all_variables),
+                               n_fixed = length(fixed_variables), n_exo = 0)
+
+  all_nontarget_combn <- combn(x = vbls_to_choose_from, m = free_slots)
+  
+  all_combn_list <- map(array_tree(all_nontarget_combn, 2), ~ c(fixed_variables, .x))
+  
+  all_combn_tbl <- tibble(variables = all_combn_list, size = var_size)
+
+  do_manual_lags <- is.numeric(lag_choices)
+
+  if (do_manual_lags) {
+    manual_lags <- lag_choices
+  } else {
+    manual_lags <- NULL
+  }
+
+  if(use_info_lags) {
+    do_info_lags <- TRUE
+    this_info_lags <- map(all_combn_tbl$variables, 
+                          ~ lags_for_var(var_data, .x, vec_lags = "info", 
+                                         max_p_for_estimation = maxlag+2))
+  } else {
+    print("not using info lags")
+    do_info_lags <- FALSE
+    this_info_lags <- list_along(all_combn_tbl$variables)
+  }
+
+  if (length(t_thresholds) > 1) {
+    t_thresholds <- t_thresholds[!t_thresholds == 0]
+  }
+  
+  keep_unrestricted <- TRUE
+
+  if(length(t_thresholds) == 1) {
+    if(t_thresholds == 0 | !t_thresholds | is.null(t_thresholds)) {
+      is_unrestricted <- TRUE
+    } else {
+      is_unrestricted <- FALSE
+    }
+  } else {
+    is_unrestricted <- FALSE
+  }
+  
+  
+  all_specifications_tbl <-  all_combn_tbl %>% 
+    mutate(manual_lags = list(manual_lags),
+           info_lags = this_info_lags,
+           lags = map2(manual_lags, info_lags, ~ sort(unique(c(.x, .y)))),
+           lags = map(lags, ~ .x[.x <= maxlag ])
+    ) %>% 
+    dplyr::select(-c(manual_lags, info_lags)) %>% 
+    unnest(lags, .drop = FALSE) %>% 
+    mutate(t_threshold = list(t_thresholds))
+  
+  print("is_unrestricted")
+  print(is_unrestricted)
+  
+  return(all_specifications_tbl)
+  
+}
+
+
+foo <- all_specifications(var_size = 3, all_variables = colnames(var_data), 
+                          lag_choices = c(3,4,5), use_info_lags = TRUE, 
+                          var_data = var_data, t_thresholds = 2)
+
+
+```
+
+
+
+```{r fitfromvblcombns}
+
+fit_all_VARs <- function(var_data, lag_choices, t_thresholds = 0)
+
 
 
 ```
