@@ -203,6 +203,91 @@ all_mae_from_cv_obj <- function(cv_obj) {
 }
 
 
+
+all_specifications <- function(var_size, all_variables, 
+                               target_variable = "rgdp",
+                               non_target_fixed = c(""), lag_choices = 1, 
+                               use_info_lags = FALSE, maxlag = 7, 
+                               t_thresholds = 0, names_exogenous = c(""),
+                               var_data = NULL, silent = FALSE) {
+  
+  non_target_fixed <- c("")
+  if (non_target_fixed %in% c(c(""), c(" "), c("  "))) {
+    fixed_variables <- target_variable
+  } else {
+    fixed_variables <- c(target_variable, non_target_fixed) 
+  }
+  
+  vbls_to_choose_from <- all_variables[! all_variables %in% fixed_variables]
+  
+  free_slots <- var_size - length(fixed_variables)
+  
+  n_exo <- length(names_exogenous)
+  
+  ncombinations <- count_combn(var_size = var_size, n_total = length(all_variables),
+                               n_fixed = length(fixed_variables), n_exo = 0)
+  
+  all_nontarget_combn <- combn(x = vbls_to_choose_from, m = free_slots)
+  
+  all_combn_list <- map(array_tree(all_nontarget_combn, 2), ~ c(fixed_variables, .x))
+  
+  all_combn_tbl <- tibble(variables = all_combn_list, size = var_size)
+  
+  do_manual_lags <- is.numeric(lag_choices)
+  
+  if (do_manual_lags) {
+    manual_lags <- lag_choices
+  } else {
+    manual_lags <- NULL
+  }
+  
+  if(use_info_lags) {
+    do_info_lags <- TRUE
+    this_info_lags <- map(all_combn_tbl$variables, 
+                          ~ lags_for_var(var_data, .x, vec_lags = "info", 
+                                         max_p_for_estimation = maxlag+2,
+                                         silent = silent))
+  } else {
+    print("not using info lags")
+    do_info_lags <- FALSE
+    this_info_lags <- list_along(all_combn_tbl$variables)
+  }
+  
+  if (length(t_thresholds) > 1) {
+    t_thresholds <- t_thresholds[!t_thresholds == 0]
+  }
+  
+  keep_unrestricted <- TRUE
+  
+  if(length(t_thresholds) == 1) {
+    if(t_thresholds == 0 | !t_thresholds | is.null(t_thresholds)) {
+      is_unrestricted <- TRUE
+    } else {
+      is_unrestricted <- FALSE
+    }
+  } else {
+    is_unrestricted <- FALSE
+  }
+  
+  
+  all_specifications_tbl <-  all_combn_tbl %>% 
+    mutate(manual_lags = list(manual_lags),
+           info_lags = this_info_lags,
+           lags = map2(manual_lags, info_lags, ~ sort(unique(c(.x, .y)))),
+           lags = map(lags, ~ .x[.x <= maxlag ])
+    ) %>% 
+    dplyr::select(-c(manual_lags, info_lags)) %>% 
+    unnest(lags, .drop = FALSE) %>% 
+    mutate(t_threshold = list(t_thresholds))
+  
+  # print("is_unrestricted")
+  # print(is_unrestricted)
+  
+  return(all_specifications_tbl)
+  
+}
+
+
 ave_fc_from_cv <- function(cv_tbl, best_n_to_keep = "all", is_wide = TRUE) {
   
   cv_tbl_na <- filter(cv_tbl, is.na(target_mean_fc_yoy))
@@ -286,6 +371,25 @@ check_resid_VAR <- function(fit_VAR, type = "PT.asymptotic", lags.pt = 16,
   
   return(is_white_noise)
 }
+
+
+count_combn <- function(var_size, n_total, n_exo, n_fixed = 1) {
+  
+  n_free <- n_total - n_fixed
+  
+  k_free <- var_size - n_fixed
+  
+  ncomb_simple <- choose(n = n_free, k = k_free)
+  
+  ncomb_fixed_and_exo <- choose(n = n_exo, k = k_free)
+  
+  ncomb_notpureexo <- ncomb_simple - ncomb_fixed_and_exo 
+  
+  return(c(ncomb = ncomb_simple, ncomb_x = ncomb_fixed_and_exo,
+           ncombn_adjusted = ncomb_notpureexo))
+}
+
+
 
 cv_var_from_model_tbl <- function(h, n_cv, 
                                   training_length, 
@@ -605,6 +709,106 @@ estimate_var_from_model_tbl_old <- function(models_tbl,
   
   return(one_model_per_row)
 }
+
+
+fit_tests_models_table <- function(models_tbl, var_data, keep_fit = TRUE) {
+  
+  t_thresholds <- pluck(tas13, "t_threshold",1)
+  
+  print("t_thresholds")
+  print(t_thresholds)
+  
+  if(length(t_thresholds) == 1) {
+    if(t_thresholds == 0 | !t_thresholds | is.null(t_thresholds)){
+      is_unrestricted <- TRUE
+    } else {
+      is_unrestricted <- FALSE
+    }
+  } else {
+    is_unrestricted <- FALSE
+  }   
+  
+  
+  if (is_unrestricted) {
+    n_thresholds <- 1
+    n_tr <- 0
+  } else 
+  {
+    n_trest <- length(t_thresholds)
+    n_thresholds <- 1 + n_trest
+  }
+  
+  n_models_to_fit <- nrow(models_tbl)*n_thresholds
+  n_restricted_models_to_fit <- nrow(models_tbl)*n_trest
+  
+  print(paste0("Total number of models to fit: ", n_models_to_fit))
+  print(paste0("Number of unrestricted models to fit: ", nrow(models_tbl)))
+  print(paste0("Number of restricted models to fit: ", n_restricted_models_to_fit))
+  
+  models_tbl <- models_tbl %>% 
+    mutate(fit = pmap(list(variables, lags, t_threshold),
+                      ~ fit_VAR_rest(var_data, variables = ..1, p = ..2, t_thresh = ..3))
+    ) 
+  if(!is_unrestricted) {
+    models_tbl <- models_tbl %>%
+      dplyr::select(-t_threshold) %>%
+      unnest(fit, .drop = FALSE)
+  }
+  
+  table_of_tried_specifications <- models_tbl %>% dplyr::select(-fit) %>% 
+    mutate(model_name = pmap(list(variables, lags, t_threshold), 
+                             ~ make_model_name(variables = ..1, 
+                                               lags = ..2, 
+                                               t_threshold = ..3))
+    )
+  
+  n_before_varestfilter <- nrow(models_tbl)
+  
+  models_tbl <- models_tbl %>% 
+    mutate(cf = map(fit, ~class(.x))) %>% 
+    filter(cf == "varest")
+  
+  n_post_varestfilter <- nrow(models_tbl)
+  n_non_varest <- n_before_varestfilter - n_post_varestfilter
+  
+  print(paste0("Number of models with non-surving equations: ", n_non_varest))
+  print(paste0("Number of models to be tested for stability: ", n_post_varestfilter))
+  
+  
+  models_tbl <- models_tbl %>% 
+    mutate(is_stable = map_lgl(fit, ~ all(vars::roots(.x) < 1))
+    ) %>% 
+    filter(is_stable)
+  
+  n_post_stable <- nrow(models_tbl)
+  n_non_stable <- n_post_varestfilter - n_post_stable
+  
+  print(paste0("Number of models with unstable roots: ", n_non_stable))
+  print(paste0("Number of models for portmanteau testing: ", n_post_stable))
+  
+  models_tbl <- models_tbl %>% 
+    mutate(is_white_noise = map_lgl(fit, ~ check_resid_VAR(.x))
+    ) %>% 
+    filter(is_white_noise)
+  
+  n_post_checkresid <- nrow(models_tbl)
+  n_non_white_noise <- n_post_stable - n_post_checkresid
+  
+  print(paste0("Number of models with non-white-noise residuals : ", n_non_white_noise))
+  print(paste0("Number of models to be (ts)cross-validated: ", n_post_checkresid))
+  
+  models_tbl <- models_tbl %>% dplyr::select(-c(is_stable, is_white_noise, cf))
+  
+  if(!keep_fit) {
+    models_tbl <- models_tbl %>% dplyr::select(-fit)
+  }
+  
+  return(list(passing_models = models_tbl, 
+              tried_models = table_of_tried_specifications,
+              n_lost_to_threshold = n_non_varest, n_lost_to_roots = n_non_stable,
+              n_lost_to_white = n_non_white_noise))
+}
+
 
 
 fit_VAR_rest_old <- function(var_data, variables, p,
@@ -1705,7 +1909,8 @@ lags_for_var <- function(var_data,
                          add_info_based_lags = FALSE,
                          exov = NULL,
                          discard_negative = FALSE, 
-                         ret_info_results = FALSE) {
+                         ret_info_results = FALSE,
+                         silent = FALSE) {
   
   
   this_data <- var_data[, variables]
@@ -1728,16 +1933,25 @@ lags_for_var <- function(var_data,
     
     exo_and_lags <- make_exomat(exodata = exodata, exov = exov, exo_lag = info_lag_max)
     
-    sel <- vars::VARselect(y = endodata, type = "const", lag.max = info_lag_max,
-                           exogen = exo_and_lags)
+    if (silent) {
+      suppressWarnings(
+        sel <- vars::VARselect(y = endodata, type = "const", lag.max = info_lag_max, 
+                               exogen = exo_and_lags)
+      )
+    } else {
+      sel <- vars::VARselect(y = endodata, type = "const", lag.max = info_lag_max, 
+                             exogen = exo_and_lags)
+    }
     
     sel_criteria <- sel$selection
     
     cleaned_criteria <- t(sel$criteria)
     cleaned_criteria <- cleaned_criteria[is.finite(cleaned_criteria[,2]), ]
     
-    if (nrow(cleaned_criteria) < nrow(t(sel$criteria))) {
-      print("Caution: NaNs or -Inf values in some of the info criteria")
+    if (!silent) {
+      if (nrow(cleaned_criteria) < nrow(t(sel$criteria))) {
+        print("Caution: NaNs or -Inf values in some of the info criteria")
+      }
     }
     
     info_based_p_for_estimation <- c(which.min(cleaned_criteria[, 1]), which.min(cleaned_criteria[, 2]),
@@ -1760,15 +1974,28 @@ lags_for_var <- function(var_data,
       
       exo_and_lags <- make_exomat(exodata = exodata, exov = exov, exo_lag = info_lag_max)
       
-      sel <- vars::VARselect(y = endodata, type = "const", lag.max = info_lag_max, 
-                             exogen = exo_and_lags)
+      if (silent) {
+        # print("being silent")
+        suppressMessages(
+          sel <- vars::VARselect(y = endodata, type = "const", lag.max = info_lag_max, 
+                                                 exogen = exo_and_lags)
+          )
+      } else {
+        sel <- vars::VARselect(y = endodata, type = "const", lag.max = info_lag_max, 
+                               exogen = exo_and_lags)
+      }
+      
+     
       sel_criteria <- sel$selection
       cleaned_criteria <- t(sel$criteria)
       cleaned_criteria <- cleaned_criteria[is.finite(cleaned_criteria[,2]), ]
       
-      if (nrow(cleaned_criteria) < nrow(t(sel$criteria))) {
-        print("Caution: NaNs or -Inf values in some of the info criteria")
+      if (!silent) {
+        if (nrow(cleaned_criteria) < nrow(t(sel$criteria))) {
+          print("Caution: NaNs or -Inf values in some of the info criteria")
+        }
       }
+      
       
       info_based_p_for_estimation <- c(which.min(cleaned_criteria[, 1]), which.min(cleaned_criteria[, 2]),
                                        which.min(cleaned_criteria[, 3]), which.min(cleaned_criteria[, 4]))
