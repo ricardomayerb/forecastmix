@@ -172,73 +172,118 @@ specifications_size_4_medium <- specifications_size_4_big[1:170, ]
 
 ## Fit all specifications and keep only acceptable ones
 
+```{r  passing_models_size3small}
+ftmt_size_3_small <- fit_tests_models_table(specifications_size_3_small, var_data = var_data)
+
+pm_size_3_small <- ftmt_size_3_small[["passing_models"]]
+
+print(head(pm_size_3_small))
+
+```
+
+
 ## Time Series Cross Validation on valid specifications
+
+```{r tscv_s3small}
+
+foo <- cv_var_from_model_tbl()
+
+
+# cv_var_from_model_tbl <- function(h, n_cv, 
+#                                   training_length, 
+#                                   models_tbl, 
+#                                   var_data, 
+#                                   new_t_threshold = NULL, 
+#                                   fit_column = NULL, 
+#                                   target_transform = "yoy", 
+#                                   target_level_ts = NULL,
+#                                   keep_varest_obj = FALSE,
+#                                   keep_cv_objects = FALSE,
+#                                   keep_fc_objects = FALSE,
+#                                   names_exogenous = c(""),
+#                                   exo_lag = NULL,
+#                                   future_exo = NULL,
+#                                   future_exo_cv = NULL,
+#                                   do_full_sample_fcs = FALSE,
+#                                   extended_exo_mts = extended_exo_mts
+#                                   )
+
+
+```
+
+
 
 ## Combine forecasts based on performance measure
 
 
 
-## Computing time and object size
+<!-- ## Computing time and object size -->
 
-```{r ftmt_size_3_smb}
+<!-- ### Restricted versus unrestricted -->
 
-tic()
-ftmt_size_3_small <- fit_tests_models_table(specifications_size_3_small, var_data = var_data)
-toc()
-pm_size_3_small <- ftmt_size_3_small[["passing_models"]]
+<!-- ### Overall number of models -->
 
-ftmt_size_3_small_no_fit <- fit_tests_models_table(specifications_size_3_small, var_data = var_data,
-                                keep_fit = FALSE)
-pm_size_3_small_no_fit <- ftmt_size_3_small_no_fit[["passing_models"]]
+<!-- ### Size 3 versus size 4 -->
 
+<!-- ```{r ftmt_size_3_smb} -->
 
-tic()
-ftmt_size_3_medium <- fit_tests_models_table(specifications_size_3_medium, var_data = var_data)
-toc()
-pm_size_3_medium <- ftmt_size_3_medium[["passing_models"]]
+<!-- tic() -->
+<!-- ftmt_size_3_small <- fit_tests_models_table(specifications_size_3_small, var_data = var_data) -->
+<!-- toc() -->
+<!-- pm_size_3_small <- ftmt_size_3_small[["passing_models"]] -->
 
-
-# ftmt_size_3_medium_no_fit <- fit_tests_models_table(specifications_size_3_medium, var_data = var_data,   keep_fit = FALSE)
-# pm_size_3_medium_no_fit <- ftmt_size_3_medium_no_fit[["passing_models"]]
-
-# tic()
-# ftmt_size_3_big_no_fit <- fit_tests_models_table(specifications_size_3_big, var_data = var_data,   keep_fit = FALSE)
-# toc()
-# pm_size_3_big_no_fit <- ftmt_size_3_big_no_fit[["passing_models"]]
+<!-- ftmt_size_3_small_no_fit <- fit_tests_models_table(specifications_size_3_small, var_data = var_data, -->
+<!--                                 keep_fit = FALSE) -->
+<!-- pm_size_3_small_no_fit <- ftmt_size_3_small_no_fit[["passing_models"]] -->
 
 
-```
+<!-- tic() -->
+<!-- ftmt_size_3_medium <- fit_tests_models_table(specifications_size_3_medium, var_data = var_data) -->
+<!-- toc() -->
+<!-- pm_size_3_medium <- ftmt_size_3_medium[["passing_models"]] -->
+
+
+<!-- # ftmt_size_3_medium_no_fit <- fit_tests_models_table(specifications_size_3_medium, var_data = var_data,   keep_fit = FALSE) -->
+<!-- # pm_size_3_medium_no_fit <- ftmt_size_3_medium_no_fit[["passing_models"]] -->
+
+<!-- # tic() -->
+<!-- # ftmt_size_3_big_no_fit <- fit_tests_models_table(specifications_size_3_big, var_data = var_data,   keep_fit = FALSE) -->
+<!-- # toc() -->
+<!-- # pm_size_3_big_no_fit <- ftmt_size_3_big_no_fit[["passing_models"]] -->
+
+
+<!-- ``` -->
 
 
 
 
-```{r ftmt_size_4_smb}
+<!-- ```{r ftmt_size_4_smb} -->
 
-tic()
-ftmt_size_4_small <- fit_tests_models_table(specifications_size_4_small, var_data = var_data)
-toc()
-pm_size_4_small <- ftmt_size_4_small[["passing_models"]]
+<!-- tic() -->
+<!-- ftmt_size_4_small <- fit_tests_models_table(specifications_size_4_small, var_data = var_data) -->
+<!-- toc() -->
+<!-- pm_size_4_small <- ftmt_size_4_small[["passing_models"]] -->
 
-ftmt_size_4_small_no_fit <- fit_tests_models_table(specifications_size_4_small, var_data = var_data,
-                                keep_fit = FALSE)
-pm_size_4_small_no_fit <- ftmt_size_4_small_no_fit[["passing_models"]]
-
-
-tic()
-ftmt_size_4_medium <- fit_tests_models_table(specifications_size_4_medium, var_data = var_data)
-toc()
-pm_size_4_medium <- ftmt_size_4_medium[["passing_models"]]
+<!-- ftmt_size_4_small_no_fit <- fit_tests_models_table(specifications_size_4_small, var_data = var_data, -->
+<!--                                 keep_fit = FALSE) -->
+<!-- pm_size_4_small_no_fit <- ftmt_size_4_small_no_fit[["passing_models"]] -->
 
 
-# ftmt_size_4_medium_no_fit <- fit_tests_models_table(specifications_size_4_medium, var_data = var_data,   keep_fit = FALSE)
-# pm_size_4_medium_no_fit <- ftmt_size_4_medium_no_fit[["passing_models"]]
-
-# tic()
-# ftmt_size_4_big_no_fit <- fit_tests_models_table(specifications_size_4_big, var_data = var_data,   keep_fit = FALSE)
-# toc()
-# pm_size_4_big_no_fit <- ftmt_size_4_big_no_fit[["passing_models"]]
+<!-- tic() -->
+<!-- ftmt_size_4_medium <- fit_tests_models_table(specifications_size_4_medium, var_data = var_data) -->
+<!-- toc() -->
+<!-- pm_size_4_medium <- ftmt_size_4_medium[["passing_models"]] -->
 
 
-```
+<!-- # ftmt_size_4_medium_no_fit <- fit_tests_models_table(specifications_size_4_medium, var_data = var_data,   keep_fit = FALSE) -->
+<!-- # pm_size_4_medium_no_fit <- ftmt_size_4_medium_no_fit[["passing_models"]] -->
+
+<!-- # tic() -->
+<!-- # ftmt_size_4_big_no_fit <- fit_tests_models_table(specifications_size_4_big, var_data = var_data,   keep_fit = FALSE) -->
+<!-- # toc() -->
+<!-- # pm_size_4_big_no_fit <- ftmt_size_4_big_no_fit[["passing_models"]] -->
+
+
+<!-- ``` -->
 
 
