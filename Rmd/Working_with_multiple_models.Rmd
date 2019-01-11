@@ -123,17 +123,19 @@ non_target_fixed <- c("")
 
 # 1742
 tic()
-specifications_size_3_big <- all_specifications(var_size = 3, all_variables = colnames(var_data), 
-                          lag_choices = c(3,4,5), use_info_lags = TRUE, 
-                          var_data = var_data, t_thresholds = c(1.65, 2))
+specifications_size_3_big <- all_specifications(
+  var_size = 3, all_variables = colnames(var_data),
+  lag_choices = c(3,4,5), use_info_lags = TRUE,
+  var_data = var_data, t_thresholds = c(1.65, 2))
 toc()
 
 
 # 14933
 tic()
-specifications_size_4_big <- all_specifications(var_size = 4, all_variables = colnames(var_data), 
-                          lag_choices = c(3,4,5), use_info_lags = TRUE, 
-                          var_data = var_data, t_thresholds = c(1.65, 2), silent = TRUE)
+specifications_size_4_big <- all_specifications(
+  var_size = 4, all_variables = colnames(var_data), 
+  lag_choices = c(3,4,5), use_info_lags = TRUE, 
+  var_data = var_data, t_thresholds = c(1.65, 2), silent = TRUE)
 toc()
 
 
@@ -156,16 +158,16 @@ toc()
 
 ```
 
-### Select a subset of specification for expediency in this documente
+### Select a subset of specification for expediency in this document
 ```{r}
 
-specifications_size_3_small <- tas[1:17, ] 
-specifications_size_3_medium <- tas[1:170, ] 
+specifications_size_3_small <- specifications_size_3_big[1:17, ] 
+specifications_size_3_medium <- specifications_size_3_big[1:170, ] 
+
+specifications_size_4_small <- specifications_size_4_big[1:17, ] 
+specifications_size_4_medium <- specifications_size_4_big[1:170, ] 
 
 ```
-
-
-
 
 
 ## Fit all specifications and keep only acceptable ones
@@ -176,18 +178,67 @@ specifications_size_3_medium <- tas[1:170, ]
 
 
 
+## Computing time and object size
+
+```{r ftmt_size_3_smb}
+
+tic()
+ftmt_size_3_small <- fit_tests_models_table(specifications_size_3_small, var_data = var_data)
+toc()
+pm_size_3_small <- ftmt_size_3_small[["passing_models"]]
+
+ftmt_size_3_small_no_fit <- fit_tests_models_table(specifications_size_3_small, var_data = var_data,
+                                keep_fit = FALSE)
+pm_size_3_small_no_fit <- ftmt_size_3_small_no_fit[["passing_models"]]
 
 
-```{r fnforspec}
+tic()
+ftmt_size_3_medium <- fit_tests_models_table(specifications_size_3_medium, var_data = var_data)
+toc()
+pm_size_3_medium <- ftmt_size_3_medium[["passing_models"]]
 
 
-moo <- fit_tests_models_table(tas13, var_data = var_data)
-pm <- moo[["passing_models"]]
+# ftmt_size_3_medium_no_fit <- fit_tests_models_table(specifications_size_3_medium, var_data = var_data,   keep_fit = FALSE)
+# pm_size_3_medium_no_fit <- ftmt_size_3_medium_no_fit[["passing_models"]]
 
-moonf <- fit_tests_models_table(tas13, var_data = var_data, keep_fit = FALSE)
-pmnf <- moonf[["passing_models"]]
+# tic()
+# ftmt_size_3_big_no_fit <- fit_tests_models_table(specifications_size_3_big, var_data = var_data,   keep_fit = FALSE)
+# toc()
+# pm_size_3_big_no_fit <- ftmt_size_3_big_no_fit[["passing_models"]]
+
 
 ```
 
+
+
+
+```{r ftmt_size_4_smb}
+
+tic()
+ftmt_size_4_small <- fit_tests_models_table(specifications_size_4_small, var_data = var_data)
+toc()
+pm_size_4_small <- ftmt_size_4_small[["passing_models"]]
+
+ftmt_size_4_small_no_fit <- fit_tests_models_table(specifications_size_4_small, var_data = var_data,
+                                keep_fit = FALSE)
+pm_size_4_small_no_fit <- ftmt_size_4_small_no_fit[["passing_models"]]
+
+
+tic()
+ftmt_size_4_medium <- fit_tests_models_table(specifications_size_4_medium, var_data = var_data)
+toc()
+pm_size_4_medium <- ftmt_size_4_medium[["passing_models"]]
+
+
+# ftmt_size_4_medium_no_fit <- fit_tests_models_table(specifications_size_4_medium, var_data = var_data,   keep_fit = FALSE)
+# pm_size_4_medium_no_fit <- ftmt_size_4_medium_no_fit[["passing_models"]]
+
+# tic()
+# ftmt_size_4_big_no_fit <- fit_tests_models_table(specifications_size_4_big, var_data = var_data,   keep_fit = FALSE)
+# toc()
+# pm_size_4_big_no_fit <- ftmt_size_4_big_no_fit[["passing_models"]]
+
+
+```
 
 

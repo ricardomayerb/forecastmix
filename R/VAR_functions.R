@@ -713,11 +713,8 @@ estimate_var_from_model_tbl_old <- function(models_tbl,
 
 fit_tests_models_table <- function(models_tbl, var_data, keep_fit = TRUE) {
   
-  t_thresholds <- pluck(tas13, "t_threshold",1)
-  
-  print("t_thresholds")
-  print(t_thresholds)
-  
+  t_thresholds <- pluck(models_tbl, "t_threshold",1)
+
   if(length(t_thresholds) == 1) {
     if(t_thresholds == 0 | !t_thresholds | is.null(t_thresholds)){
       is_unrestricted <- TRUE
