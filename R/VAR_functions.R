@@ -389,9 +389,183 @@ count_combn <- function(var_size, n_total, n_exo, n_fixed = 1) {
            ncombn_adjusted = ncomb_notpureexo))
 }
 
-
-
 cv_var_from_model_tbl <- function(h, n_cv, 
+                                  training_length, 
+                                  models_tbl, 
+                                  var_data, 
+                                  new_t_threshold = NULL, 
+                                  fit_column = NULL, 
+                                  target_transform = "yoy", 
+                                  target_level_ts = NULL,
+                                  keep_varest_obj = FALSE,
+                                  keep_cv_objects = FALSE,
+                                  keep_fc_objects = FALSE,
+                                  names_exogenous = c(""),
+                                  exo_lag = NULL,
+                                  future_exo = NULL,
+                                  future_exo_cv = NULL,
+                                  do_full_sample_fcs = FALSE,
+                                  extended_exo_mts = NULL,
+                                  do_tests = FALSE) { 
+
+  
+  starting_names <- names(models_tbl)
+  has_short_name <- "short_name" %in% starting_names
+  has_t_threshold <- "t_threshold" %in% starting_names
+  
+  if (!has_t_threshold) {
+    models_tbl <- models_tbl %>% mutate(t_threshold = FALSE)
+  }
+  
+  if (!has_short_name) {
+    models_tbl <- models_tbl %>% 
+      mutate(short_name = pmap(list(variables, lags, t_threshold),
+                               ~ make_model_name(variables = ..1, lags = ..2, t_threshold = ..3)),
+             short_name = unlist(short_name))
+    
+    models_tbl <- models_tbl %>% dplyr::select(short_name, everything())
+  }
+  
+  if (is.null(fit_column)) {
+    print("There is no column with fit varest objects, so we will estimate all VARs now")
+    tic()
+    # models_tbl <- estimate_var_from_model_tbl(
+    #   models_tbl = models_tbl, var_data = var_data, new_t_threshold = new_t_threshold, 
+    #   names_exogenous = names_exogenous)
+    
+    models_tbl <- fit_tests_models_table(models_tbl = models_tbl, 
+                                         var_data = var_data,
+                                         names_exogenous = names_exogenous,
+                                         exo_lag = exo_lag)[["passing_models"]]
+    
+    toc()
+    
+    print("Done estimating VARs, now we will compute the forecasts")
+    
+  } else {
+    print("Using previously estimates varest objects")
+  }
+  
+  if (do_full_sample_fcs) {
+    print("Start forecasts of the estimated models")
+    
+    tic()
+    models_tbl <- forecast_var_from_model_tbl(
+      models_tbl = models_tbl, 
+      var_data = var_data,
+      fc_horizon = fc_horizon, 
+      new_t_threshold = c(0, 1.65, 2),
+      target_transform = target_transform, 
+      target_level_ts = target_level_ts, 
+      names_exogenous = names_exogenous, 
+      extended_exo_mts = extended_exo_mts, 
+      fit_column = "fit", keep_varest_obj = TRUE)
+    toc()
+  }
+
+  
+  print("Starting cv")
+
+  tic()
+  models_tbl <-  models_tbl %>%
+    mutate(cv_obj = pmap(list(fit, variables, lags, t_threshold),
+                         ~ cv_var_from_one_row(var_data = var_data, fit = ..1,
+                                               variables = ..2, lags = ..3,
+                                               this_thresh = ..4,
+                                               h = h, n_cv = n_cv,
+                                               names_exogenous = names_exogenous,
+                                               training_length = training_length,
+                                               this_type = "const",
+                                               future_exo_cv = future_exo_cv)
+    )
+    )
+  toc()
+  
+  print("transform to yoy")
+  
+  if (target_transform != "yoy") {
+    
+    if (target_transform == "diff_yoy") {
+      
+      print("from diffyoy to yoy")
+      
+      models_tbl <- models_tbl %>%
+        rename(cv_obj_diff_yoy = cv_obj)
+      
+      models_tbl <- models_tbl %>%
+        mutate(cv_obj_yoy = map(cv_obj_diff_yoy,
+                                ~ transform_all_cv( .,
+                                                    current_form = target_transform,
+                                                    target_level_ts =  target_level_ts,
+                                                    n_cv = n_cv)
+        )
+        )
+    }
+    
+    if (target_transform == "diff") {
+      auxiliary_ts <-  target_level_ts
+      
+      models_tbl <- models_tbl %>%
+        rename(cv_obj_diff = cv_obj)
+      
+      results_all_models <- results_all_models %>%
+        mutate(cv_obj_yoy = map(cv_obj_diff,
+                                ~ transform_all_cv(cv_object  = .,
+                                                   current_form = target_transformation,
+                                                   auxiliary_ts = target_level_ts,
+                                                   n_cv = n_cv)
+        )
+        )
+    }
+    
+  }
+  
+  if (target_transform == "yoy") {
+    models_tbl <- models_tbl %>%
+      rename(cv_obj_yoy = cv_obj)
+  }
+  
+  print("done transforming")
+  
+  # print("models_tbl$cv_obj_yoy")
+  # print(models_tbl$cv_obj_yoy)
+  
+  models_tbl <- models_tbl %>%
+    mutate(rmse_yoy_all_h = map(cv_obj_yoy, all_rmse_from_cv_obj))
+  
+  rmse_tibble <- as_tibble(reduce(models_tbl$rmse_yoy_all_h, rbind))
+  names(rmse_tibble) <- paste0("rmse_", seq(1, ncol(rmse_tibble)))
+  
+  models_tbl <- models_tbl %>%
+    dplyr::select(-rmse_yoy_all_h) %>%
+    cbind(rmse_tibble)
+  
+  
+  if (!keep_varest_obj) {
+    models_tbl <- models_tbl %>%
+      dplyr::select(-fit)
+  }
+  
+  if (!keep_fc_objects) {
+    models_tbl <- models_tbl %>%
+      dplyr::select(vars_select(names(.), -starts_with("fc_ob")))
+  } else {
+    print("keeping forecast list-columns (they are pretty big ...)")
+  }
+  
+  if (!keep_cv_objects) {
+    models_tbl <- models_tbl %>%
+      dplyr::select(vars_select(names(.), -starts_with("cv_ob")))
+  }
+  
+  models_tbl <- as_tibble(models_tbl)
+  
+  return(models_tbl)
+} 
+
+
+
+cv_var_from_model_tbl_old <- function(h, n_cv, 
                                   training_length, 
                                   models_tbl, 
                                   var_data, 
@@ -711,9 +885,14 @@ estimate_var_from_model_tbl_old <- function(models_tbl,
 }
 
 
-fit_tests_models_table <- function(models_tbl, var_data, keep_fit = TRUE) {
+fit_tests_models_table <- function(models_tbl,
+                                   var_data,
+                                   keep_fit = TRUE, 
+                                   do_tests = TRUE,
+                                   names_exogenous = c(""),
+                                   exo_lag = NULL) {
   
-  t_thresholds <- pluck(models_tbl, "t_threshold",1)
+  t_thresholds <- pluck(models_tbl, "t_threshold", 1)
 
   if(length(t_thresholds) == 1) {
     if(t_thresholds == 0 | !t_thresholds | is.null(t_thresholds)){
@@ -728,7 +907,7 @@ fit_tests_models_table <- function(models_tbl, var_data, keep_fit = TRUE) {
   
   if (is_unrestricted) {
     n_thresholds <- 1
-    n_tr <- 0
+    n_trest <- 0
   } else 
   {
     n_trest <- length(t_thresholds)
@@ -771,39 +950,51 @@ fit_tests_models_table <- function(models_tbl, var_data, keep_fit = TRUE) {
   print(paste0("Number of models with non-surving equations: ", n_non_varest))
   print(paste0("Number of models to be tested for stability: ", n_post_varestfilter))
   
-  
-  models_tbl <- models_tbl %>% 
-    mutate(is_stable = map_lgl(fit, ~ all(vars::roots(.x) < 1))
-    ) %>% 
-    filter(is_stable)
-  
-  n_post_stable <- nrow(models_tbl)
-  n_non_stable <- n_post_varestfilter - n_post_stable
-  
-  print(paste0("Number of models with unstable roots: ", n_non_stable))
-  print(paste0("Number of models for portmanteau testing: ", n_post_stable))
-  
-  models_tbl <- models_tbl %>% 
-    mutate(is_white_noise = map_lgl(fit, ~ check_resid_VAR(.x))
-    ) %>% 
-    filter(is_white_noise)
-  
-  n_post_checkresid <- nrow(models_tbl)
-  n_non_white_noise <- n_post_stable - n_post_checkresid
-  
-  print(paste0("Number of models with non-white-noise residuals : ", n_non_white_noise))
-  print(paste0("Number of models to be (ts)cross-validated: ", n_post_checkresid))
-  
-  models_tbl <- models_tbl %>% dplyr::select(-c(is_stable, is_white_noise, cf))
-  
-  if(!keep_fit) {
-    models_tbl <- models_tbl %>% dplyr::select(-fit)
+  if (do_tests) {
+    models_tbl <- models_tbl %>% 
+      mutate(is_stable = map_lgl(fit, ~ all(vars::roots(.x) < 1))
+      ) %>% 
+      filter(is_stable)
+    
+    n_post_stable <- nrow(models_tbl)
+    n_non_stable <- n_post_varestfilter - n_post_stable
+    
+    print(paste0("Number of models with unstable roots: ", n_non_stable))
+    print(paste0("Number of models for portmanteau testing: ", n_post_stable))
+    
+    models_tbl <- models_tbl %>% 
+      mutate(is_white_noise = map_lgl(fit, ~ check_resid_VAR(.x))
+      ) %>% 
+      filter(is_white_noise)
+    
+    n_post_checkresid <- nrow(models_tbl)
+    n_non_white_noise <- n_post_stable - n_post_checkresid
+    
+    print(paste0("Number of models with non-white-noise residuals : ", n_non_white_noise))
+    print(paste0("Number of models to be (ts)cross-validated or forecasted: ", n_post_checkresid))
+    
+    models_tbl <- models_tbl %>% dplyr::select(-c(is_stable, is_white_noise, cf))
+    if(!keep_fit) {
+      models_tbl <- models_tbl %>% dplyr::select(-fit)
+    }
+    
+    return(list(passing_models = models_tbl, 
+                tried_models = table_of_tried_specifications,
+                n_lost_to_threshold = n_non_varest,
+                n_lost_to_roots = n_non_stable,
+                n_lost_to_white = n_non_white_noise))
+    
+  } else {
+    print(paste0("Number of models to be (ts)cross-validated or forecasted: ", n_post_varestfilter))
+    if(!keep_fit) {
+      models_tbl <- models_tbl %>% dplyr::select(-fit)
+    }
+    
+    return(list(passing_models = models_tbl, 
+                tried_models = table_of_tried_specifications,
+                n_lost_to_threshold = n_non_varest)
+           )
   }
-  
-  return(list(passing_models = models_tbl, 
-              tried_models = table_of_tried_specifications,
-              n_lost_to_threshold = n_non_varest, n_lost_to_roots = n_non_stable,
-              n_lost_to_white = n_non_white_noise))
 }
 
 
@@ -1025,7 +1216,8 @@ forecast_var_from_model_tbl <- function(models_tbl,
                                         keep_fc_obj = FALSE,
                                         keep_varest_obj = FALSE,
                                         names_exogenous = c(""),
-                                        extended_exo_mts = NULL
+                                        extended_exo_mts = NULL,
+                                        do_tests = FALSE
 ) {
   
   # print("in forecast var from model tbl")
@@ -1034,7 +1226,7 @@ forecast_var_from_model_tbl <- function(models_tbl,
   starting_names <- names(models_tbl)
   # print("starting_names in forecasts var from")
   # print(starting_names)
-  has_short_name <- "short_name" %in% starting_names
+  has_short_name <- "short_name" %in% starting_names | "model_name"  %in% starting_names 
   has_t_threshold <- "t_threshold" %in% starting_names
   
   if (!has_t_threshold) {
@@ -1051,11 +1243,11 @@ forecast_var_from_model_tbl <- function(models_tbl,
   }
   
   if (is.null(fit_column)) {
-    print("There is no column with fit varest objects, so we will estimate all VARs now")
-    models_tbl <- estimate_var_from_model_tbl(
-      models_tbl = models_tbl, var_data = var_data, 
-      new_t_threshold = new_t_threshold)
     
+    print("There is no column with fit varest objects, so we will estimate all VARs now")
+    ftmt <- fit_tests_models_table(models_tbl = models_tbl, var_data = var_data,
+                                  do_tests = do_tests)
+    models_tbl <- ftmt[["passing_models"]]
     print("Done estimating VARs, now we will compute the forecasts")
     
   } else {
@@ -1089,7 +1281,7 @@ forecast_var_from_model_tbl <- function(models_tbl,
                                       ~ any_fc_2_fc_yoy(
                                         current_fc = .x, 
                                         rgdp_transformation = target_transform,
-                                        rgdp_level_ts = rgdp_level_ts)
+                                        rgdp_level_ts = target_level_ts)
              )
       )
   }
