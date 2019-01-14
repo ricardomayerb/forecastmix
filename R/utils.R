@@ -725,6 +725,10 @@ make_model_name <- function(variables, lags, t_threshold = NULL, model_function 
     }
   }
   
+  # print(model_name)
+  # 
+  # print("model_name")
+  
   return(model_name)
 }
 

@@ -407,7 +407,7 @@ cv_var_from_model_tbl <- function(h, n_cv,
                                   future_exo = NULL,
                                   future_exo_cv = NULL,
                                   do_full_sample_fcs = FALSE,
-                                  extended_exo_mts = extended_exo_mts
+                                  extended_exo_mts = NULL
                                   ) { 
   
   # print("in cvvarfrommodel exo vbls")
@@ -423,8 +423,8 @@ cv_var_from_model_tbl <- function(h, n_cv,
   
   if (!has_short_name) {
     models_tbl <- models_tbl %>% 
-      mutate(short_name = map2(variables, lags,
-                               ~ make_model_name(variables = .x, lags = .y)),
+      mutate(short_name = pmap(list(variables, lags, t_threshold),
+                               ~ make_model_name(variables = ..1, lags = ..2, t_threshold = ..3)),
              short_name = unlist(short_name))
     
     models_tbl <- models_tbl %>% dplyr::select(short_name, everything())
@@ -498,8 +498,8 @@ cv_var_from_model_tbl <- function(h, n_cv,
       models_tbl <- models_tbl %>%
         mutate(cv_obj_yoy = map(cv_obj_diff_yoy,
                                 ~ transform_all_cv( .,
-                                                    current_form = rgdp_transformation,
-                                                    target_level_ts =  rgdp_level_ts,
+                                                    current_form = target_transform,
+                                                    target_level_ts =  target_level_ts,
                                                     n_cv = n_cv)
         )
         )
@@ -514,7 +514,7 @@ cv_var_from_model_tbl <- function(h, n_cv,
       results_all_models <- results_all_models %>%
         mutate(cv_obj_yoy = map(cv_obj_diff,
                                 ~ transform_all_cv(cv_object  = .,
-                                                   current_form = rgdp_transformation,
+                                                   current_form = target_transformation,
                                                    auxiliary_ts = target_level_ts,
                                                    n_cv = n_cv)
         )

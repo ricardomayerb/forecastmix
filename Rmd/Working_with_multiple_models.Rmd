@@ -176,8 +176,13 @@ specifications_size_4_medium <- specifications_size_4_big[1:170, ]
 ftmt_size_3_small <- fit_tests_models_table(specifications_size_3_small, var_data = var_data)
 
 pm_size_3_small <- ftmt_size_3_small[["passing_models"]]
-
 print(head(pm_size_3_small))
+
+ftmt_size_3_medium <- fit_tests_models_table(specifications_size_3_medium, var_data = var_data)
+pm_size_3_medium <- ftmt_size_3_medium[["passing_models"]]
+
+# ftmt_size_3_big <- fit_tests_models_table(specifications_size_3_big, var_data = var_data)
+# pm_size_3_big <- ftmt_size_3_big[["passing_models"]]
 
 ```
 
@@ -185,29 +190,52 @@ print(head(pm_size_3_small))
 ## Time Series Cross Validation on valid specifications
 
 ```{r tscv_s3small}
+fc_horizon <- 8
+n_cv <- 10
+training_length <- 30
+fit_column <- "fit"
+target_transform <- target_transformation
+target_level_ts <- na.omit(raw_data[, target_variable])
 
-foo <- cv_var_from_model_tbl()
+tic()
+cv_size_3_small <- cv_var_from_model_tbl(h = fc_horizon,
+                             training_length = training_length, 
+                             n_cv = n_cv,
+                             models_tbl = pm_size_3_small, 
+                             var_data = var_data, 
+                             fit_column = "fit", 
+                             target_transform = target_transform,
+                             target_level_ts = target_level_ts,
+                             )
+toc()
 
+tic()
+cv_size_3_medium <- cv_var_from_model_tbl(h = fc_horizon,
+                             training_length = training_length, 
+                             n_cv = n_cv,
+                             models_tbl = pm_size_3_medium, 
+                             var_data = var_data, 
+                             fit_column = "fit", 
+                             target_transform = target_transform,
+                             target_level_ts = target_level_ts,
+                             )
+toc() 
 
-# cv_var_from_model_tbl <- function(h, n_cv, 
-#                                   training_length, 
-#                                   models_tbl, 
-#                                   var_data, 
-#                                   new_t_threshold = NULL, 
-#                                   fit_column = NULL, 
-#                                   target_transform = "yoy", 
-#                                   target_level_ts = NULL,
-#                                   keep_varest_obj = FALSE,
-#                                   keep_cv_objects = FALSE,
-#                                   keep_fc_objects = FALSE,
-#                                   names_exogenous = c(""),
-#                                   exo_lag = NULL,
-#                                   future_exo = NULL,
-#                                   future_exo_cv = NULL,
-#                                   do_full_sample_fcs = FALSE,
-#                                   extended_exo_mts = extended_exo_mts
-#                                   )
-
+# tic()
+# cv_size_3_big <- cv_var_from_model_tbl(h = fc_horizon,
+#                              training_length = training_length, 
+#                              n_cv = n_cv,
+#                              models_tbl = pm_size_3_big, 
+#                              var_data = var_data, 
+#                              fit_column = "fit", 
+#                              target_transform = target_transform,
+#                              target_level_ts = target_level_ts,
+#                              )
+# toc()
+#  
+# os1 <- object.size(pm_size_3_big)
+# os2 <- object.size(cv_size_3_big)
+# os1/os2
 
 ```
 
