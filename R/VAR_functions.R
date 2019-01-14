@@ -940,17 +940,20 @@ fit_tests_models_table <- function(models_tbl,
   
   n_before_varestfilter <- nrow(models_tbl)
   
-  models_tbl <- models_tbl %>% 
-    mutate(cf = map(fit, ~class(.x))) %>% 
-    filter(cf == "varest")
-  
-  n_post_varestfilter <- nrow(models_tbl)
-  n_non_varest <- n_before_varestfilter - n_post_varestfilter
-  
-  print(paste0("Number of models with non-surving equations: ", n_non_varest))
-  print(paste0("Number of models to be tested for stability: ", n_post_varestfilter))
   
   if (do_tests) {
+    print("doing tests")
+    
+    models_tbl <- models_tbl %>% 
+      mutate(cf = map(fit, ~class(.x))) %>% 
+      filter(cf == "varest")
+    
+    n_post_varestfilter <- nrow(models_tbl)
+    n_non_varest <- n_before_varestfilter - n_post_varestfilter
+    
+    print(paste0("Number of models with non-surving equations: ", n_non_varest))
+    print(paste0("Number of models to be tested for stability: ", n_post_varestfilter))
+    
     models_tbl <- models_tbl %>% 
       mutate(is_stable = map_lgl(fit, ~ all(vars::roots(.x) < 1))
       ) %>% 
@@ -985,14 +988,13 @@ fit_tests_models_table <- function(models_tbl,
                 n_lost_to_white = n_non_white_noise))
     
   } else {
-    print(paste0("Number of models to be (ts)cross-validated or forecasted: ", n_post_varestfilter))
+    print(paste0("Number of models to be (ts)cross-validated or forecasted: ", n_before_varestfilter))
     if(!keep_fit) {
       models_tbl <- models_tbl %>% dplyr::select(-fit)
     }
     
     return(list(passing_models = models_tbl, 
-                tried_models = table_of_tried_specifications,
-                n_lost_to_threshold = n_non_varest)
+                tried_models = table_of_tried_specifications)
            )
   }
 }

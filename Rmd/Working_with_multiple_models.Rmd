@@ -249,7 +249,8 @@ toc()
 # use all models
 fc_models_s3_small <- forecast_var_from_model_tbl(
   cv_size_3_small, var_data, fc_horizon, 
-  target_transform = target_transform, target_level_ts = target_level_ts) 
+  target_transform = target_transform,
+  target_level_ts = target_level_ts, do_tests = FALSE) 
 
 # forecast_var_from_model_tbl <- function(models_tbl, 
 #                                         var_data,
