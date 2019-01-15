@@ -1158,8 +1158,14 @@ forecast_VAR_one_row <- function(fit, h, variables, extended_exo_mts,
                                  names_exogenous = c(""), exo_lag = NULL)  {
   
   are_there_exo <- any(names_exogenous %in% variables)
+  
+  if(class(fit)[[1]] == "tbl_df") {
+    print("fit")
+    print(fit)
+  }
 
   if (class(fit) == "varest") {
+
     
     this_var_data <- fit$y
     endov <- variables[!variables %in% names_exogenous] 
@@ -1219,11 +1225,14 @@ forecast_var_from_model_tbl <- function(models_tbl,
                                         keep_varest_obj = FALSE,
                                         names_exogenous = c(""),
                                         extended_exo_mts = NULL,
-                                        do_tests = FALSE
+                                        do_tests = FALSE,
+                                        both_rest_unrest = FALSE
 ) {
   
   # print("in forecast var from model tbl")
   # print(names_exogenous)
+  
+  # print(models_tbl)
   
   starting_names <- names(models_tbl)
   # print("starting_names in forecasts var from")
@@ -1247,15 +1256,63 @@ forecast_var_from_model_tbl <- function(models_tbl,
   if (is.null(fit_column)) {
     
     print("There is no column with fit varest objects, so we will estimate all VARs now")
+    print("pre rubvwecd")
+    print(models_tbl)
     ftmt <- fit_tests_models_table(models_tbl = models_tbl, var_data = var_data,
                                   do_tests = do_tests)
     models_tbl <- ftmt[["passing_models"]]
+    print("post rubvwecd")
+    print(models_tbl)
+    
+    if (both_rest_unrest) {
+      models_unrest <- filter(models_tbl, t_threshold == 0)
+      models_rest <- filter(models_tbl, t_threshold != 0)
+      models_rest_unnest <- models_rest %>% 
+        dplyr::select(-t_threshold) %>% 
+        unnest(fit, .drop = FALSE) %>% 
+        mutate(short_name = pmap_chr(list(variables, lags, t_threshold),
+                                     ~ make_model_name(variables = ..1,
+                                                       lags = ..2, 
+                                                       t_threshold = ..3))
+        )
+      
+      models_rest_unnest <- semi_join(models_rest_unnest, models_tbl, by = "short_name")
+      
+      print("models_rest_unnest")
+      print(models_rest_unnest)
+      
+      non_repeated_unrest <- anti_join(models_unrest, models_rest_unnest, 
+                                       by = "short_name")
+      
+      print("non_repeated_unrest ")
+      print(non_repeated_unrest )
+      
+      
+      models_tbl <- rbind(models_rest_unnest, non_repeated_unrest) 
+      print("models_tbl ")
+      print(models_tbl)
+
+      
+    } else {
+      models_tbl <- models_tbl %>% 
+        dplyr::select(-t_threshold) %>% 
+        unnest(fit, .drop = FALSE) %>% 
+        mutate(short_name = pmap_chr(list(variables, lags, t_threshold),
+                                     ~ make_model_name(variables = ..1,
+                                                       lags = ..2, 
+                                                       t_threshold = ..3))
+        )
+    }
+    
+    
     print("Done estimating VARs, now we will compute the forecasts")
     
   } else {
     print("Using previously estimates varest objects")
   }
   
+ 
+
   models_tbl <- models_tbl %>% 
     mutate(fc_object_raw = map2(fit, variables,
                                 ~ forecast_VAR_one_row(
@@ -1274,7 +1331,8 @@ forecast_var_from_model_tbl <- function(models_tbl,
   
   if (target_transform != "yoy") {
     
-    print(paste0("Target variable is in ", target_transform, " form. Forecasts will be transformed to YoY."))
+    print(paste0("Target variable is in ", target_transform,
+                 " form. Forecasts will be transformed to YoY."))
     
     models_tbl <- models_tbl %>% 
       mutate(target_mean_fc = map(fc_object_raw,
