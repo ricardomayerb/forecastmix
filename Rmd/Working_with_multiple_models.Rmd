@@ -244,26 +244,33 @@ toc()
 
 ## Combine forecasts based on performance measure
 
-```{r forcast_using_cv}
+
+```{r forecast_using_cv}
+
+# rank and filter
+
+max_rank_h <- 5
+
+surviving_names <- cv_size_3_small %>% 
+  gather(key = "rmse_h", value = "rmse", 
+         vars_select(names(.), starts_with("rmse"))) %>% 
+  group_by(rmse_h) %>% 
+  mutate(rank_h = rank(rmse)) %>% 
+  filter(rank_h <= max_rank_h) %>% 
+  ungroup() %>% 
+  dplyr::select(short_name) %>% 
+  distinct()
+
+rank_filtered_models <- semi_join(cv_size_3_small, surviving_names, by = "short_name")
 
 # use all models
-fc_models_s3_small <- forecast_var_from_model_tbl(
-  cv_size_3_small, var_data, fc_horizon, 
+fc_s3_small <- forecast_var_from_model_tbl(
+  rank_filtered_models, var_data, fc_horizon, 
   target_transform = target_transform,
-  target_level_ts = target_level_ts, do_tests = FALSE) 
+  target_level_ts = target_level_ts, do_tests = FALSE, both_rest_unrest = TRUE) 
 
-# forecast_var_from_model_tbl <- function(models_tbl, 
-#                                         var_data,
-#                                         fc_horizon, 
-#                                         new_t_threshold = NULL, 
-#                                         fit_column = NULL,
-#                                         target_transform = "yoy",
-#                                         target_level_ts = NULL,
-#                                         keep_fc_obj = FALSE,
-#                                         keep_varest_obj = FALSE,
-#                                         names_exogenous = c(""),
-#                                         extended_exo_mts = NULL
-# ) 
+
+
 
 
 ```
