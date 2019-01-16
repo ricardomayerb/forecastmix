@@ -267,11 +267,47 @@ rank_filtered_models <- semi_join(cv_size_3_small, surviving_names, by = "short_
 fc_s3_small <- forecast_var_from_model_tbl(
   rank_filtered_models, var_data, fc_horizon, 
   target_transform = target_transform,
-  target_level_ts = target_level_ts, do_tests = FALSE, both_rest_unrest = TRUE) 
+  target_level_ts = target_level_ts, do_tests = FALSE, 
+  both_rest_unrest = TRUE) 
+
+do_rmse_average <- TRUE
+
+if (do_rmse_average) {
+  fcs_and_weights <- fc_s3_small %>% 
+  gather(key = rmse_h, value = rmse, vars_select(names(.), starts_with("rmse"))) %>% 
+  group_by(rmse_h) %>% 
+  mutate(rank_h = rank(rmse)) %>% 
+  filter(rank_h <= max_rank_h) %>% 
+  mutate(inv_mse = 1/(rmse*rmse),
+         model_weight = inv_mse/sum(inv_mse),
+         horizon = as.numeric(substr(rmse_h, 6, 6)),
+         this_h_fc_yoy = map2_dbl(target_mean_fc_yoy, horizon, ~ .x[.y]),
+         weighted_this_h_fc_yoy = map2_dbl(this_h_fc_yoy, model_weight, ~ .x*.y),
+         waverage_fc_yoy_h = sum(weighted_this_h_fc_yoy)
+         ) 
+
+  fc_yoy_w_ave <- ts(unique(fcs_and_weights$waverage_fc_yoy_h), 
+                     start = start(fcs_and_weights$target_mean_fc_yoy[[1]]),
+                     frequency = frequency(fcs_and_weights$target_mean_fc_yoy[[1]]))
+  
+  fcs_and_wavg <- list(tbl_models_and_fcs = fcs_and_weights,
+                       fcs_wavg = fc_yoy_w_ave)
+}
+
+moo <-  forecast_var_from_model_tbl(
+  rank_filtered_models, var_data, fc_horizon, 
+  target_transform = target_transform,
+  target_level_ts = target_level_ts, do_tests = FALSE,
+  both_rest_unrest = TRUE, do_rmse_average = TRUE, max_rank_h = 5) 
+
+fc_s3_small_wavg <- moo$fcs_wavg
 
 
-
-
+moo <-  forecast_var_from_model_tbl(
+  rank_filtered_models, var_data, fc_horizon, 
+  target_transform = target_transform,
+  target_level_ts = target_level_ts, do_tests = FALSE,
+  both_rest_unrest = TRUE, do_rmse_average = TRUE, max_rank_h = 5, filter_by_rank = TRUE) 
 
 ```
 

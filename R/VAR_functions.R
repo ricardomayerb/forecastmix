@@ -892,8 +892,27 @@ fit_tests_models_table <- function(models_tbl,
                                    names_exogenous = c(""),
                                    exo_lag = NULL) {
   
-  t_thresholds <- pluck(models_tbl, "t_threshold", 1)
-
+  t_thresholds <- pluck(models_tbl, "t_threshold")
+  
+  bt_thresholds_len1 <- map_dbl(t_thresholds, length) == 1
+  bt_thresholds_0 <- t_thresholds == 0
+  bt_thresholds_f <- t_thresholds == FALSE
+  bt_thresholds_0_f <- bt_thresholds_0 | bt_thresholds_f
+  bt_thresholds_0_f_len1 <- bt_thresholds_len1 & bt_thresholds_0_f
+  bt_thresholds_r <- !bt_thresholds_0_f_len1
+  
+  t_thresholds_unr <- t_thresholds[bt_thresholds_0_f]
+  t_thresholds_r <- t_thresholds[bt_thresholds_r]
+  
+  print(t_thresholds)
+  print(bt_thresholds_len1)
+  print(bt_thresholds_0)
+  print(bt_thresholds_f)
+  print(bt_thresholds_0_f)
+  print(t_thresholds_unr)
+  print(t_thresholds_r)
+  
+  
   if(length(t_thresholds) == 1) {
     if(t_thresholds == 0 | !t_thresholds | is.null(t_thresholds)){
       is_unrestricted <- TRUE
@@ -1226,14 +1245,36 @@ forecast_var_from_model_tbl <- function(models_tbl,
                                         names_exogenous = c(""),
                                         extended_exo_mts = NULL,
                                         do_tests = FALSE,
-                                        both_rest_unrest = FALSE
+                                        both_rest_unrest = FALSE,
+                                        do_rmse_average = FALSE,
+                                        filter_by_rank = FALSE,
+                                        max_rank_h = NULL
 ) {
   
   # print("in forecast var from model tbl")
   # print(names_exogenous)
   
-  # print(models_tbl)
+  print(" initial models_tbl")
+  print(models_tbl)
   
+  
+  if (filter_by_rank) {
+    surviving_names <- models_tbl %>% 
+      gather(key = "rmse_h", value = "rmse", 
+             vars_select(names(.), starts_with("rmse"))) %>% 
+      group_by(rmse_h) %>% 
+      mutate(rank_h = rank(rmse)) %>% 
+      filter(rank_h <= max_rank_h) %>% 
+      ungroup() %>% 
+      dplyr::select(short_name) %>% 
+      distinct()
+    
+    models_tbl <- semi_join(models_tbl, surviving_names, by = "short_name")
+    print("models_tbl after filter by rank")
+    print(models_tbl)
+  }
+  
+
   starting_names <- names(models_tbl)
   # print("starting_names in forecasts var from")
   # print(starting_names)
@@ -1261,9 +1302,7 @@ forecast_var_from_model_tbl <- function(models_tbl,
     ftmt <- fit_tests_models_table(models_tbl = models_tbl, var_data = var_data,
                                   do_tests = do_tests)
     models_tbl <- ftmt[["passing_models"]]
-    print("post rubvwecd")
-    print(models_tbl)
-    
+
     if (both_rest_unrest) {
       models_unrest <- filter(models_tbl, t_threshold == 0)
       models_rest <- filter(models_tbl, t_threshold != 0)
@@ -1278,21 +1317,23 @@ forecast_var_from_model_tbl <- function(models_tbl,
       
       models_rest_unnest <- semi_join(models_rest_unnest, models_tbl, by = "short_name")
       
-      print("models_rest_unnest")
-      print(models_rest_unnest)
+      # print("models_rest_unnest")
+      # print(models_rest_unnest)
       
       non_repeated_unrest <- anti_join(models_unrest, models_rest_unnest, 
                                        by = "short_name")
       
-      print("non_repeated_unrest ")
-      print(non_repeated_unrest )
-      
+      # print("non_repeated_unrest ")
+      # print(non_repeated_unrest )
+
+      models_tbl <- rbind(models_rest_unnest, non_repeated_unrest) 
+      models_rest_unnest <- distinct(models_rest_unnest, short_name, .keep_all = TRUE)
+      models_rest_unnest <- semi_join(models_rest_unnest, models_tbl, by = "short_name")
+
+      non_repeated_unrest <- anti_join(models_unrest, models_rest_unnest, 
+                                       by = "short_name")
       
       models_tbl <- rbind(models_rest_unnest, non_repeated_unrest) 
-      print("models_tbl ")
-      print(models_tbl)
-
-      
     } else {
       models_tbl <- models_tbl %>% 
         dplyr::select(-t_threshold) %>% 
@@ -1355,8 +1396,40 @@ forecast_var_from_model_tbl <- function(models_tbl,
     models_tbl <- models_tbl %>% 
       dplyr::select(-fc_object_raw)
   }
+
+  if (do_rmse_average) {
+    models_tbl <- models_tbl %>% 
+      gather(key = rmse_h, value = rmse, 
+             vars_select(names(.), starts_with("rmse"))) %>% 
+      group_by(rmse_h) %>% 
+      mutate(rank_h = rank(rmse)) 
+    
+    print("models_tbl")
+    print(models_tbl)
+
+    print("max_rank_h")
+    print(max_rank_h)
+    
+    models_tbl <- models_tbl %>% 
+      filter(rank_h <= max_rank_h) %>% 
+      mutate(inv_mse = 1/(rmse*rmse),
+             model_weight = inv_mse/sum(inv_mse),
+             horizon = as.numeric(substr(rmse_h, 6, 6)),
+             this_h_fc_yoy = map2_dbl(target_mean_fc_yoy, horizon, ~ .x[.y]),
+             weighted_this_h_fc_yoy = map2_dbl(this_h_fc_yoy, model_weight, ~ .x*.y),
+             waverage_fc_yoy_h = sum(weighted_this_h_fc_yoy)
+      ) 
+    
+    fc_yoy_w_ave <- ts(unique(models_tbl$waverage_fc_yoy_h), 
+                       start = start(models_tbl$target_mean_fc_yoy[[1]]),
+                       frequency = frequency(models_tbl$target_mean_fc_yoy[[1]]))
+    
+    return(list(models_tbl = models_tbl, fcs_wavg = fc_yoy_w_ave))
+  } else {
+    return(models_tbl)
+  }
   
-  return(models_tbl)
+  
 }
 
 
@@ -1406,6 +1479,159 @@ get_sets_of_variables <- function(df, this_size, all_variables, already_chosen){
   #             choose(n_passing_vbls, len_other_vbls)))
   
   combinations <- combn(passing_not_alr_chosen, len_other_vbls)
+}
+
+
+
+
+indiv_weigthed_fcs_VAR <- function(tbl_of_models_and_rmse, extended_x_data_ts, 
+                               rgdp_ts_in_arima, var_data, max_rank_h = NULL,
+                               model_type = NULL, chosen_rmse_h = NULL,
+                               force.constant = FALSE,
+                               h_arima = NULL, h_var = NULL,
+                               var_start =  NULL, var_end = NULL,
+                               arima_start = NULL, arima_end = NULL) {
+  
+  # print("in indiv new")
+  # print("in indiv new, h_arima")
+  # print(h_arima)
+  
+  
+  if (!is.null(model_type)) {
+    tbl_of_models_and_rmse <- tbl_of_models_and_rmse %>% 
+      filter(model_function == model_type) %>% 
+      group_by(rmse_h) %>% 
+      mutate(rank_h = rank(rmse)) %>% 
+      arrange(rmse_h, rank_h)
+  }
+  
+  if (!is.null(chosen_rmse_h)) {
+    tbl_of_models_and_rmse <- tbl_of_models_and_rmse %>% 
+      filter(rmse_h == chosen_rmse_h) %>% 
+      mutate(rank_h = rank(rmse))
+  }
+  
+  if (!is.null(max_rank_h)) {
+    tbl_of_models_and_rmse <- tbl_of_models_and_rmse %>% 
+      filter(rank_h <= max_rank_h)
+  }
+  
+  if (!is.null(var_start)) {
+    var_data <- window(var_data, start = var_start)
+  }
+  
+  if (!is.null(var_end)) {
+    var_data <- window(var_data, end = var_end)
+  }
+  
+  if (!is.null(arima_start)) {
+    rgdp_ts_in_arima <- window(rgdp_ts_in_arima, start = arima_start)
+  }
+  
+  if (!is.null(arima_end)) {
+    rgdp_ts_in_arima <- window(rgdp_ts_in_arima, end = arima_end)
+  }
+  
+  
+  my_stability_fun <- function(model_type, model_object) {
+    
+    # print(model_type)
+    # print(model_object)
+    
+    if (model_type == "Arima") {
+      is.stable <- TRUE
+      
+    }
+    if (model_type == "VAR"){
+      is.stable <- all(roots(model_object) < 1)
+    }
+    
+    return(is.stable)
+  }
+  
+  
+  # print("in indiv new, before the tibble ")
+  
+  
+  tibble_fit_and_fcs <- tbl_of_models_and_rmse %>% 
+    group_by(rmse_h) %>% 
+    mutate(sum_invmse_h = sum(inv_mse),
+           model_weight_h = inv_mse/sum_invmse_h,
+           horizon = as.numeric(substr(rmse_h, 6, 6)),
+           fit = pmap(list(model_function, variables, lags, arima_order, 
+                           arima_seasonal),
+                      ~ fit_VAR_Arima(model_function = ..1, variables = ..2, 
+                                      lags = ..3, order = ..4, seasonal = ..5,
+                                      extended_x_data_ts = extended_x_data_ts,
+                                      arima_rgdp_ts = rgdp_ts_in_arima,
+                                      force.constant = force.constant,
+                                      var_data = var_data)),
+           fc_obj = pmap(list(model_function, variables, lags, fit),
+                         ~ forecast_VAR_Arima(model_function = ..1, 
+                                              variables = ..2, lags = ..3,
+                                              fit = ..4, h_arima = h_arima, 
+                                              h_var = h_var,
+                                              mat_x_ext = extended_x_data_ts,
+                                              force.constant = force.constant)),
+           fc_mean = map2(model_function, fc_obj, ~ fc_mean_var_arima(.x, .y)),
+           rgdp_transformation = map(
+             model_function, ~ what_rgdp_transformation(country_name = country_name,
+                                                        model_type = .)),
+           fc_yoy = map2(fc_mean, rgdp_transformation,
+                         ~ any_fc_2_fc_yoy(current_fc = .x,
+                                           rgdp_transformation = .y,
+                                           rgdp_level_ts = rgdp_level_ts)),
+           weighted_fc_at_h = pmap(list(model_weight_h, fc_yoy, horizon),
+                                   ~ subset(..1 * ..2, start = ..3, end = ..3)),
+           fc_at_h = pmap(list(model_weight_h, fc_yoy, horizon),
+                          ~ subset(..2, start = ..3, end = ..3)),
+           is_stable = map2(model_function, fit, ~my_stability_fun(model_type = .x, model_object = .y))
+    ) %>% 
+    ungroup() %>% filter(is_stable == TRUE)
+  
+  w_ave_fc_tbl <- tibble_fit_and_fcs %>% 
+    group_by(horizon) %>%
+    summarise(sum_one_h = reduce(weighted_fc_at_h, sum))
+  
+  # print(" w_ave_fc_tbl ")
+  # print( w_ave_fc_tbl )
+  
+  
+  if (is.null(model_type)) {
+    w_fc_yoy_ts <- fc_summ_to_ts(w_ave_fc_tbl, var_data = var_data)
+  } else {
+    if (model_type == "Arima") {
+      w_fc_yoy_ts <- fc_summ_to_ts(w_ave_fc_tbl, var_data = rgdp_ts_in_arima)
+    }
+    
+    
+    if (model_type == "VAR") {
+      w_fc_yoy_ts <- fc_summ_to_ts(w_ave_fc_tbl, var_data = var_data)
+    }
+  }
+  
+  w_fc_yoy_ts <- na.omit(w_fc_yoy_ts)
+  
+  return(list(info_fit_ifcs = tibble_fit_and_fcs,
+              w_fc_yoy_ts = w_fc_yoy_ts))
+  
+  # fc_for_plot <- tibble_fit_and_fcs %>% 
+  #   select(short_name, model_function, fc_yoy, fc_at_h, rmse_h, rmse, 
+  #          model_weight_h)
+  # 
+  # ensemble_model_tbl <- tibble(short_name = "ensemble", 
+  #                              model_function = "weighted_average",
+  #                              fc_yoy = w_fc_yoy_ts, fc_at_h = NA, rmse_h = "rmse_1",
+  #                              rmse = 0.00001, model_weight_h = 1)
+  
+  # fc_for_plot <- rbind(fc_for_plot, ensemble_model_tbl)
+  
+  
+  
+  
+  # return(list(info_fit_ifcs = tibble_fit_and_fcs,
+  #             w_fc_yoy_ts = w_fc_yoy_ts,
+  #             fc_for_plot = fc_for_plot))
 }
 
 
