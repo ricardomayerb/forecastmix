@@ -175,8 +175,6 @@ toc()
 specifications_size_3_small <- specifications_size_3_big[1:17, ] 
 specifications_size_3_medium <- specifications_size_3_big[1:170, ] 
 
-specifications_size_3_small_u <- specifications_size_3_big_u[1:17, ] 
-specifications_size_3_medium_u <- specifications_size_3_big_u[1:170, ] 
 
 specifications_size_4_small <- specifications_size_4_big[1:17, ] 
 specifications_size_4_medium <- specifications_size_4_big[1:170, ] 
@@ -332,13 +330,46 @@ moo <-  forecast_var_from_model_tbl(
 ```
 
 
-<!-- ## Computing time and object size -->
+## Computing time and object size
 
-<!-- ### Restricted versus unrestricted -->
+### Overall number of models
 
-<!-- ### Overall number of models -->
+For a given type of specification (lags, number of variables, restriction) does computing time increases linearly with the number of specifications? (or, equivalently given lags and restrictions, with the number of variable combinations). We expect that model fitting will be straightforward to extrapolate, but cross validation may present some variance, depending on the the proportion of specifications that pass all the tests before cross validation. To make things more expedite, we will use unrestricted models
 
-<!-- ### Size 3 versus size 4 -->
+```{r smallmidbig unrest}
+specifications_size_3_17_u <- specifications_size_3_big_u[1:17, ] 
+specifications_size_3_170_u <- specifications_size_3_big_u[1:170, ] 
+specifications_size_3_1700_u <- specifications_size_3_big_u[1:1700, ]
+
+tic()
+f17 <- fit_tests_models_table(specifications_size_3_17_u, var_data = var_data)
+t17 <- toc()
+
+tic()
+f170 <- fit_tests_models_table(specifications_size_3_170_u, var_data = var_data)
+t170 <- toc()
+
+tic()
+f1700 <- fit_tests_models_table(specifications_size_3_1700_u, var_data = var_data)
+t1700 <- toc()
+
+t170_17 <- (t170$toc - t170$tic)/(t17$toc - t17$tic)
+t1700_170 <- (t1700$toc - t1700$tic)/(t170$toc - t170$tic)
+
+t170_17
+t1700_170
+
+
+
+
+```
+
+
+
+### Restricted versus unrestricted
+
+
+### Size 3 versus size 4
 
 <!-- ```{r ftmt_size_3_smb} -->
 
