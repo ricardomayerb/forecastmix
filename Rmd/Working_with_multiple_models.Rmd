@@ -116,10 +116,21 @@ To expede wthing up in this document we will restrict oour attention to size-3 V
 
 
 ```{r tuplesofvbls}
+
 var_size <- 3 
 all_variables <- colnames(var_data)
 target_variable <- "rgdp"
 non_target_fixed <- c("")
+
+
+# 1742
+tic()
+specifications_size_3_big_u <- all_specifications(
+  var_size = 3, all_variables = colnames(var_data),
+  lag_choices = c(3,4,5), use_info_lags = TRUE,
+  var_data = var_data, t_thresholds = 0)
+toc()
+
 
 # 1742
 tic()
@@ -159,10 +170,13 @@ toc()
 ```
 
 ### Select a subset of specification for expediency in this document
-```{r}
+```{r s3smmd}
 
 specifications_size_3_small <- specifications_size_3_big[1:17, ] 
 specifications_size_3_medium <- specifications_size_3_big[1:170, ] 
+
+specifications_size_3_small_u <- specifications_size_3_big_u[1:17, ] 
+specifications_size_3_medium_u <- specifications_size_3_big_u[1:170, ] 
 
 specifications_size_4_small <- specifications_size_4_big[1:17, ] 
 specifications_size_4_medium <- specifications_size_4_big[1:170, ] 
@@ -174,9 +188,15 @@ specifications_size_4_medium <- specifications_size_4_big[1:170, ]
 
 ```{r  passing_models_size3small}
 ftmt_size_3_small <- fit_tests_models_table(specifications_size_3_small, var_data = var_data)
-
 pm_size_3_small <- ftmt_size_3_small[["passing_models"]]
 print(head(pm_size_3_small))
+
+ftmt_size_3_small_u <- fit_tests_models_table(specifications_size_3_small_u, var_data = var_data)
+pm_size_3_small_u <- ftmt_size_3_small_u[["passing_models"]]
+print(head(pm_size_3_small_u))
+
+ftmt_size_3_medium_u <- fit_tests_models_table(specifications_size_3_medium_u, var_data = var_data)
+pm_size_3_medium_u <- ftmt_size_3_medium_u[["passing_models"]]
 
 ftmt_size_3_medium <- fit_tests_models_table(specifications_size_3_medium, var_data = var_data)
 pm_size_3_medium <- ftmt_size_3_medium[["passing_models"]]

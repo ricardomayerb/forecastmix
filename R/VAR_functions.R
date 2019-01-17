@@ -892,64 +892,40 @@ fit_tests_models_table <- function(models_tbl,
                                    names_exogenous = c(""),
                                    exo_lag = NULL) {
   
-  t_thresholds <- pluck(models_tbl, "t_threshold")
+  models_tbl <- models_tbl %>% 
+    mutate(is_unrestricted = map_lgl(t_threshold, 
+                                     ~ length(.) == 1 & (all(. == 0) )
+                                     ))
+
+  n_pure_unrestricted <- sum(models_tbl$is_unrestricted)
+  n_pure_restricted <- length(unlist(
+    models_tbl$t_threshold[!models_tbl$is_unrestricted]))
+  n_auxiliar_unrestricted <- sum(!(models_tbl$is_unrestricted))
+
+  n_models_to_fit <- n_pure_unrestricted + n_pure_restricted + n_auxiliar_unrestricted
   
-  bt_thresholds_len1 <- map_dbl(t_thresholds, length) == 1
-  bt_thresholds_0 <- t_thresholds == 0
-  bt_thresholds_f <- t_thresholds == FALSE
-  bt_thresholds_0_f <- bt_thresholds_0 | bt_thresholds_f
-  bt_thresholds_0_f_len1 <- bt_thresholds_len1 & bt_thresholds_0_f
-  bt_thresholds_r <- !bt_thresholds_0_f_len1
-  
-  t_thresholds_unr <- t_thresholds[bt_thresholds_0_f]
-  t_thresholds_r <- t_thresholds[bt_thresholds_r]
-  
-  print(t_thresholds)
-  print(bt_thresholds_len1)
-  print(bt_thresholds_0)
-  print(bt_thresholds_f)
-  print(bt_thresholds_0_f)
-  print(t_thresholds_unr)
-  print(t_thresholds_r)
-  
-  
-  if(length(t_thresholds) == 1) {
-    if(t_thresholds == 0 | !t_thresholds | is.null(t_thresholds)){
-      is_unrestricted <- TRUE
-    } else {
-      is_unrestricted <- FALSE
-    }
-  } else {
-    is_unrestricted <- FALSE
-  }   
-  
-  
-  if (is_unrestricted) {
-    n_thresholds <- 1
-    n_trest <- 0
-  } else 
-  {
-    n_trest <- length(t_thresholds)
-    n_thresholds <- 1 + n_trest
-  }
-  
-  n_models_to_fit <- nrow(models_tbl)*n_thresholds
-  n_restricted_models_to_fit <- nrow(models_tbl)*n_trest
-  
+  print(paste0("Number of intended unrestricted models to fit: ", n_pure_unrestricted))
+  print(paste0("Number of restricted models to fit: ", n_pure_restricted))
+  print(paste0("Number of auxiliar unrestricted models to fit: ", n_auxiliar_unrestricted))
   print(paste0("Total number of models to fit: ", n_models_to_fit))
-  print(paste0("Number of unrestricted models to fit: ", nrow(models_tbl)))
-  print(paste0("Number of restricted models to fit: ", n_restricted_models_to_fit))
   
   models_tbl <- models_tbl %>% 
     mutate(fit = pmap(list(variables, lags, t_threshold),
-                      ~ fit_VAR_rest(var_data, variables = ..1, p = ..2, t_thresh = ..3))
-    ) 
-  if(!is_unrestricted) {
-    models_tbl <- models_tbl %>%
-      dplyr::select(-t_threshold) %>%
+                      ~ fit_VAR_rest(var_data, variables = ..1, 
+                                     p = ..2, t_thresh = ..3)))
+  
+  models_tbl_pure_unrestricted <- models_tbl %>% filter(is_unrestricted)
+  
+  models_tbl <- models_tbl %>% filter(!is_unrestricted)
+  
+  if (n_pure_restricted > 0) {
+    models_tbl <- models_tbl  %>% 
+      dplyr::select(-t_threshold) %>% 
       unnest(fit, .drop = FALSE)
   }
   
+  models_tbl <- rbind(models_tbl, models_tbl_pure_unrestricted)
+
   table_of_tried_specifications <- models_tbl %>% dplyr::select(-fit) %>% 
     mutate(model_name = pmap(list(variables, lags, t_threshold), 
                              ~ make_model_name(variables = ..1, 
@@ -958,8 +934,7 @@ fit_tests_models_table <- function(models_tbl,
     )
   
   n_before_varestfilter <- nrow(models_tbl)
-  
-  
+
   if (do_tests) {
     print("doing tests")
     
@@ -1008,7 +983,7 @@ fit_tests_models_table <- function(models_tbl,
     
   } else {
     print(paste0("Number of models to be (ts)cross-validated or forecasted: ", n_before_varestfilter))
-    if(!keep_fit) {
+    if (!keep_fit) {
       models_tbl <- models_tbl %>% dplyr::select(-fit)
     }
     
@@ -1274,7 +1249,7 @@ forecast_var_from_model_tbl <- function(models_tbl,
     print(models_tbl)
   }
   
-  
+
   starting_names <- names(models_tbl)
   # print("starting_names in forecasts var from")
   # print(starting_names)
@@ -1297,6 +1272,8 @@ forecast_var_from_model_tbl <- function(models_tbl,
   if (is.null(fit_column)) {
     
     print("There is no column with fit varest objects, so we will estimate all VARs now")
+    print("pre rubvwecd")
+    print(models_tbl)
     ftmt <- fit_tests_models_table(models_tbl = models_tbl, var_data = var_data,
                                   do_tests = do_tests)
     models_tbl <- ftmt[["passing_models"]]
@@ -1313,6 +1290,18 @@ forecast_var_from_model_tbl <- function(models_tbl,
                                                        t_threshold = ..3))
         )
       
+      models_rest_unnest <- semi_join(models_rest_unnest, models_tbl, by = "short_name")
+      
+      # print("models_rest_unnest")
+      # print(models_rest_unnest)
+      
+      non_repeated_unrest <- anti_join(models_unrest, models_rest_unnest, 
+                                       by = "short_name")
+      
+      # print("non_repeated_unrest ")
+      # print(non_repeated_unrest )
+
+      models_tbl <- rbind(models_rest_unnest, non_repeated_unrest) 
       models_rest_unnest <- distinct(models_rest_unnest, short_name, .keep_all = TRUE)
       models_rest_unnest <- semi_join(models_rest_unnest, models_tbl, by = "short_name")
 
@@ -1320,7 +1309,6 @@ forecast_var_from_model_tbl <- function(models_tbl,
                                        by = "short_name")
       
       models_tbl <- rbind(models_rest_unnest, non_repeated_unrest) 
-
     } else {
       models_tbl <- models_tbl %>% 
         dplyr::select(-t_threshold) %>% 
