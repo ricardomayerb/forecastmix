@@ -302,12 +302,12 @@ moo <-  forecast_var_from_model_tbl(
 
 fc_s3_small_wavg <- moo$fcs_wavg
 
-
 moo <-  forecast_var_from_model_tbl(
   rank_filtered_models, var_data, fc_horizon, 
   target_transform = target_transform,
   target_level_ts = target_level_ts, do_tests = FALSE,
-  both_rest_unrest = TRUE, do_rmse_average = TRUE, max_rank_h = 5, filter_by_rank = TRUE) 
+  both_rest_unrest = TRUE, do_rmse_average = TRUE, max_rank_h = 5, 
+  filter_by_rank = TRUE) 
 
 ```
 
