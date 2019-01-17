@@ -898,8 +898,8 @@ fit_tests_models_table <- function(models_tbl,
                                      ~ length(.) == 1 & (all(. == 0) )
                                      ))
   
-  print("first models_tbls")
-  print(models_tbl)
+  # print("first models_tbls")
+  # print(models_tbl)
   
   premod_rest <- models_tbl %>% filter(!is_unrestricted)
   
@@ -910,13 +910,13 @@ fit_tests_models_table <- function(models_tbl,
    
     
   
-  print("premod_rest")
-  print(premod_rest)
+  # print("premod_rest")
+  # print(premod_rest)
   
   premod_unrest <- models_tbl %>% filter(is_unrestricted)
   
-  print("premod_unrest")
-  print(premod_unrest)
+  # print("premod_unrest")
+  # print(premod_unrest)
   
   premod <- rbind(premod_rest, premod_unrest) %>% 
     mutate(short_name = pmap(list(variables, lags, t_threshold), 
@@ -925,8 +925,8 @@ fit_tests_models_table <- function(models_tbl,
                                                t_threshold = ..3)),
            short_name = unlist(short_name))
   
-  print("premod")
-  print(premod)
+  # print("premod")
+  # print(premod)
   
   original_short_names <- dplyr::select(premod, short_name)
 
@@ -966,11 +966,11 @@ fit_tests_models_table <- function(models_tbl,
 
   models_tbl <- models_tbl %>% filter(!is_unrestricted)
 
- print("models_tbl_pure_unrestricted")
- print(models_tbl_pure_unrestricted)
- 
- print("models_tbl already restricted")
- print(models_tbl)
+ # print("models_tbl_pure_unrestricted")
+ # print(models_tbl_pure_unrestricted)
+ # 
+ # print("models_tbl already restricted")
+ # print(models_tbl)
  
  
   if (n_pure_restricted > 0) {
@@ -994,27 +994,27 @@ fit_tests_models_table <- function(models_tbl,
                                        )
              )
     
-    print("restricted models_tbl")
-    print(models_tbl)
-    
-    print("original_short_names")
-    print(original_short_names)
+    # print("restricted models_tbl")
+    # print(models_tbl)
+    # 
+    # print("original_short_names")
+    # print(original_short_names)
     
     auxiliary_also_original <-  models_tbl %>% 
       filter(is_auxiliary) %>% 
       semi_join(original_short_names, by = "short_name") %>% 
       dplyr::select(-is_auxiliary)
     
-    print("auxiliary_also_original")
-    print(auxiliary_also_original)
+    # print("auxiliary_also_original")
+    # print(auxiliary_also_original)
     
     auxiliary_but_not_original <-  models_tbl %>% 
       filter(is_auxiliary) %>% 
       anti_join(original_short_names, by = "short_name") %>% 
       dplyr::select(-is_auxiliary)
     
-    print("auxiliary_but_not_original")
-    print(auxiliary_but_not_original)
+    # print("auxiliary_but_not_original")
+    # print(auxiliary_but_not_original)
     
     models_tbl <- models_tbl  %>% filter(!is_auxiliary) %>% 
       dplyr::select(-is_auxiliary)
@@ -1024,11 +1024,11 @@ fit_tests_models_table <- function(models_tbl,
     auxiliary_also_original <- models_tbl
   }
   
-  print("dwcssdc")
-  print("auxiliary_but_not_original")
-  print(auxiliary_but_not_original)
-  print("auxiliary_also_original")
-  print(auxiliary_also_original)
+  # print("dwcssdc")
+  # print("auxiliary_but_not_original")
+  # print(auxiliary_but_not_original)
+  # print("auxiliary_also_original")
+  # print(auxiliary_also_original)
   
   
   if (n_pure_unrestricted > 0) {
@@ -1067,8 +1067,8 @@ fit_tests_models_table <- function(models_tbl,
       distinct(short_name, .keep_all = TRUE)
   }
   
-  print("models ready for testing")
-  print(models_tbl)
+  # print("models ready for testing")
+  # print(models_tbl)
   
   
   # print("after rbind models tbl and distinct")
@@ -1491,11 +1491,11 @@ forecast_var_from_model_tbl <- function(models_tbl,
       group_by(rmse_h) %>% 
       mutate(rank_h = rank(rmse)) 
     
-    print("models_tbl")
-    print(models_tbl)
-
-    print("max_rank_h")
-    print(max_rank_h)
+    # print("models_tbl")
+    # print(models_tbl)
+    # 
+    # print("max_rank_h")
+    # print(max_rank_h)
     
     models_tbl <- models_tbl %>% 
       filter(rank_h <= max_rank_h) %>% 

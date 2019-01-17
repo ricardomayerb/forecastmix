@@ -58,12 +58,12 @@ Given a data set with stationary variables, obteined in the previous section, a 
   - a restriction over coefficients: none or, as we will see, setting our threshold to zero. 
 
 ```{r inital_var_specification}
-subset_of_variables <- c("rgdp", "imp_intermediate", "rpc")
-var_data <- all_data_for_VAR_estimation[, subset_of_variables]
-var_data <- na.omit(var_data)
+this_subset_of_variables <- c("rgdp", "imp_intermediate", "rpc")
+this_var_data <- all_data_for_VAR_estimation[, this_subset_of_variables]
+this_var_data <- na.omit(this_var_data)
 this_lag <- 4
 
-var_fit <- vars::VAR(y = var_data, p = this_lag, type = "const")
+var_fit <- vars::VAR(y = this_var_data, p = this_lag, type = "const")
 ```
 
 ### Proposing lag values
@@ -73,13 +73,23 @@ c(3,5,6) or use some information-based criteria or add both approaches.
 The function lags_for_var, in this package, helps us to do just that. If we only specify manual values it will simply return the same value or vector, but if we chose "info" or "add_info_based_lags = TRUE" it will compute Akaike, Bayesian, SC and FPE criteria and choose the optimal lag for each of them, eliminate repeated values and return the resultig vector or its union with a manually specified vector of lags.
 
 ```{r proposing lags}
-manual_single <- lags_for_var(vec_lags = 5, max_p_for_estimation = 9, endodata = var_data)
+manual_single <- lags_for_var(var_data = this_var_data, vec_lags = 5, 
+                              max_p_for_estimation = 9, 
+                              variables = this_subset_of_variables)
 
-manual_multiple <- lags_for_var(vec_lags = c(5, 7), max_p_for_estimation = 9, endodata = var_data)
+manual_multiple <- lags_for_var(var_data = this_var_data, vec_lags = c(5, 7), 
+                                max_p_for_estimation = 9, 
+                                variables = this_subset_of_variables)
 
-info_based <- lags_for_var(vec_lags = "info", max_p_for_estimation = 9, endodata = var_data, ret_info_results = TRUE)
+info_based <- lags_for_var(var_data = this_var_data, vec_lags = "info",
+                           max_p_for_estimation = 9, 
+                           variables = this_subset_of_variables, 
+                           ret_info_results = TRUE)
 
-manual_and_info <- lags_for_var(vec_lags = c(5, 7), add_info_based_lags = TRUE, max_p_for_estimation = 9, endodata = var_data)
+manual_and_info <- lags_for_var(var_data = this_var_data, vec_lags = c(5, 7),
+                                add_info_based_lags = TRUE,
+                                max_p_for_estimation = 9, 
+                                variables = this_subset_of_variables)
 
 print(manual_single)
 print(manual_multiple)
@@ -89,7 +99,7 @@ print(manual_and_info)
 In this case, the Akaike statistic is minimized at nine lags, the Schwartz statistic at one lag and both the prediction error and hanna-quinn statistics are minimized at 4 lags. In principle, we could try all values from 1 to 9 or even higher, but, besides the costs of extra computatons a note of caution is due: unrestricted VARs tend to increase the number of coeffcients very rapidly with the maximum value of lags and given that some our data matrices can be relative short we should be wary of lag-happy specifications. For instance, the following code will estimates all VARs using from 1 to 12 lags and report to us the degrees of freedom of the residuals for each lag choice:
 
 ```{r}
-var_fit_1_to_13 <-  map(1:13, ~ vars::VAR(y = var_data, p = . , type = "const"))
+var_fit_1_to_13 <-  map(1:13, ~ vars::VAR(y = this_var_data, p = . , type = "const"))
 
 df_1_to_13 <- map_dbl(var_fit_1_to_13, c("varresult", "rgdp", "df.residual"))
 names(df_1_to_13) <- 1:13
@@ -103,10 +113,10 @@ And for further ilustration, here is the same count of degrees of freedom if we 
 
 
 ```{r avar5, echo=FALSE}
-var_data_5 <- na.omit(all_data_for_VAR_estimation[, 
+this_var_data_5 <- na.omit(all_data_for_VAR_estimation[, 
                         c("rgdp", "imp_intermediate", "rpc", "fbcf", "m2")])
 
-var_fit_1_to_13_var5 <-  map(1:13, ~ vars::VAR(y = var_data_5, p = . , type = "const"))
+var_fit_1_to_13_var5 <-  map(1:13, ~ vars::VAR(y = this_var_data_5, p = . , type = "const"))
 
 df_1_to_13_var5 <- map_dbl(var_fit_1_to_13_var5, c("varresult", "rgdp", "df.residual"))
 names(df_1_to_13_var5) <- 1:13
@@ -130,7 +140,7 @@ The proliferation of parameters induced by choosig more variables or longer lags
 
 ```{r some_tests}
 # unrestrcited
-var_fit_u <- vars::VAR(y = var_data, p = this_lag , type = "const")
+var_fit_u <- vars::VAR(y = this_var_data, p = this_lag , type = "const")
 
 # restricted: all coeficients from var_fit_u with t-statictics less than 1.65 are set to zero
 var_fit_r_165 <- restrict(var_fit_u, method = "ser", thresh = 1.65)
