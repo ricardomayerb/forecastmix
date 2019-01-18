@@ -175,6 +175,8 @@ toc()
 specifications_size_3_small <- specifications_size_3_big[1:17, ] 
 specifications_size_3_medium <- specifications_size_3_big[1:170, ] 
 
+specifications_size_3_small_u <- specifications_size_3_big_u[1:17, ] 
+specifications_size_3_medium_u <- specifications_size_3_big_u[1:170, ] 
 
 specifications_size_4_small <- specifications_size_4_big[1:17, ] 
 specifications_size_4_medium <- specifications_size_4_big[1:170, ] 
