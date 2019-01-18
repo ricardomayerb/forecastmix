@@ -125,46 +125,38 @@ non_target_fixed <- c("")
 
 # 1742
 tic()
-specifications_size_3_big_u <- all_specifications(
+specifications_size_3_all_u <- all_specifications(
   var_size = 3, all_variables = colnames(var_data),
   lag_choices = c(3,4,5), use_info_lags = TRUE,
   var_data = var_data, t_thresholds = 0)
 toc()
 
+# 1742
+tic()
+specifications_size_3_all_u_noinfolags <- all_specifications(
+  var_size = 3, all_variables = colnames(var_data),
+  lag_choices = c(3,4,5), use_info_lags = FALSE,
+  var_data = var_data, t_thresholds = 0)
+toc()
 
 # 1742
 tic()
-specifications_size_3_big <- all_specifications(
+specifications_size_3_all <- all_specifications(
   var_size = 3, all_variables = colnames(var_data),
   lag_choices = c(3,4,5), use_info_lags = TRUE,
   var_data = var_data, t_thresholds = c(1.65, 2))
 toc()
 
 
-# 14933
-tic()
-specifications_size_4_big <- all_specifications(
-  var_size = 4, all_variables = colnames(var_data), 
-  lag_choices = c(3,4,5), use_info_lags = TRUE, 
-  var_data = var_data, t_thresholds = c(1.65, 2), silent = TRUE)
-toc()
-
 
 # 1305
 tic()
-specifications_size_3_big_noinfolag <- all_specifications(
+specifications_size_3_all_noinfolag <- all_specifications(
   var_size = 3, all_variables = colnames(var_data), 
   lag_choices = c(3,4,5), use_info_lags = FALSE, 
   var_data = var_data, t_thresholds = c(1.65, 2))
 toc()
 
-# 12180
-tic()
-specifications_big_noinfolags_size4 <- all_specifications(
-  var_size = 4, all_variables = colnames(var_data), 
-  lag_choices = c(3,4,5), use_info_lags = FALSE, 
-  var_data = var_data, t_thresholds = c(1.65, 2))
-toc()
 
 
 ```
@@ -172,14 +164,14 @@ toc()
 ### Select a subset of specification for expediency in this document
 ```{r s3smmd}
 
-specifications_size_3_small <- specifications_size_3_big[1:17, ] 
-specifications_size_3_medium <- specifications_size_3_big[1:170, ] 
+specifications_size_3_17 <- specifications_size_3_all[1:17, ] 
+specifications_size_3_170 <- specifications_size_3_all[1:170, ] 
 
-specifications_size_3_small_u <- specifications_size_3_big_u[1:17, ] 
-specifications_size_3_medium_u <- specifications_size_3_big_u[1:170, ] 
+specifications_size_3_17_u <- specifications_size_3_all_u[1:17, ] 
+specifications_size_3_170_u <- specifications_size_3_all_u[1:170, ] 
 
-specifications_size_4_small <- specifications_size_4_big[1:17, ] 
-specifications_size_4_medium <- specifications_size_4_big[1:170, ] 
+specifications_size_4_17 <- specifications_size_4_all[1:17, ] 
+specifications_size_4_170 <- specifications_size_4_all[1:170, ] 
 
 ```
 
@@ -187,19 +179,19 @@ specifications_size_4_medium <- specifications_size_4_big[1:170, ]
 ## Fit all specifications and keep only acceptable ones
 
 ```{r  passing_models_size3small}
-ftmt_size_3_small <- fit_tests_models_table(specifications_size_3_small, var_data = var_data)
-pm_size_3_small <- ftmt_size_3_small[["passing_models"]]
-print(head(pm_size_3_small))
+ftmt_size_3_17 <- fit_tests_models_table(specifications_size_3_17, var_data = var_data)
+pm_size_3_17 <- ftmt_size_3_17[["passing_models"]]
+print(head(pm_size_3_17))
 
-ftmt_size_3_small_u <- fit_tests_models_table(specifications_size_3_small_u, var_data = var_data)
-pm_size_3_small_u <- ftmt_size_3_small_u[["passing_models"]]
-print(head(pm_size_3_small_u))
+ftmt_size_3_17_u <- fit_tests_models_table(specifications_size_3_17_u, var_data = var_data)
+pm_size_3_17_u <- ftmt_size_3_17_u[["passing_models"]]
+print(head(pm_size_3_17_u))
 
-ftmt_size_3_medium_u <- fit_tests_models_table(specifications_size_3_medium_u, var_data = var_data)
-pm_size_3_medium_u <- ftmt_size_3_medium_u[["passing_models"]]
+ftmt_size_3_170_u <- fit_tests_models_table(specifications_size_3_170_u, var_data = var_data)
+pm_size_3_170_u <- ftmt_size_3_170_u[["passing_models"]]
 
-ftmt_size_3_medium <- fit_tests_models_table(specifications_size_3_medium, var_data = var_data)
-pm_size_3_medium <- ftmt_size_3_medium[["passing_models"]]
+ftmt_size_3_170 <- fit_tests_models_table(specifications_size_3_170, var_data = var_data)
+pm_size_3_170 <- ftmt_size_3_170[["passing_models"]]
 
 # ftmt_size_3_big <- fit_tests_models_table(specifications_size_3_big, var_data = var_data)
 # pm_size_3_big <- ftmt_size_3_big[["passing_models"]]
@@ -219,10 +211,10 @@ target_transform <- target_transformation
 target_level_ts <- na.omit(raw_data[, target_variable])
 
 tic()
-cv_size_3_small <- cv_var_from_model_tbl(h = fc_horizon,
+cv_size_3_17 <- cv_var_from_model_tbl(h = fc_horizon,
                              training_length = training_length, 
                              n_cv = n_cv,
-                             models_tbl = pm_size_3_small, 
+                             models_tbl = pm_size_3_17, 
                              var_data = var_data, 
                              fit_column = "fit", 
                              target_transform = target_transform,
@@ -231,10 +223,10 @@ cv_size_3_small <- cv_var_from_model_tbl(h = fc_horizon,
 toc()
 
 tic()
-cv_size_3_medium <- cv_var_from_model_tbl(h = fc_horizon,
+cv_size_3_170 <- cv_var_from_model_tbl(h = fc_horizon,
                              training_length = training_length, 
                              n_cv = n_cv,
-                             models_tbl = pm_size_3_medium, 
+                             models_tbl = pm_size_3_170, 
                              var_data = var_data, 
                              fit_column = "fit", 
                              target_transform = target_transform,
@@ -271,7 +263,7 @@ toc()
 
 max_rank_h <- 5
 
-surviving_names <- cv_size_3_small %>% 
+surviving_names <- cv_size_3_17 %>% 
   gather(key = "rmse_h", value = "rmse", 
          vars_select(names(.), starts_with("rmse"))) %>% 
   group_by(rmse_h) %>% 
@@ -281,10 +273,10 @@ surviving_names <- cv_size_3_small %>%
   dplyr::select(short_name) %>% 
   distinct()
 
-rank_filtered_models <- semi_join(cv_size_3_small, surviving_names, by = "short_name")
+rank_filtered_models <- semi_join(cv_size_3_17, surviving_names, by = "short_name")
 
 # use all models
-fc_s3_small <- forecast_var_from_model_tbl(
+fc_s3_17 <- forecast_var_from_model_tbl(
   rank_filtered_models, var_data, fc_horizon, 
   target_transform = target_transform,
   target_level_ts = target_level_ts, do_tests = FALSE, 
@@ -293,7 +285,7 @@ fc_s3_small <- forecast_var_from_model_tbl(
 do_rmse_average <- TRUE
 
 if (do_rmse_average) {
-  fcs_and_weights <- fc_s3_small %>% 
+  fcs_and_weights <- fc_s3_17 %>% 
   gather(key = rmse_h, value = rmse, vars_select(names(.), starts_with("rmse"))) %>% 
   group_by(rmse_h) %>% 
   mutate(rank_h = rank(rmse)) %>% 
@@ -334,44 +326,409 @@ moo <-  forecast_var_from_model_tbl(
 
 ## Computing time and object size
 
+
+### Specifications to test
+
+```{r spec_for_timings}
+
+
+tic()
+specifications_size_4_all_u_noinfolags <- all_specifications(
+  var_size = 4, all_variables = colnames(var_data), 
+  lag_choices = c(3,4,5), use_info_lags = FALSE, 
+  var_data = var_data, t_thresholds = 0, silent = TRUE)
+toc()
+
+tic()
+specifications_size_5_all_u_noinfolags <- all_specifications(
+  var_size = 5, all_variables = colnames(var_data), 
+  lag_choices = c(3,4,5), use_info_lags = FALSE, 
+  var_data = var_data, t_thresholds = 0, silent = TRUE)
+toc()
+
+
+
+specifications_size_3_20_u_nil <- specifications_size_3_all_u_noinfolags[1:20, ] 
+specifications_size_3_100_u_nil <- specifications_size_3_all_u_noinfolags[1:100, ] 
+specifications_size_3_1000_u_nil <- specifications_size_3_all_u_noinfolags[1:1000, ] 
+
+specifications_size_4_20_u_nil <- specifications_size_4_all_u_noinfolags[1:20, ] 
+specifications_size_4_100_u_nil <- specifications_size_4_all_u_noinfolags[1:100, ] 
+specifications_size_4_1000_u_nil <- specifications_size_4_all_u_noinfolags[1:1000, ] 
+specifications_size_4_2000_u_nil <- specifications_size_4_all_u_noinfolags[1:2000, ] 
+specifications_size_4_3000_u_nil <- specifications_size_4_all_u_noinfolags[1:3000, ] 
+
+specifications_size_5_20_u_nil <- specifications_size_5_all_u_noinfolags[1:20, ] 
+specifications_size_5_100_u_nil <- specifications_size_5_all_u_noinfolags[1:100, ] 
+specifications_size_5_1000_u_nil <- specifications_size_5_all_u_noinfolags[1:1000, ] 
+specifications_size_5_2000_u_nil <- specifications_size_5_all_u_noinfolags[1:2000, ] 
+specifications_size_5_3000_u_nil <- specifications_size_5_all_u_noinfolags[1:3000, ] 
+
+```
+
 ### Overall number of models
 
 For a given type of specification (lags, number of variables, restriction) does computing time increases linearly with the number of specifications? (or, equivalently given lags and restrictions, with the number of variable combinations). We expect that model fitting will be straightforward to extrapolate, but cross validation may present some variance, depending on the the proportion of specifications that pass all the tests before cross validation. To make things more expedite, we will use unrestricted models
 
-```{r smallmidbig unrest}
-specifications_size_3_17_u <- specifications_size_3_big_u[1:17, ] 
-specifications_size_3_170_u <- specifications_size_3_big_u[1:170, ] 
-specifications_size_3_1700_u <- specifications_size_3_big_u[1:1700, ]
+```{r smallmidbig_unrest_fit}
+tic()
+f20_u <- fit_tests_models_table(specifications_size_3_20_u_nil, var_data = var_data)
+t20_u <- toc()
 
 tic()
-f17 <- fit_tests_models_table(specifications_size_3_17_u, var_data = var_data)
-t17 <- toc()
+f100_u <- fit_tests_models_table(specifications_size_3_100_u_nil, var_data = var_data)
+t100_u <- toc()
 
 tic()
-f170 <- fit_tests_models_table(specifications_size_3_170_u, var_data = var_data)
-t170 <- toc()
+f1000_u <- fit_tests_models_table(specifications_size_3_1000_u_nil, var_data = var_data)
+t1000_u <- toc()
+
+t100_20_u <- (t100_u$toc - t100_u$tic)/(t20_u$toc - t20_u$tic)
+t1000_20_u <- (t1000_u$toc - t1000_u$tic)/(t20_u$toc - t20_u$tic)
+t1000_100_u <- (t1000_u$toc - t1000_u$tic)/(t100_u$toc - t100_u$tic)
+
+t100_20_u
+t1000_20_u
+t1000_100_u
+
+```
+
+
+```{r r smallmidbig_unrest_cv}
+tic()
+# 9 spec for cv
+cv_size_3_20_u <- cv_var_from_model_tbl(h = fc_horizon,
+                             training_length = training_length, 
+                             n_cv = n_cv,
+                             models_tbl = f20_u$passing_models, 
+                             var_data = var_data, 
+                             fit_column = "fit", 
+                             target_transform = target_transform,
+                             target_level_ts = target_level_ts,
+                             )
+tcv20_u <- toc()
 
 tic()
-f1700 <- fit_tests_models_table(specifications_size_3_1700_u, var_data = var_data)
-t1700 <- toc()
+# 143 spec for cv (15.9 times the 20_u spec), (a single timing yielded 12x)
+cv_size_3_100_u <- cv_var_from_model_tbl(h = fc_horizon,
+                             training_length = training_length, 
+                             n_cv = n_cv,
+                             models_tbl = f100_u$passing_models, 
+                             var_data = var_data, 
+                             fit_column = "fit", 
+                             target_transform = target_transform,
+                             target_level_ts = target_level_ts,
+                             )
+tcv100_u <- toc()
 
-t170_17 <- (t170$toc - t170$tic)/(t17$toc - t17$tic)
-t1700_170 <- (t1700$toc - t1700$tic)/(t170$toc - t170$tic)
+tic()
+# 1260 spec for cv (8.8 times the 20_u spec), (a single timing yielded 12x)
+cv_size_3_1000_u <- cv_var_from_model_tbl(h = fc_horizon,
+                             training_length = training_length, 
+                             n_cv = n_cv,
+                             models_tbl = f1000_u$passing_models, 
+                             var_data = var_data, 
+                             fit_column = "fit", 
+                             target_transform = target_transform,
+                             target_level_ts = target_level_ts,
+                             )
+tcv1000_u <- toc()
 
-t170_17
-t1700_170
+tcv100_20_u <- (tcv100_u$toc - tcv100_u$tic)/(tcv20_u$toc - tcv20_u$tic)
+tcv1000_20_u <- (tcv1000_u$toc - tcv1000_u$tic)/(tcv20_u$toc - tcv20_u$tic)
+tcv1000_100_u <- (tcv1000_u$toc - tcv1000_u$tic)/(tcv100_u$toc - tcv100_u$tic)
+
+tcv100_20_u
+tcv1000_20_u
+tcv1000_100_u
+
+```
+
+### Size 3 versus sizes 4 and 5 
+
+```{r compare_sizes_3_and_4_fit}
+
+tic()
+f20_u_s4 <- fit_tests_models_table(specifications_size_4_20_u_nil, var_data = var_data)
+t20_u_s4 <- toc()
+
+tic()
+f100_u_s4 <- fit_tests_models_table(specifications_size_4_100_u_nil, var_data = var_data)
+t100_u_s4 <- toc()
+
+tic()
+f1000_u_s4 <- fit_tests_models_table(specifications_size_4_1000_u_nil, var_data = var_data)
+t1000_u_s4 <- toc()
+
+tic()
+f2000_u_s4 <- fit_tests_models_table(specifications_size_4_2000_u_nil, var_data = var_data)
+t2000_u_s4 <- toc()
+
+tic()
+f3000_u_s4 <- fit_tests_models_table(specifications_size_4_3000_u_nil, var_data = var_data)
+t3000_u_s4 <- toc()
 
 
+t100_20_u_s4 <- (t100_u_s4$toc - t100_u_s4$tic)/(t20_u_s4$toc - t20_u_s4$tic)
+t1000_20_u_s4 <- (t1000_u_s4$toc - t1000_u_s4$tic)/(t20_u_s4$toc - t20_u_s4$tic)
+t1000_100_u_s4 <- (t1000_u_s4$toc - t1000_u_s4$tic)/(t100_u_s4$toc - t100_u_s4$tic)
+t2000_1000_u_s4 <- (t2000_u_s4$toc - t2000_u_s4$tic)/(t1000_u_s4$toc - t1000_u_s4$tic)
+t3000_1000_u_s4 <- (t3000_u_s4$toc - t3000_u_s4$tic)/(t1000_u_s4$toc - t1000_u_s4$tic)
+
+t100_20_u_s4
+t1000_20_u_s4
+t1000_100_u_s4
+t2000_1000_u_s4
+t3000_1000_u_s4
+
+# 20 specs , s3 vs s4
+t20_s4overs2 <- (t20_u_s4$toc - t20_u_s4$tic)/(t20_u$toc - t20_u$tic) 
+t100_s4overs2 <- (t100_u_s4$toc - t100_u_s4$tic)/(t100_u$toc - t100_u$tic) 
+t1000_s4overs2 <- (t1000_u_s4$toc - t1000_u_s4$tic)/(t1000_u$toc - t1000_u$tic) 
+
+t20_s4overs2 
+t100_s4overs2 
+t1000_s4overs2 
+```
+
+and cv
+
+```{r compare_sizes_3_and_4_cv}
+tic()
+# 11 spec for cv
+cv_size_4_20_u_s4 <- cv_var_from_model_tbl(h = fc_horizon,
+                             training_length = training_length, 
+                             n_cv = n_cv,
+                             models_tbl = f20_u_s4$passing_models, 
+                             var_data = var_data, 
+                             fit_column = "fit", 
+                             target_transform = target_transform,
+                             target_level_ts = target_level_ts,
+                             )
+tcv20_u_s4 <- toc()
+
+tic()
+# 79 spec for cv 
+cv_size_4_100_u_s4 <- cv_var_from_model_tbl(h = fc_horizon,
+                             training_length = training_length, 
+                             n_cv = n_cv,
+                             models_tbl = f100_u_s4$passing_models, 
+                             var_data = var_data, 
+                             fit_column = "fit", 
+                             target_transform = target_transform,
+                             target_level_ts = target_level_ts,
+                             )
+tcv100_u_s4 <- toc()
+
+tic()
+# 737 spec for cv (8.8 times the 20_u spec), (a single timing yielded 12x)
+cv_size_4_1000_u_s4 <- cv_var_from_model_tbl(h = fc_horizon,
+                             training_length = training_length, 
+                             n_cv = n_cv,
+                             models_tbl = f1000_u_s4$passing_models, 
+                             var_data = var_data, 
+                             fit_column = "fit", 
+                             target_transform = target_transform,
+                             target_level_ts = target_level_ts,
+                             )
+tcv1000_u_s4 <- toc()
 
 
+tic()
+# 1475 spec for cv (8.8 times the 20_u spec), (a single timing yielded 12x)
+cv_size_4_2000_u_s4 <- cv_var_from_model_tbl(h = fc_horizon,
+                             training_length = training_length, 
+                             n_cv = n_cv,
+                             models_tbl = f2000_u_s4$passing_models, 
+                             var_data = var_data, 
+                             fit_column = "fit", 
+                             target_transform = target_transform,
+                             target_level_ts = target_level_ts,
+                             )
+tcv2000_u_s4 <- toc()
+
+
+tic()
+# 2225 spec for cv (8.8 times the 20_u spec), (a single timing yielded 12x)
+cv_size_4_3000_u_s4 <- cv_var_from_model_tbl(h = fc_horizon,
+                             training_length = training_length, 
+                             n_cv = n_cv,
+                             models_tbl = f3000_u_s4$passing_models, 
+                             var_data = var_data, 
+                             fit_column = "fit", 
+                             target_transform = target_transform,
+                             target_level_ts = target_level_ts,
+                             )
+tcv3000_u_s4 <- toc()
+
+
+tcv100_20_u_s4 <- (tcv100_u_s4$toc - tcv100_u_s4$tic)/(tcv20_u_s4$toc - tcv20_u_s4$tic)
+tcv1000_20_u_s4 <- (tcv1000_u_s4$toc - tcv1000_u_s4$tic)/(tcv20_u_s4$toc - tcv20_u_s4$tic)
+tcv1000_100_u_s4 <- (tcv1000_u_s4$toc - tcv1000_u_s4$tic)/(tcv100_u_s4$toc - tcv100_u_s4$tic)
+tcv2000_1000_u_s4 <- (tcv2000_u_s4$toc - tcv2000_u_s4$tic)/(tcv1000_u_s4$toc - tcv1000_u_s4$tic)
+tcv3000_1000_u_s4 <- (tcv3000_u_s4$toc - tcv3000_u_s4$tic)/(tcv1000_u_s4$toc - tcv1000_u_s4$tic)
+
+tcv100_20_u_s4
+tcv1000_20_u_s4
+tcv1000_100_u_s4
+tcv2000_1000_u_s4
+tcv3000_1000_u_s4
+
+tcv20_s4overs3 <- (tcv20_u_s4$toc - tcv20_u_s4$tic)/(tcv20_u$toc - tcv20_u$tic) 
+tcv100_s4overs3 <- (tcv100_u_s4$toc - tcv100_u_s4$tic)/(tcv100_u$toc - tcv100_u$tic) 
+tcv1000_s4overs3 <- (tcv1000_u_s4$toc - tcv1000_u_s4$tic)/(tcv1000_u$toc - tcv1000_u$tic) 
+
+tcv20_s4overs3
+tcv100_s4overs3 
+tcv1000_s4overs3 
+
+
+```
+
+size 5 now
+
+
+```{r compare_sizes_3_and_5_fit}
+
+tic()
+f20_u_s5 <- fit_tests_models_table(specifications_size_5_20_u_nil, var_data = var_data)
+t20_u_s5 <- toc()
+
+tic()
+f100_u_s5 <- fit_tests_models_table(specifications_size_5_100_u_nil, var_data = var_data)
+t100_u_s5 <- toc()
+
+tic()
+f1000_u_s5 <- fit_tests_models_table(specifications_size_5_1000_u_nil, var_data = var_data)
+t1000_u_s5 <- toc()
+
+tic()
+f2000_u_s5 <- fit_tests_models_table(specifications_size_5_2000_u_nil, var_data = var_data)
+t2000_u_s5 <- toc()
+
+tic()
+f3000_u_s5 <- fit_tests_models_table(specifications_size_5_3000_u_nil, var_data = var_data)
+t3000_u_s5 <- toc()
+
+
+t100_20_u_s5 <- (t100_u_s5$toc - t100_u_s5$tic)/(t20_u_s5$toc - t20_u_s5$tic)
+t1000_20_u_s5 <- (t1000_u_s5$toc - t1000_u_s5$tic)/(t20_u_s5$toc - t20_u_s5$tic)
+t1000_100_u_s5 <- (t1000_u_s5$toc - t1000_u_s5$tic)/(t100_u_s5$toc - t100_u_s5$tic)
+t2000_1000_u_s5 <- (t2000_u_s5$toc - t2000_u_s5$tic)/(t1000_u_s5$toc - t1000_u_s5$tic)
+t3000_1000_u_s5 <- (t3000_u_s5$toc - t3000_u_s5$tic)/(t1000_u_s5$toc - t1000_u_s5$tic)
+
+t100_20_u_s5
+t1000_20_u_s5
+t1000_100_u_s5
+t2000_1000_u_s5
+t3000_1000_u_s5
+
+# 20 specs , s3 vs s5
+t20_s5overs3 <- (t20_u_s5$toc - t20_u_s5$tic)/(t20_u$toc - t20_u$tic) 
+t100_s5overs3 <- (t100_u_s5$toc - t100_u_s5$tic)/(t100_u$toc - t100_u$tic) 
+t1000_s5overs3 <- (t1000_u_s5$toc - t1000_u_s5$tic)/(t1000_u$toc - t1000_u$tic) 
+
+t20_s5overs3
+t100_s5overs3 
+t1000_s5overs3 
+```
+
+and cv
+
+```{r compare_sizes_3_and_5_cv}
+tic()
+# 11 spec for cv
+cv_size_5_20_u_s5 <- cv_var_from_model_tbl(h = fc_horizon,
+                             training_length = training_length, 
+                             n_cv = n_cv,
+                             models_tbl = f20_u_s5$passing_models, 
+                             var_data = var_data, 
+                             fit_column = "fit", 
+                             target_transform = target_transform,
+                             target_level_ts = target_level_ts,
+                             )
+tcv20_u_s5 <- toc()
+
+tic()
+# 79 spec for cv 
+cv_size_5_100_u_s5 <- cv_var_from_model_tbl(h = fc_horizon,
+                             training_length = training_length, 
+                             n_cv = n_cv,
+                             models_tbl = f100_u_s5$passing_models, 
+                             var_data = var_data, 
+                             fit_column = "fit", 
+                             target_transform = target_transform,
+                             target_level_ts = target_level_ts,
+                             )
+tcv100_u_s5 <- toc()
+
+tic()
+# 737 spec for cv (8.8 times the 20_u spec), (a single timing yielded 12x)
+cv_size_5_1000_u_s5 <- cv_var_from_model_tbl(h = fc_horizon,
+                             training_length = training_length, 
+                             n_cv = n_cv,
+                             models_tbl = f1000_u_s5$passing_models, 
+                             var_data = var_data, 
+                             fit_column = "fit", 
+                             target_transform = target_transform,
+                             target_level_ts = target_level_ts,
+                             )
+tcv1000_u_s5 <- toc()
+
+
+# tic()
+# # 1475 spec for cv (8.8 times the 20_u spec), (a single timing yielded 12x)
+# cv_size_5_2000_u_s5 <- cv_var_from_model_tbl(h = fc_horizon,
+#                              training_length = training_length, 
+#                              n_cv = n_cv,
+#                              models_tbl = f2000_u_s5$passing_models, 
+#                              var_data = var_data, 
+#                              fit_column = "fit", 
+#                              target_transform = target_transform,
+#                              target_level_ts = target_level_ts,
+#                              )
+# tcv2000_u_s5 <- toc()
+# 
+# 
+# tic()
+# # 2225 spec for cv (8.8 times the 20_u spec), (a single timing yielded 12x)
+# cv_size_5_3000_u_s5 <- cv_var_from_model_tbl(h = fc_horizon,
+#                              training_length = training_length, 
+#                              n_cv = n_cv,
+#                              models_tbl = f3000_u_s5$passing_models, 
+#                              var_data = var_data, 
+#                              fit_column = "fit", 
+#                              target_transform = target_transform,
+#                              target_level_ts = target_level_ts,
+#                              )
+# tcv3000_u_s5 <- toc()
+
+
+tcv100_20_u_s5 <- (tcv100_u_s5$toc - tcv100_u_s5$tic)/(tcv20_u_s5$toc - tcv20_u_s5$tic)
+tcv1000_20_u_s5 <- (tcv1000_u_s5$toc - tcv1000_u_s5$tic)/(tcv20_u_s5$toc - tcv20_u_s5$tic)
+tcv1000_100_u_s5 <- (tcv1000_u_s5$toc - tcv1000_u_s5$tic)/(tcv100_u_s5$toc - tcv100_u_s5$tic)
+# tcv2000_1000_u_s5 <- (tcv2000_u_s5$toc - tcv2000_u_s5$tic)/(tcv1000_u_s5$toc - tcv1000_u_s5$tic)
+# tcv3000_1000_u_s5 <- (tcv3000_u_s5$toc - tcv3000_u_s5$tic)/(tcv1000_u_s5$toc - tcv1000_u_s5$tic)
+
+tcv100_20_u_s5
+tcv1000_20_u_s5
+tcv1000_100_u_s5
+# tcv2000_1000_u_s5
+# tcv3000_1000_u_s5
+
+# 20 specs , s3 vs s5
+tcv20_s5overs3 <- (tcv20_u_s5$toc - tcv20_u_s5$tic)/(tcv20_u$toc - tcv20_u$tic) 
+tcv100_s5overs3 <- (tcv100_u_s5$toc - tcv100_u_s5$tic)/(tcv100_u$toc - tcv100_u$tic) 
+tcv1000_s5overs3 <- (tcv1000_u_s5$toc - tcv1000_u_s5$tic)/(tcv1000_u$toc - tcv1000_u$tic) 
+
+tcv20_s5overs3
+tcv100_s5overs3 
+tcv1000_s5overs3 
 ```
 
 
 
 ### Restricted versus unrestricted
-
-
-### Size 3 versus size 4
 
 <!-- ```{r ftmt_size_3_smb} -->
 

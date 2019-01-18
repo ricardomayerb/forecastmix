@@ -465,7 +465,8 @@ cv_var_from_model_tbl <- function(h, n_cv,
 
   
   print("Starting cv")
-
+  print(paste0("Number of specifications to cv: ", nrow(models_tbl)))
+  
   tic()
   models_tbl <-  models_tbl %>%
     mutate(cv_obj = pmap(list(fit, variables, lags, t_threshold),
@@ -829,9 +830,6 @@ estimate_var_from_model_tbl_old <- function(models_tbl,
   models_tbl <- models_tbl %>% 
         mutate(model_type = "VAR",
                )
-
-  
-
 
   
   if (!has_short_name) {
