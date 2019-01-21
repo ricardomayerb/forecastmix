@@ -248,7 +248,7 @@ all_specifications <- function(var_size, all_variables,
                                          max_p_for_estimation = maxlag+2,
                                          silent = silent))
   } else {
-    print("not using info lags")
+    # print("not using info lags")
     do_info_lags <- FALSE
     this_info_lags <- list_along(all_combn_tbl$variables)
   }
@@ -406,7 +406,8 @@ cv_var_from_model_tbl <- function(h, n_cv,
                                   future_exo_cv = NULL,
                                   do_full_sample_fcs = FALSE,
                                   extended_exo_mts = NULL,
-                                  do_tests = FALSE) { 
+                                  do_tests = FALSE,
+                                  silent = TRUE) { 
 
   
   starting_names <- names(models_tbl)
@@ -427,8 +428,8 @@ cv_var_from_model_tbl <- function(h, n_cv,
   }
   
   if (is.null(fit_column)) {
-    print("There is no column with fit varest objects, so we will estimate all VARs now")
-    tic()
+    print("There is no column with fit varest objects, thus we will estimate all VARs now")
+    # tic()
     # models_tbl <- estimate_var_from_model_tbl(
     #   models_tbl = models_tbl, var_data = var_data, new_t_threshold = new_t_threshold, 
     #   names_exogenous = names_exogenous)
@@ -438,7 +439,7 @@ cv_var_from_model_tbl <- function(h, n_cv,
                                          names_exogenous = names_exogenous,
                                          exo_lag = exo_lag)[["passing_models"]]
     
-    toc()
+    # toc()
     
     print("Done estimating VARs, now we will compute the forecasts")
     
@@ -467,7 +468,7 @@ cv_var_from_model_tbl <- function(h, n_cv,
   print("Starting cv")
   print(paste0("Number of specifications to cv: ", nrow(models_tbl)))
   
-  tic()
+  # tic()
   models_tbl <-  models_tbl %>%
     mutate(cv_obj = pmap(list(fit, variables, lags, t_threshold),
                          ~ cv_var_from_one_row(var_data = var_data, fit = ..1,
@@ -480,7 +481,7 @@ cv_var_from_model_tbl <- function(h, n_cv,
                                                future_exo_cv = future_exo_cv)
     )
     )
-  toc()
+  # toc()
   
   print("transform to yoy")
   
@@ -488,7 +489,7 @@ cv_var_from_model_tbl <- function(h, n_cv,
     
     if (target_transform == "diff_yoy") {
       
-      print("from diffyoy to yoy")
+      print("from diff_yoy to yoy")
       
       models_tbl <- models_tbl %>%
         rename(cv_obj_diff_yoy = cv_obj)
@@ -504,6 +505,7 @@ cv_var_from_model_tbl <- function(h, n_cv,
     }
     
     if (target_transform == "diff") {
+      print("from diff to yoy")
       auxiliary_ts <-  target_level_ts
       
       models_tbl <- models_tbl %>%
@@ -522,6 +524,7 @@ cv_var_from_model_tbl <- function(h, n_cv,
   }
   
   if (target_transform == "yoy") {
+    print("Already in yoy form")
     models_tbl <- models_tbl %>%
       rename(cv_obj_yoy = cv_obj)
   }
@@ -889,7 +892,8 @@ fit_tests_models_table <- function(models_tbl,
                                    do_tests = TRUE,
                                    names_exogenous = c(""),
                                    exo_lag = NULL,
-                                   keep_auxiliary = TRUE) {
+                                   keep_auxiliary = TRUE,
+                                   silent = TRUE) {
   
   models_tbl <- models_tbl %>% 
     mutate(is_unrestricted = map_lgl(t_threshold, 
@@ -935,13 +939,15 @@ fit_tests_models_table <- function(models_tbl,
 
   # n_models_to_fit <- n_pure_unrestricted + n_pure_restricted + n_auxiliar_unrestricted
   
-  print(paste0("Number of intended unrestricted models to fit: ", n_pure_unrestricted))
-  print(paste0("Number of restricted models to fit: ", n_pure_restricted))
-  print(paste0("Number of auxiliar unrestricted models to fit: ", n_auxiliar_unrestricted))
-  print(paste0("Total number of models to fit: c(", 
-               n_pure_restricted + n_auxiliar_unrestricted, " , ", 
-               n_pure_unrestricted + n_pure_restricted + n_auxiliar_unrestricted,
-               ")"))
+  if (!silent) {
+    print(paste0("Number of intended unrestricted models to fit: ", n_pure_unrestricted))
+    print(paste0("Number of restricted models to fit: ", n_pure_restricted))
+    print(paste0("Number of auxiliar unrestricted models to fit: ", n_auxiliar_unrestricted))
+    print(paste0("Total number of models to fit: c(", 
+                 n_pure_restricted + n_auxiliar_unrestricted, " , ", 
+                 n_pure_unrestricted + n_pure_restricted + n_auxiliar_unrestricted,
+                 ")"))
+  }
   
   # some of these unrestricted models could be duplicated as auxiliar estimations
   # of restricted models. To avoid double work, estimate first restricted models
@@ -1077,7 +1083,6 @@ fit_tests_models_table <- function(models_tbl,
   n_before_varestfilter <- nrow(models_tbl)
 
   if (do_tests) {
-    print("doing tests")
     
     models_tbl <- models_tbl %>% 
       mutate(cf = map(fit, ~class(.x))) %>% 
@@ -1085,9 +1090,6 @@ fit_tests_models_table <- function(models_tbl,
     
     n_post_varestfilter <- nrow(models_tbl)
     n_non_varest <- n_before_varestfilter - n_post_varestfilter
-    
-    print(paste0("Number of models with non-surving equations: ", n_non_varest))
-    print(paste0("Number of models to be tested for stability: ", n_post_varestfilter))
     
     models_tbl <- models_tbl %>% 
       mutate(is_stable = map_lgl(fit, ~ all(vars::roots(.x) < 1))
@@ -1097,8 +1099,6 @@ fit_tests_models_table <- function(models_tbl,
     n_post_stable <- nrow(models_tbl)
     n_non_stable <- n_post_varestfilter - n_post_stable
     
-    print(paste0("Number of models with unstable roots: ", n_non_stable))
-    print(paste0("Number of models for portmanteau testing: ", n_post_stable))
     
     models_tbl <- models_tbl %>% 
       mutate(is_white_noise = map_lgl(fit, ~ check_resid_VAR(.x))
@@ -1108,8 +1108,17 @@ fit_tests_models_table <- function(models_tbl,
     n_post_checkresid <- nrow(models_tbl)
     n_non_white_noise <- n_post_stable - n_post_checkresid
     
-    print(paste0("Number of models with non-white-noise residuals : ", n_non_white_noise))
-    print(paste0("Number of models to be (ts)cross-validated or forecasted: ", n_post_checkresid))
+    if (!silent) {
+      print("doing tests")
+      print(paste0("Number of models with non-surving equations: ", n_non_varest))
+      print(paste0("Number of models to be tested for stability: ", n_post_varestfilter))
+      print(paste0("Number of models with unstable roots: ", n_non_stable))
+      print(paste0("Number of models for portmanteau testing: ", n_post_stable))
+      print(paste0("Number of models with non-white-noise residuals : ", n_non_white_noise))
+      print(paste0("Number of models to be (ts)cross-validated or forecasted: ", n_post_checkresid))
+    }
+    
+    
     
     models_tbl <- models_tbl %>% dplyr::select(-c(is_stable, is_white_noise, cf))
     if(!keep_fit) {
