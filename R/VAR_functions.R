@@ -209,7 +209,7 @@ all_specifications <- function(var_size, all_variables,
                                non_target_fixed = c(""), lag_choices = 1, 
                                use_info_lags = FALSE, maxlag = 7, 
                                t_thresholds = 0, names_exogenous = c(""),
-                               var_data = NULL, silent = FALSE) {
+                               var_data = NULL, silent = TRUE) {
   
   non_target_fixed <- c("")
   if (non_target_fixed %in% c(c(""), c(" "), c("  "))) {
@@ -3128,6 +3128,90 @@ stack_models <- function(models_list) {
   
   return(all_models_ranked)
 }
+
+
+time_fit_cv <- function(var_data, target_level_ts, reps = 1, 
+                        var_sizes = c(3,4,5), tosample = 100, lags = c(3,4,5),
+                        use_info_lags = FALSE, t_thresholds = 0,
+                        training_length = "per_cv_maxs",
+                        n_cv = 10, target_transform = "diff_yoy",
+                        fc_horizon = 8) {
+  
+  all_reps_timings <- list_along(seq(1, reps))
+  all_reps_counts <- list_along(seq(1, reps))
+  mean_timing <- 0
+  
+  for (r in seq(1, reps)) {
+    all_et_fit <- vector(mode = "numeric", length = length(var_sizes)) 
+    all_et_cv <- vector(mode = "numeric", length = length(var_sizes)) 
+    all_n_fit <- vector(mode = "numeric", length = length(var_sizes)) 
+    all_n_cv <- vector(mode = "numeric", length = length(var_sizes)) 
+    all_n_lost_to_roots <- vector(mode = "numeric", length = length(var_sizes)) 
+    all_n_lost_to_white <- vector(mode = "numeric", length = length(var_sizes)) 
+    all_n_lost_to_threshold <- vector(mode = "numeric", length = length(var_sizes)) 
+    for (i in seq(length(var_sizes))) {
+      print(paste0("Starting var_size = ", var_sizes[i], 
+                   " (", i, " of ", length(var_sizes),")"))
+      
+      specs <- all_specifications(var_size = var_sizes[i], 
+                                  all_variables = colnames(var_data),
+                                  lag_choices = lags,
+                                  use_info_lags = use_info_lags,
+                                  var_data = var_data, 
+                                  t_thresholds = t_thresholds,
+                                  silent = TRUE)
+      
+      specs_sample <- sample_n(specs, tosample)
+      
+      tic()
+      fit_list <- fit_tests_models_table(specs_sample, var_data = var_data)
+      fit_toc <- toc(quiet = TRUE)
+      et_fit <- (fit_toc$toc - fit_toc$tic) 
+      all_et_fit[i] <- et_fit
+      
+      all_n_fit[i] <- tosample
+      all_n_cv[i] <- nrow(fit_list$passing_models)
+      all_n_lost_to_roots[i] <- fit_list$n_lost_to_roots
+      all_n_lost_to_white[i] <- fit_list$n_lost_to_white
+      all_n_lost_to_threshold[i] <- fit_list$n_lost_to_threshold
+      
+      tic()
+      cv_tbl <- cv_var_from_model_tbl(h = fc_horizon,
+                                      training_length = training_length, 
+                                      n_cv = n_cv,
+                                      models_tbl = fit_list$passing_models, 
+                                      var_data = var_data, 
+                                      fit_column = "fit", 
+                                      target_transform = target_transform,
+                                      target_level_ts = target_level_ts
+      )
+      cv_toc <- toc(quiet = TRUE)
+      et_cv <- (cv_toc$toc - cv_toc$tic) 
+      all_et_cv[i] <- et_cv
+    }
+    
+    all_et_fit_cv <- all_et_cv + all_et_fit 
+    
+    all_timings <- rbind(all_et_fit, all_et_fit/all_et_fit[1],
+                         all_et_cv, all_et_cv/all_et_cv[1],
+                         all_et_fit_cv, all_et_fit_cv/all_et_fit_cv[1])
+    
+    mean_timing <- mean_timing + all_timings
+    
+    all_counts <- rbind(all_n_fit, all_n_lost_to_threshold, all_n_lost_to_roots,
+                        all_n_lost_to_white, all_n_cv)
+    
+    all_reps_timings[[r]] <- all_timings
+    all_reps_counts[[r]] <- all_counts
+  }
+  
+  mean_timing <- mean_timing/reps
+  
+  return(list(ave_timing = mean_timing,
+              timings = all_reps_timings, 
+              counts = all_reps_counts))
+}
+
 
 
 var_cv <- function(var_data,
