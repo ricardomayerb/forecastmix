@@ -491,18 +491,18 @@ time_fit_cv <- function(var_data, target_level_ts, reps = 1,
 this_target_ts <- na.omit(raw_data[,target_variable])
 tic()
 t_100_u <- time_fit_cv(var_data = var_data, target_level_ts = this_target_ts, 
-                       reps = 3)
+                       reps = 10)
 toc()
 
 tic()
 t_100_r165 <- time_fit_cv(var_data = var_data, target_level_ts = this_target_ts,
-                          reps = 3, t_thresholds = 1.65)
+                          reps = 10, t_thresholds = 1.65)
 toc()
 
 
 tic()
 t_100_r165_r2 <- time_fit_cv(var_data = var_data, target_level_ts = this_target_ts,
-                          reps = 3, t_thresholds = c(1.65, 2)) 
+                          reps = 10, t_thresholds = c(1.65, 2)) 
 toc()
 ```
 
