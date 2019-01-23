@@ -3142,6 +3142,7 @@ time_fit_cv <- function(var_data, target_level_ts, reps = 1,
   mean_timing <- 0
   
   for (r in seq(1, reps)) {
+    print(paste0("rep ", r, " of ", reps))
     all_et_fit <- vector(mode = "numeric", length = length(var_sizes)) 
     all_et_cv <- vector(mode = "numeric", length = length(var_sizes)) 
     all_n_fit <- vector(mode = "numeric", length = length(var_sizes)) 
@@ -3212,7 +3213,72 @@ time_fit_cv <- function(var_data, target_level_ts, reps = 1,
               counts = all_reps_counts))
 }
 
-
+time_size_3 <- function(var_data = var_data,
+                        target_level_ts = this_target_ts,
+                        reps = 3,
+                        t_thresholds = c(1.65, 2),
+                        ratios_u_4_5 = c(1.093545, 1.051442),
+                        ratios_r1_4_5 = c(1.391993, 1.730808), 
+                        ratios_r2_4_5 = c(1.593183, 1.812038), 
+                        n_specs = NULL) {
+  
+  r1 <- t_thresholds[1]
+  r2 <- t_thresholds
+  
+  t_100_u_s3 <- time_fit_cv(var_data = var_data, target_level_ts = this_target_ts,
+                            reps = reps, var_sizes = 3)
+  t_100_r1_s3 <- time_fit_cv(var_data = var_data, target_level_ts = this_target_ts,
+                             reps = reps, t_thresholds = r1, var_sizes = 3)
+  t_100_r2_s3 <- time_fit_cv(var_data = var_data, target_level_ts = this_target_ts,
+                             reps = reps, t_thresholds =  r2, var_sizes = 3) 
+  
+  ts3_u <- t_100_u_s3$ave_timing[3,1]
+  ts3_r1 <- t_100_r1_s3$ave_timing[3,1]
+  ts3_r2 <- t_100_r2_s3$ave_timing[3,1]
+  
+  ts3_u_unitary <- ts3_u/100
+  ts3_r1_unitary <- ts3_r1/100
+  ts3_r2_unitary <- ts3_r2/100
+  
+  ts345_u_unitary  <- c(ts3_u_unitary , ts3_u_unitary * ratios_u_4_5[1], ts3_u_unitary * ratios_u_4_5[2])
+  ts345_r1_unitary  <- c(ts3_r1_unitary , ts3_r1_unitary * ratios_r1_4_5[1], ts3_r1_unitary * ratios_r1_4_5[2])
+  ts345_r2_unitary  <- c(ts3_r2_unitary , ts3_r2_unitary * ratios_r2_4_5[1], ts3_r2_unitary * ratios_r2_4_5[2])
+  
+  if (is.null(n_specs)) {
+    n_s3 <- nrow(all_specifications(
+      var_size = 3, all_variables = colnames(var_data), 
+      lag_choices = c(3,4,5), use_info_lags = FALSE, 
+      var_data = var_data, t_thresholds = 0, silent = TRUE))
+    
+    n_s4 <- nrow(all_specifications(
+      var_size = 4, all_variables = colnames(var_data), 
+      lag_choices = c(3,4,5), use_info_lags = FALSE, 
+      var_data = var_data, t_thresholds = 0, silent = TRUE))
+    
+    n_s5 <- nrow(all_specifications(
+      var_size = 5, all_variables = colnames(var_data), 
+      lag_choices = c(3,4,5), use_info_lags = FALSE, 
+      var_data = var_data, t_thresholds = 0, silent = TRUE))
+  }
+  
+  time_u_all_specs_per_size  <- ts345_u_unitary*c(n_s3, n_s4, n_s5)
+  time_r1_all_specs_per_size  <- ts345_r1_unitary*c(n_s3, n_s4, n_s5)
+  time_r2_all_specs_per_size  <- ts345_r2_unitary*c(n_s3, n_s4, n_s5)
+  
+  total_time_u_all_specs <- sum(time_u_all_specs_per_size)
+  total_time_r1_all_specs <- sum(time_r1_all_specs_per_size)
+  total_time_r2_all_specs <- sum(time_r2_all_specs_per_size)
+  
+  return(list(total_time_u_all_specs = total_time_u_all_specs,
+              total_time_r1_all_specs = total_time_r1_all_specs,
+              total_time_r2_all_specs = total_time_r2_all_specs,
+              time_per_spec_u_s345 = ts345_u_unitary,
+              time_per_spec_r1_s345 = ts345_r1_unitary,
+              time_per_spec_r2_s345 = ts345_r2_unitary,
+              n_specs_s345 = c(n_s3, n_s4, n_s5)
+  )
+  )
+}
 
 var_cv <- function(var_data,
                    this_p, 

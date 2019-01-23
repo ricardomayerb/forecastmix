@@ -503,102 +503,32 @@ Reasonably accurate and fast estimations of hypotetical running times can be obt
 - Time the execution times of size-3 models (using 100 specification for each type sampled randomly from the set of all specifications)
 - Use a previously estimated ratio of executing times for sizes 3 and 4
 
-The actual, absolut times, may vary from computer to computer but we assume that relative times should not. We could even assume that those ratios are a good guide for a differet data set and most of the differences will be captured when estimating and timing 100 size-3 specifications for each type of model. We call this, quick estimation (under 4 minutes.)
+The actual, absolut times, may vary from computer to computer but we assume that relative times should not. We could even assume that those ratios are a good guide for a differet data set and most of the differences will be captured when estimating and timing 100 size-3 specifications for each type of model. We call this, quick estimation of running times: you could use the time_size_3 function with one, two or three repetitions and it will be considerable faster than even one repetition all size models.
 
 
-```{r quicktimesize3}
-
-time_size_3 <- function(var_data = var_data, target_level_ts = this_target_ts,
-                        reps = 3, t_thresholds = c(1.65, 2),
-                        ratios_u_4_5 = c(1.153169, 2.308947),
-                        ratios_r1_4_5 = c(1.311826, 1.430633), 
-                        ratios_r2_4_5 = c(1.677138, 2.019805), 
-                        n_specs = NULL) {
-  
-  r1 <- t_thresholds[1]
-  r2 <- t_thresholds
-  
-  
-  t_100_u_s3 <- time_fit_cv(var_data = var_data, target_level_ts = this_target_ts,
-                       reps = 3, var_sizes = 3)
-  t_100_r1_s3 <- time_fit_cv(var_data = var_data, target_level_ts = this_target_ts,
-                       reps = 3, t_thresholds = r1, var_sizes = 3)
-  t_100_r2_s3 <- time_fit_cv(var_data = var_data, target_level_ts = this_target_ts,
-                       reps = 3, t_thresholds =  r2, var_sizes = 3) 
-  
-  ts3_u <- t_100_u_s3$ave_timing[3,1]
-  ts3_r1 <- t_100_r1_s3$ave_timing[3,1]
-  ts3_r2 <- t_100_r1_s3$ave_timing[3,1]
-  
-  ts345_u <- c(ts3_u, ts3_u*ratios_u_4_5[1], ts3_u*ratios_u_4_5[2])
-  ts345_r1 <- c(ts3_r1, ts3_r1*ratios_u_4_5[1], ts3_r1*ratios_u_4_5[2])
-  ts345_r2 <- c(ts3_r2, ts3_r2*ratios_u_4_5[1], ts3_r2*ratios_u_4_5[2])
-  
-  if (is.null(n_specs)) {
-    n_s3 <- nrow(all_specifications(
-    var_size = 3, all_variables = colnames(var_data), 
-    lag_choices = c(3,4,5), use_info_lags = FALSE, 
-    var_data = var_data, t_thresholds = 0, silent = TRUE))
-    
-    n_s4 <- nrow(all_specifications(
-    var_size = 4, all_variables = colnames(var_data), 
-    lag_choices = c(3,4,5), use_info_lags = FALSE, 
-    var_data = var_data, t_thresholds = 0, silent = TRUE))
-    
-    n_s5 <- nrow(all_specifications(
-    var_size = 4, all_variables = colnames(var_data), 
-    lag_choices = c(3,4,5), use_info_lags = FALSE, 
-    var_data = var_data, t_thresholds = 0, silent = TRUE))
-  }
-  
-  time_u <- ts345_u*c(n_s3, n_s4, n_s5)/100
-  time_r1 <- ts345_r1*c(n_s3, n_s4, n_s5)/100
-  time_r2 <- ts345_r2*c(n_s3, n_s4, n_s5)/100
-  
-  return(list(total = c(time_u, time_r1, time_r2),
-              by_size_by_100 = c(ts345_u, ts345_r1, ts345_r2))
-         )
-}
+```{r quicktimesize3, cache=TRUE}
 
 tic()
-time_size_3
+t3_rep1 <- time_size_3(var_data = var_data, target_level_ts = this_target_ts, reps = 1)
 toc()
+
+print(t3_rep1$total_time_u_all_specs/3600, digits = 2)
+print(t3_rep1$total_time_r1_all_specs/3600, digits = 2)
+print(t3_rep1$total_time_r2_all_specs/3600, digits = 2)
+
+
+# tic()
+# t3_rep2 <- time_size_3(var_data = var_data, target_level_ts = this_target_ts, reps = 2)
+# toc()
+# 
+# 
+# tic()
+# t3_rep3 <- time_size_3(var_data = var_data, target_level_ts = this_target_ts, reps = 3)
+# toc()
 
 ```
 
-
-
-```{r timing_50, cache=TRUE}
-
-tic()
-t_50_u <- time_fit_cv(var_data = var_data, target_level_ts = this_target_ts, 
-                       reps = 1, tosample = 50)
-toc()
-
-# a
-tic()
-t_50_r165 <- time_fit_cv(var_data = var_data, target_level_ts = this_target_ts,
-                          reps = 1, t_thresholds = 1.65, tosample = 50)
-toc()
-
-
-tic()
-t_50_r165_r2 <- time_fit_cv(var_data = var_data, target_level_ts = this_target_ts,
-                          reps = 1, t_thresholds = c(1.65, 2), tosample = 50) 
-toc()
-
-
-t_50_u$ave_timing*2
-t_100_u$ave_timing
-
-t_50_r165$ave_timing*2
-t_100_r165$ave_timing
-
-t_50_r165_r2$ave_timing*2
-t_100_r165_r2$ave_timing
-
-
-```
+Thus, this suggests 5.2, 33 and 57 hours instead of  4.9, 38 and 56 hours given by the more thorough exercise. The numbers are reasonably close.
 
 
 
@@ -608,7 +538,7 @@ t_100_r165_r2$ave_timing
 
 
 names41 <- c(colnames(var_data), letters[1:10]) 
-names15 <- c(colnames(var_data), letters[1:10]) 
+names15 <- colnames(var_data)[1:15]
 
 specs_s3_fake_41 <- all_specifications(
  var_size = 3, all_variables = names41, lag_choices = c(3,4,5))
@@ -642,68 +572,42 @@ sum_all_specs_timings_fake_15 <- sum(all_specs_timings_fake_15)
 sum_all_specs_timings_165_fake_15 <- sum(all_specs_timings_165_fake_15)
 sum_all_specs_timings_165_2_fake_15 <- sum(all_specs_timings_165_2_fake_15)
 
-print(nrow(specs_s3_all_u_noinfolags_fake_41))
-print(nrow(specs_s4_all_u_noinfolags_fake_41))
-print(nrow(specs_s5_all_u_noinfolags_fake_41))
+print(nrow(specs_s3_fake_41))
+print(nrow(specs_s4_fake_41))
+print(nrow(specs_s5_fake_41))
 
-sum_all_specs_timings_fake_41
-sum_all_specs_timings_fake_41/60
+# sum_all_specs_timings_fake_41
+# sum_all_specs_timings_fake_41/60
 sum_all_specs_timings_fake_41/3600
 
-sum_all_specs_timings_165_fake_41
-sum_all_specs_timings_165_fake_41/60
+# sum_all_specs_timings_165_fake_41
+# sum_all_specs_timings_165_fake_41/60
 sum_all_specs_timings_165_fake_41/3600
 
 
-sum_all_specs_timings_165_2_fake_41
-sum_all_specs_timings_165_2_fake_41/60
+# sum_all_specs_timings_165_2_fake_41
+# sum_all_specs_timings_165_2_fake_41/60
 sum_all_specs_timings_165_2_fake_41/3600
 
 
-print(nrow(specs_s3_all_u_noinfolags_fake_15))
-print(nrow(specs_s4_all_u_noinfolags_fake_15))
-print(nrow(specs_s5_all_u_noinfolags_fake_15))
+print(nrow(specs_s3_fake_15))
+print(nrow(specs_s4_fake_15))
+print(nrow(specs_s5_fake_15))
 
-sum_all_specs_timings_fake_15
-sum_all_specs_timings_fake_15/60
+# sum_all_specs_timings_fake_15
+# sum_all_specs_timings_fake_15/60
 sum_all_specs_timings_fake_15/3600
 
-sum_all_specs_timings_165_fake_15
-sum_all_specs_timings_165_fake_15/60
+# sum_all_specs_timings_165_fake_15
+# sum_all_specs_timings_165_fake_15/60
 sum_all_specs_timings_165_fake_15/3600
 
 
-sum_all_specs_timings_165_2_fake_15
-sum_all_specs_timings_165_2_fake_15/60
+# sum_all_specs_timings_165_2_fake_15
+# sum_all_specs_timings_165_2_fake_15/60
 sum_all_specs_timings_165_2_fake_15/3600
 
 ```
 
 
-### Greater number of replications
-
-
-### Overall number of models
-
-For a given type of specification (lags, number of variables, restriction) does computing time increases linearly with the number of specifications? (or, equivalently given lags and restrictions, with the number of variable combinations). We expect that model fitting will be straightforward to extrapolate, but cross validation may present some variance, depending on the the proportion of specifications that pass all the tests before cross validation. To make things more expedite, we will use unrestricted models and only two different sizes, 3 and 4.
-
-```{r fit_s345_u1652_100}
-
-
-
-
-tic()
-f100_u_s3 <- fit_tests_models_table(specs_s3_100_u_nil, var_data = var_data)
-t100_u_s3 <- toc()
-et_f_100_s3 <-  (t100_u_s3$toc - t100_u_s3$tic)
-
-tic()
-f100_u_s4 <- fit_tests_models_table(specs_s4_100_u_nil, var_data = var_data)
-t100_u_s4 <- toc()
-et_f_100_s4 <-  (t100_u_s4$toc - t100_u_s4$tic)
-
-
-
-
-```
 

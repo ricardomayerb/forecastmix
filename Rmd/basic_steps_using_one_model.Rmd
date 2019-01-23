@@ -234,6 +234,42 @@ one_specification <- one_specification_basics %>%
 one_specification
 ```
 
+
+```{r bartchunk1}
+current_variables_exogenous <- c("rgdp", "rpc", "ip_us", "ip_asia")
+
+current_lag <- 4
+
+current_thresh <- 0
+
+ 
+
+exogenous_variables <- c("emae_arg","act_eco_bra", "ip_us", "ip_bra", "ip_asia")
+
+ 
+
+one_specification_basics_exogenous <- tibble(variables = list(current_variables_exogenous),
+
+                            lag = current_lag,
+
+                            t_threshold = current_thresh,
+
+                            names_exogenous = list(exogenous_variables))
+
+ 
+
+one_specification_exogenous <- one_specification_basics_exogenous %>%
+
+  mutate(fit =  pmap(list(variables, lag, t_threshold, names_exogenous),
+
+                     ~ fit_VAR_rest(all_data_for_VAR_estimation,
+
+                                    variables = ..1, p = ..2, t_thresh = ..3, names_exogenous = ..4))
+
+         )
+
+ one_specification_exogenous
+```
 The function fit_VAR_rest basically calls vars::VAR and vars::restrict, but also handles what to do when estimation fails and it generates the exogenous variables matrix if needed. 
 
 Accesing the elements inside this tibble is straightforward
@@ -286,6 +322,32 @@ pluck(one_specification, "fit", 1, "varresult", "rgdp", "fitted.values")
 
 To produce an ordiary forecast using a fitted VAR, you can use vars::predict function, but we have written the function 
 forecast_VAR_one_row specifically with the previous tibble structure in mind and to handle the case of exogenous regressors transparently. Both function return an object of class varest, which in this case will contain the same output from a fitted model plus the mean forecasts and estimates of some percentiles for each equation (e.g. for rgdp, rpc and imp_intermediate)
+
+
+```{r extendingexo}
+current_variables_exogenous <- c("rgdp", "rpc", "ip_us", "ip_asia")
+exodata_fullsample <- all_data_for_VAR_estimation[, current_variables_exogenous]
+target_used_in_VAR <- all_data_for_VAR_estimation[, "rgdp"]
+start_target_in_VAR <- start(na.omit(target_used_in_VAR))
+end_target_in_VAR <- end(na.omit(target_used_in_VAR))
+
+tic()
+extension_of_exo <- extending_exogenous(exodata = exodata_fullsample, h = 8, 
+                                        endo_end = end_target_in_VAR)
+toc()
+
+# extension_of_exo[["future_exo"]]
+# extension_of_exo[["extended_exo"]]
+# extension_of_exo[["arima_models"]]
+
+tic()
+cv_extension_of_exo <- extending_exogenous_for_cv(
+  exodata = exodata_fullsample, h = 8, endo_end = end_target_in_VAR, 
+  n_cv = 10, same_model_across_cv = FALSE)
+toc()
+```
+
+
 
 ```{r forecastfullsample}
 
@@ -643,6 +705,8 @@ saveRDS(object = list(country_name = country,
 
 
 ```
+
+
 
 
 
