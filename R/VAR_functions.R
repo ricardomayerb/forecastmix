@@ -3131,7 +3131,7 @@ stack_models <- function(models_list) {
 
 
 time_fit_cv <- function(var_data, target_level_ts, reps = 1, 
-                        var_sizes = c(3,4,5), tosample = 100, lags = c(3,4,5),
+                        var_sizes = c(3,4,5), tosample = 100, lags = c(1,3,5),
                         use_info_lags = FALSE, t_thresholds = 0,
                         training_length = "per_cv_maxs",
                         n_cv = 10, target_transform = "diff_yoy",
@@ -3220,17 +3220,18 @@ time_size_3 <- function(var_data = var_data,
                         ratios_u_4_5 = c(1.093545, 1.051442),
                         ratios_r1_4_5 = c(1.391993, 1.730808), 
                         ratios_r2_4_5 = c(1.593183, 1.812038), 
+                        lags = c(1,3,5),
                         n_specs = NULL) {
   
   r1 <- t_thresholds[1]
   r2 <- t_thresholds
   
   t_100_u_s3 <- time_fit_cv(var_data = var_data, target_level_ts = this_target_ts,
-                            reps = reps, var_sizes = 3)
+                            reps = reps, var_sizes = 3, lags = lags)
   t_100_r1_s3 <- time_fit_cv(var_data = var_data, target_level_ts = this_target_ts,
-                             reps = reps, t_thresholds = r1, var_sizes = 3)
+                             reps = reps, t_thresholds = r1, var_sizes = 3, lags = lags)
   t_100_r2_s3 <- time_fit_cv(var_data = var_data, target_level_ts = this_target_ts,
-                             reps = reps, t_thresholds =  r2, var_sizes = 3) 
+                             reps = reps, t_thresholds =  r2, var_sizes = 3, lags = lags) 
   
   ts3_u <- t_100_u_s3$ave_timing[3,1]
   ts3_r1 <- t_100_r1_s3$ave_timing[3,1]

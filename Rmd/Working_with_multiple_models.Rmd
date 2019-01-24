@@ -115,7 +115,7 @@ To expede wthing up in this document we will restrict oour attention to size-3 V
 
 
 
-```{r tuplesofvbls}
+```{r tuplesofvbls, cache=TRUE}
 
 var_size <- 3 
 all_variables <- colnames(var_data)
@@ -175,7 +175,7 @@ specifications_size_3_170_u <- specifications_size_3_all_u[1:170, ]
 
 ## Fit all specifications and keep only acceptable ones
 
-```{r  passing_models_size3small}
+```{r  passing_models_size3small, cache=TRUE}
 ftmt_size_3_17 <- fit_tests_models_table(specifications_size_3_17, var_data = var_data)
 pm_size_3_17 <- ftmt_size_3_17[["passing_models"]]
 print(head(pm_size_3_17))
@@ -198,7 +198,7 @@ print(head(pm_size_3_17_u))
 
 ## Time Series Cross Validation on valid specifications
 
-```{r tscv_s3small}
+```{r tscv_s3small, cache=TRUE}
 fc_horizon <- 8
 n_cv <- 10
 # training_length <- 30
@@ -316,7 +316,7 @@ Subseting of specifications are made by a random sample of the rows of all speci
 
 
  
-```{r spec_for_timings}
+```{r spec_for_timings, cache=TRUE}
 
 # unrestricted, all var_sizes
 specs_s3_all_u_noinfolags <- all_specifications(
@@ -453,7 +453,7 @@ print(sum_all_specs_timings_165_2*units_vec, digits = 2)
 
 ```
 
-As, expected cross validation is takes about 10 times longer than the full sample fitting, even if cv does not test the models, but compute forecasting errors and does any necessary transformation to get forecasts and errors in yoy form. This approximate ratio is lower for specification with restrictions or larger number of coefficients, since there are additional tests to perform, restriction matrices to apply and computing the roots of characteristic polynomials get more costly, and also crucially, in models with t-restrictions a higher fraction of models are rejected before the cross validation, making it a bit cheaper.
+As expected, cross validation is takes about 10 times longer than the full sample fitting, even if cv does not test the models, but compute forecasting errors and does any necessary transformation to get forecasts and errors in yoy form. This approximate ratio is lower for specification with restrictions or larger number of coefficients, since there are additional tests to perform, restriction matrices to apply and computing the roots of characteristic polynomials get more costly, and also crucially, in models with t-restrictions a higher fraction of models are rejected before the cross validation, making it a bit cheaper.
 
 Also, looking at the total (fit+cv) computing time por 100 estimation, increasing the size of the VAR (number of variables) is only a problem for models with restrictions: not only size 4 and 5 VARs have a grater number of possible specifications but also each them takes between 40% to a 100% more time than size-3 models.
 
@@ -540,72 +540,281 @@ Thus, this suggests 5.2, 33 and 57 hours instead of  4.9, 38 and 56 hours given 
 names41 <- c(colnames(var_data), letters[1:10]) 
 names15 <- colnames(var_data)[1:15]
 
-specs_s3_fake_41 <- all_specifications(
- var_size = 3, all_variables = names41, lag_choices = c(3,4,5))
-specs_s4_fake_41 <- all_specifications(
-  var_size = 4, all_variables =  names41, lag_choices = c(3,4,5))
-specs_s5_fake_41 <- all_specifications(
-  var_size = 5, all_variables =  names41, lag_choices = c(3,4,5))
-
-n_specs_fake_41 <- c(nrow(specs_s3_fake_41), nrow(specs_s4_fake_41), nrow(specs_s5_fake_41))
-
-all_specs_timings_fake_41 <- t_100_u$ave_timing[5,]*n_specs_fake_41/100
-all_specs_timings_165_fake_41 <- t_100_r165$ave_timing[5,]*n_specs_fake_41/100
-all_specs_timings_165_2_fake_41 <- t_100_r165_r2$ave_timing[5,]*n_specs_fake_41/100
-sum_all_specs_timings_fake_41 <- sum(all_specs_timings_fake_41)
-sum_all_specs_timings_165_fake_41 <- sum(all_specs_timings_165_fake_41)
-sum_all_specs_timings_165_2_fake_41 <- sum(all_specs_timings_165_2_fake_41)
-
-specs_s3_fake_15 <- all_specifications(
- var_size = 3, all_variables = names15, lag_choices = c(3,4,5))
-specs_s4_fake_15 <- all_specifications(
-  var_size = 4, all_variables =  names15, lag_choices = c(3,4,5))
-specs_s5_fake_15 <- all_specifications(
-  var_size = 5, all_variables =  names15, lag_choices = c(3,4,5))
-
-n_specs_fake_15 <- c(nrow(specs_s3_fake_15), nrow(specs_s4_fake_15), nrow(specs_s5_fake_15))
-
-all_specs_timings_fake_15 <- t_100_u$ave_timing[5,]*n_specs_fake_15/100
-all_specs_timings_165_fake_15 <- t_100_r165$ave_timing[5,]*n_specs_fake_15/100
-all_specs_timings_165_2_fake_15 <- t_100_r165_r2$ave_timing[5,]*n_specs_fake_15/100
-sum_all_specs_timings_fake_15 <- sum(all_specs_timings_fake_15)
-sum_all_specs_timings_165_fake_15 <- sum(all_specs_timings_165_fake_15)
-sum_all_specs_timings_165_2_fake_15 <- sum(all_specs_timings_165_2_fake_15)
-
-print(nrow(specs_s3_fake_41))
-print(nrow(specs_s4_fake_41))
-print(nrow(specs_s5_fake_41))
-
-# sum_all_specs_timings_fake_41
-# sum_all_specs_timings_fake_41/60
-sum_all_specs_timings_fake_41/3600
-
-# sum_all_specs_timings_165_fake_41
-# sum_all_specs_timings_165_fake_41/60
-sum_all_specs_timings_165_fake_41/3600
-
-
-# sum_all_specs_timings_165_2_fake_41
-# sum_all_specs_timings_165_2_fake_41/60
-sum_all_specs_timings_165_2_fake_41/3600
-
-
-print(nrow(specs_s3_fake_15))
-print(nrow(specs_s4_fake_15))
-print(nrow(specs_s5_fake_15))
-
-# sum_all_specs_timings_fake_15
-# sum_all_specs_timings_fake_15/60
-sum_all_specs_timings_fake_15/3600
-
-# sum_all_specs_timings_165_fake_15
-# sum_all_specs_timings_165_fake_15/60
-sum_all_specs_timings_165_fake_15/3600
+time_fake_dataset <- function(num_vbls, ave_timing_u, ave_timing_r1, 
+                              ave_timing_r2, lag_choices = c(1,3,5),
+                              tosample = 100, searches_per_size = c(1, 1, 1),
+                              n_non_target_fixed = 0) {
+  
+  
+  
+  if (length(num_vbls) > 1) {
+    n_v_s3 <- num_vbls[1]
+    n_v_s4 <- num_vbls[2]
+    n_v_s5 <- num_vbls[3]
+  } else {
+    n_v_s3 <- num_vbls
+    n_v_s4 <- num_vbls
+    n_v_s5 <- num_vbls
+  }
+  
+  letters702 <- c(letters, sapply(letters, function(x) paste0(x, letters)))
+  
+  names_s3 <- letters702[1:n_v_s3]
+  names_s4 <- letters702[1:n_v_s4]
+  names_s5 <- letters702[1:n_v_s5]
+  
+  
+  if (length(n_non_target_fixed) > 1) {
+    n_fix_s3 <- n_non_target_fixed[1]
+    n_fix_s4 <- n_non_target_fixed[2]
+    n_fix_s5 <- n_non_target_fixed[3]
+  } else {
+    n_fix_s3 <- n_non_target_fixed
+    n_fix_s4 <- n_non_target_fixed
+    n_fix_s5 <- n_non_target_fixed
+  }
+  
+  if (n_fix_s3 > 0) {
+    fix_s3 <- names_s3[2:(n_fix_s3+1)]
+  } else {
+    fix_s3 <- c("")
+  }
+  
+  if (n_fix_s4 > 0) {
+    fix_s4 <- names_s4[2:(n_fix_s4+1)]
+  } else {
+    fix_s4 <- c("")
+  }
+  
+  if (n_fix_s5 > 0) {
+    fix_s5 <- names_s4[2:(n_fix_s5+1)]
+  } else {
+    fix_s5 <- c("")
+  }
+  
 
 
-# sum_all_specs_timings_165_2_fake_15
-# sum_all_specs_timings_165_2_fake_15/60
-sum_all_specs_timings_165_2_fake_15/3600
+  specs_s3 <- all_specifications(var_size = 3, all_variables = names_s3,
+                                 lag_choices = lag_choices, 
+                                 target_variable = names_s3[1], non_target_fixed = fix_s3)
+  specs_s4 <- all_specifications(var_size = 4, all_variables = names_s4,
+                                 lag_choices = lag_choices, 
+                                 target_variable = names_s3[1], non_target_fixed = fix_s4)
+  specs_s5 <- all_specifications(var_size = 5, all_variables = names_s5,
+                                 lag_choices = lag_choices, 
+                                 target_variable = names_s3[1], non_target_fixed = fix_s5)
+  
+  n_specs_full <- c(nrow(specs_s3), nrow(specs_s4), nrow(specs_s5))
+  n_specs_searched <- n_specs_full * searches_per_size
+  
+
+  all_specs_timings <- ave_timing_u[5,]*n_specs_searched/tosample
+  all_specs_timings_165 <- ave_timing_r1[5,]*n_specs_searched/tosample
+  all_specs_timings_165_2 <- ave_timing_r2[5,]*n_specs_searched/tosample
+  sum_all_specs_timings <- sum(all_specs_timings)
+  sum_all_specs_timings_165 <- sum(all_specs_timings_165)
+  sum_all_specs_timings_165_2 <- sum(all_specs_timings_165_2)
+  
+  specs_time_hrs <- c(sum_all_specs_timings, sum_all_specs_timings_165,
+        sum_all_specs_timings_165_2)/3600
+  
+  return(list(n_specs_full = n_specs_full, 
+              n_specs_searched = n_specs_searched, 
+              specs_time_hrs = specs_time_hrs))
+}
+
+
+vec_n_vbls <- list(10, 11, 12, 13, 14, 15, 20, 25, 30, 35, 40)
+
+
+t_full_search <- map(vec_n_vbls, ~ time_fake_dataset(num_vbls = .x, 
+                                    ave_timing_u = ten_reps_tu$ave_timing,
+                                    ave_timing_r1 = ten_reps_tr1$ave_timing,
+                                    ave_timing_r2 = ten_reps_tr2$ave_timing)
+    )
+
+times_of_fs <- map_dfc(t_full_search, "specs_time_hrs") %>% 
+  mutate(model_types = c("unrestriced", "unr_and_one_r", "unr_and_two_r"))
+names(times_of_fs) <- c(paste0("n_", vec_n_vbls), "model_types")
+
+
+t_2s4_0s5_search <- map(vec_n_vbls, ~ time_fake_dataset(num_vbls = .x, 
+                                    ave_timing_u = ten_reps_tu$ave_timing,
+                                    ave_timing_r1 = ten_reps_tr1$ave_timing,
+                                    ave_timing_r2 = ten_reps_tr2$ave_timing,
+                                    searches_per_size = c(1, 2, 0))
+    )
+
+times_of_2s4_0s5 <- map_dfc(t_2s4_0s5_search, "specs_time_hrs") %>% 
+  mutate(model_types = c("unrestriced", "unr_and_one_r", "unr_and_two_r"))
+names(times_of_2s4_0s5) <- c(paste0("n_", vec_n_vbls), "model_types")
+
+
+t_2s4_0s5_search_two_lags <- map(vec_n_vbls, ~ time_fake_dataset(num_vbls = .x, 
+                                    ave_timing_u = ten_reps_tu$ave_timing,
+                                    ave_timing_r1 = ten_reps_tr1$ave_timing,
+                                    ave_timing_r2 = ten_reps_tr2$ave_timing,
+                                    searches_per_size = c(1, 2, 0), 
+                                    lag_choices = c(1, 5))
+    )
+
+times_of_2s4_0s5_two_lags <- map_dfc(t_2s4_0s5_search_two_lags, "specs_time_hrs") %>% 
+  mutate(model_types = c("unrestriced", "unr_and_one_r", "unr_and_two_r"))
+names(times_of_2s4_0s5_two_lags) <- c(paste0("n_", vec_n_vbls), "model_types")
+
+knitr::kable(times_of_fs, digits = 1)
+knitr::kable(times_of_2s4_0s5, digits = 1)
+knitr::kable(times_of_2s4_0s5_two_lags, digits = 1)
+
+t_5s3_0s4_0s5 <- map(vec_n_vbls, ~ time_fake_dataset(num_vbls = .x, 
+                                    ave_timing_u = ten_reps_tu$ave_timing,
+                                    ave_timing_r1 = ten_reps_tr1$ave_timing,
+                                    ave_timing_r2 = ten_reps_tr2$ave_timing,
+                                    searches_per_size = c(5, 0, 0))
+    )
+
+times_of_5s3_0s4_0s5 <- map_dfc(t_5s3_0s4_0s5, "specs_time_hrs") %>% 
+  mutate(model_types = c("unrestriced", "unr_and_one_r", "unr_and_two_r"))
+names(times_of_5s3_0s4_0s5) <- c(paste0("n_", vec_n_vbls), "model_types")
+knitr::kable(times_of_5s3_0s4_0s5, digits = 1)
+
+
+t_5s3_0s4_0s5_two_lags <- map(vec_n_vbls, ~ time_fake_dataset(num_vbls = .x, 
+                                    ave_timing_u = ten_reps_tu$ave_timing,
+                                    ave_timing_r1 = ten_reps_tr1$ave_timing,
+                                    ave_timing_r2 = ten_reps_tr2$ave_timing,
+                                    searches_per_size = c(5, 0, 0),
+                                    lag_choices = c(1, 5))
+    )
+
+times_of_5s3_0s4_0s5_two_lags <- map_dfc(t_5s3_0s4_0s5_two_lags, "specs_time_hrs") %>% 
+  mutate(model_types = c("unrestriced", "unr_and_one_r", "unr_and_two_r"))
+names(times_of_5s3_0s4_0s5_two_lags) <- c(paste0("n_", vec_n_vbls), "model_types")
+knitr::kable(times_of_5s3_0s4_0s5_two_lags, digits = 1)
+
+
+
+
+t_7s3_0s4_0s5 <- map(vec_n_vbls, ~ time_fake_dataset(num_vbls = .x, 
+                                    ave_timing_u = ten_reps_tu$ave_timing,
+                                    ave_timing_r1 = ten_reps_tr1$ave_timing,
+                                    ave_timing_r2 = ten_reps_tr2$ave_timing,
+                                    searches_per_size = c(7, 0, 0))
+    )
+
+times_of_7s3_0s4_0s5 <- map_dfc(t_7s3_0s4_0s5, "specs_time_hrs") %>% 
+  mutate(model_types = c("unrestriced", "unr_and_one_r", "unr_and_two_r"))
+names(times_of_7s3_0s4_0s5) <- c(paste0("n_", vec_n_vbls), "model_types")
+knitr::kable(times_of_7s3_0s4_0s5, digits = 1)
+
+
+t_7s3_0s4_0s5_two_lags <- map(vec_n_vbls, ~ time_fake_dataset(num_vbls = .x, 
+                                    ave_timing_u = ten_reps_tu$ave_timing,
+                                    ave_timing_r1 = ten_reps_tr1$ave_timing,
+                                    ave_timing_r2 = ten_reps_tr2$ave_timing,
+                                    searches_per_size = c(7, 0, 0),
+                                    lag_choices = c(1, 5))
+    )
+
+times_of_7s3_0s4_0s5_two_lags <- map_dfc(t_7s3_0s4_0s5_two_lags, "specs_time_hrs") %>% 
+  mutate(model_types = c("unrestriced", "unr_and_one_r", "unr_and_two_r"))
+names(times_of_7s3_0s4_0s5_two_lags) <- c(paste0("n_", vec_n_vbls), "model_types")
+knitr::kable(times_of_7s3_0s4_0s5_two_lags, digits = 1)
+
+
+vec_n_vbls_25 <- list(10, 11, 12, 13, 14, 15, 20, 25, c(30, 25, 25), 
+                   c(35, 25, 25), c(40, 25, 25))
+
+vec_n_vbls_20 <- list(10, 11, 12, 13, 14, 15, 20, c(25, 20, 20), c(30, 20, 20), 
+                   c(35, 20, 20), c(40, 20, 20))
+
+t_3s4_0s5_search_n25 <- map(vec_n_vbls_25, ~ time_fake_dataset(num_vbls = .x, 
+                                    ave_timing_u = ten_reps_tu$ave_timing,
+                                    ave_timing_r1 = ten_reps_tr1$ave_timing,
+                                    ave_timing_r2 = ten_reps_tr2$ave_timing,
+                                    searches_per_size = c(1, 3, 0))
+    )
+
+times_of_3s4_0s5_n25 <- map_dfc(t_3s4_0s5_search_n25, "specs_time_hrs") %>% 
+  mutate(model_types = c("unrestriced", "unr_and_one_r", "unr_and_two_r"))
+names(times_of_3s4_0s5_n25) <- c(paste0("n_", vec_n_vbls), "model_types")
+
+knitr::kable(times_of_3s4_0s5_n25 , digits = 1)
+
+t_3s4_0s5_search_n20 <- map(vec_n_vbls_20, ~ time_fake_dataset(num_vbls = .x, 
+                                    ave_timing_u = ten_reps_tu$ave_timing,
+                                    ave_timing_r1 = ten_reps_tr1$ave_timing,
+                                    ave_timing_r2 = ten_reps_tr2$ave_timing,
+                                    searches_per_size = c(1, 3, 0))
+    )
+
+times_of_3s4_0s5_n20 <- map_dfc(t_3s4_0s5_search_n20, "specs_time_hrs") %>% 
+  mutate(model_types = c("unrestriced", "unr_and_one_r", "unr_and_two_r"))
+names(times_of_3s4_0s5_n20) <- c(paste0("n_", vec_n_vbls), "model_types")
+
+knitr::kable(times_of_3s4_0s5_n20 , digits = 1)
+
+
+
+t_5s3_0s4_0s5_n25 <- map(vec_n_vbls_25, ~ time_fake_dataset(num_vbls = .x, 
+                                    ave_timing_u = ten_reps_tu$ave_timing,
+                                    ave_timing_r1 = ten_reps_tr1$ave_timing,
+                                    ave_timing_r2 = ten_reps_tr2$ave_timing,
+                                    searches_per_size = c(5, 0, 0))
+    )
+
+times_of_5s3_0s4_0s5_n25 <- map_dfc(t_5s3_0s4_0s5_n25, "specs_time_hrs") %>% 
+  mutate(model_types = c("unrestriced", "unr_and_one_r", "unr_and_two_r"))
+names(times_of_5s3_0s4_0s5_n25) <- c(paste0("n_", vec_n_vbls), "model_types")
+knitr::kable(times_of_5s3_0s4_0s5_n25, digits = 1)
+
+
+t_5s3_0s4_0s5_n20 <- map(vec_n_vbls_20, ~ time_fake_dataset(num_vbls = .x, 
+                                    ave_timing_u = ten_reps_tu$ave_timing,
+                                    ave_timing_r1 = ten_reps_tr1$ave_timing,
+                                    ave_timing_r2 = ten_reps_tr2$ave_timing,
+                                    searches_per_size = c(5, 0, 0))
+    )
+
+times_of_5s3_0s4_0s5_n20 <- map_dfc(t_5s3_0s4_0s5_n20, "specs_time_hrs") %>% 
+  mutate(model_types = c("unrestriced", "unr_and_one_r", "unr_and_two_r"))
+names(times_of_5s3_0s4_0s5_n20) <- c(paste0("n_", vec_n_vbls), "model_types")
+knitr::kable(times_of_5s3_0s4_0s5_n20, digits = 1)
+
+
+
+
+
+t_7s3_0s4_0s5_n25 <- map(vec_n_vbls_25, ~ time_fake_dataset(num_vbls = .x, 
+                                    ave_timing_u = ten_reps_tu$ave_timing,
+                                    ave_timing_r1 = ten_reps_tr1$ave_timing,
+                                    ave_timing_r2 = ten_reps_tr2$ave_timing,
+                                    searches_per_size = c(7, 0, 0))
+    )
+
+times_of_7s3_0s4_0s5_n25 <- map_dfc(t_7s3_0s4_0s5_n25, "specs_time_hrs") %>% 
+  mutate(model_types = c("unrestriced", "unr_and_one_r", "unr_and_two_r"))
+names(times_of_7s3_0s4_0s5_n25) <- c(paste0("n_", vec_n_vbls), "model_types")
+knitr::kable(times_of_7s3_0s4_0s5_n25, digits = 1)
+
+
+
+
+
+
+
+
+t_7s3_0s4_0s5_n20 <- map(vec_n_vbls_20, ~ time_fake_dataset(num_vbls = .x, 
+                                    ave_timing_u = ten_reps_tu$ave_timing,
+                                    ave_timing_r1 = ten_reps_tr1$ave_timing,
+                                    ave_timing_r2 = ten_reps_tr2$ave_timing,
+                                    searches_per_size = c(7, 0, 0))
+    )
+
+times_of_7s3_0s4_0s5_n20 <- map_dfc(t_7s3_0s4_0s5_n20, "specs_time_hrs") %>% 
+  mutate(model_types = c("unrestriced", "unr_and_one_r", "unr_and_two_r"))
+names(times_of_7s3_0s4_0s5_n20) <- c(paste0("n_", vec_n_vbls), "model_types")
+knitr::kable(times_of_7s3_0s4_0s5_n20, digits = 1)
 
 ```
 
