@@ -168,6 +168,13 @@ add_rmse_rankings <- function(tbl_with_rmses) {
 }
 
 all_rmse_from_cv_obj <- function(cv_obj) {
+
+  if (length(cv_obj) == 1) {
+    if (is.na(cv_obj[[1]])) {
+      return(NA)
+    }
+  }  
+  
   cv_errors <- cv_obj[["cv_errors"]]
   # print(cv_errors)
   n_cv <- length(cv_errors)
@@ -186,6 +193,13 @@ all_rmse_from_cv_obj <- function(cv_obj) {
 
 
 all_mae_from_cv_obj <- function(cv_obj) {
+  
+  if (length(cv_obj) == 1) {
+    if (is.na(cv_obj[[1]])) {
+      return(NA)
+    }
+  }  
+  
   cv_errors <- cv_obj[["cv_errors"]]
   # print(cv_errors)
   n_cv <- length(cv_errors)
@@ -530,20 +544,17 @@ cv_var_from_model_tbl <- function(h, n_cv,
   }
   
   print("done transforming")
-  
-  # print("models_tbl$cv_obj_yoy")
-  # print(models_tbl$cv_obj_yoy)
-  
+
   models_tbl <- models_tbl %>%
     mutate(rmse_yoy_all_h = map(cv_obj_yoy, all_rmse_from_cv_obj))
-  
+
   rmse_tibble <- as_tibble(reduce(models_tbl$rmse_yoy_all_h, rbind))
   names(rmse_tibble) <- paste0("rmse_", seq(1, ncol(rmse_tibble)))
   
   models_tbl <- models_tbl %>%
     dplyr::select(-rmse_yoy_all_h) %>%
     cbind(rmse_tibble)
-  
+
   
   if (!keep_varest_obj) {
     models_tbl <- models_tbl %>%
@@ -563,7 +574,7 @@ cv_var_from_model_tbl <- function(h, n_cv,
   }
   
   models_tbl <- as_tibble(models_tbl)
-  
+
   return(models_tbl)
 } 
 
@@ -981,7 +992,8 @@ fit_tests_models_table <- function(models_tbl,
     models_tbl <- models_tbl %>% 
       mutate(fit = pmap(list(variables, lags, t_threshold),
                         ~ fit_VAR_rest(var_data, variables = ..1, 
-                                       p = ..2, t_thresh = ..3))
+                                       p = ..2, t_thresh = ..3,
+                                       names_exogenous = names_exogenous))
              )
     
     models_tbl <- models_tbl  %>% 
@@ -1050,7 +1062,8 @@ fit_tests_models_table <- function(models_tbl,
       unrestricted_not_auxiliary  <- unrestricted_not_auxiliary  %>% 
         mutate(fit = pmap(list(variables, lags, t_threshold),
                           ~ fit_VAR_rest(var_data, variables = ..1, 
-                                         p = ..2, t_thresh = ..3)))
+                                         p = ..2, t_thresh = ..3, 
+                                         names_exogenous = names_exogenous)))
     }
   } else {
     # is an zero row tibble
@@ -1144,70 +1157,6 @@ fit_tests_models_table <- function(models_tbl,
 }
 
 
-
-fit_VAR_rest_old <- function(var_data, variables, p,
-                         t_thresh = FALSE, type = "const",
-                         names_exogenous = c(""),
-                         exo_lag = NULL)  {
-
-  
-  if (t_thresh == 0) {
-    t_thresh <- FALSE
-  }
-  
-
-  this_var_data <- var_data[, variables]
-  # print("this_var_data")
-  # print(this_var_data)
-  
-  this_var_data <- na.omit(this_var_data)
-  
-  vbls_for_var <- colnames(this_var_data)
-  endov <- vbls_for_var[!vbls_for_var %in% names_exogenous] 
-  exov <- vbls_for_var[vbls_for_var %in% names_exogenous] 
-
-  if (length(endov) == 1) {
-    this_fit <- NA
-    print("only one endogenous variable, not a real VAR, returning NA")
-    return(this_fit)
-  }
-  
-  endodata <- this_var_data[ , endov]
-  exodata <- this_var_data[ , exov]
-  
-  if (is.null(dim(endodata))) {
-    names(endodata) <- endov
-  } else {
-    colnames(endodata) <- endov
-  }
-  
-  if (is.null(exo_lag)) {
-    exo_lag <- p
-  }
-  
-  exo_and_lags <- make_exomat(exodata = exodata, exov = exov, exo_lag = exo_lag)
-  n <- nrow(var_data)
-  
-  if (is.null(exo_and_lags)) {
-    this_fit <- vars::VAR(y = endodata, p = p, type = type) 
-    
-  } else {
-    this_fit <- vars::VAR(y = endodata, p = p, type = type, 
-                          exogen = exo_and_lags)
-    
-  }
-
-  if (is.numeric(t_thresh)) {
-    # print(paste0("applying t-tresh = ", t_thresh))
-    this_fit <- try(vars::restrict(this_fit, method = "ser", 
-                                   thresh = t_thresh), silent = TRUE)
-    
-    if (class(this_fit) == "try-error") {
-      this_fit <- "one_or_more_eqn_drops"
-    }
-  }
-  return(this_fit)
-}
 
 
 fit_VAR_rest <- function(var_data, variables, p,
@@ -1370,7 +1319,6 @@ forecast_var_from_model_tbl <- function(models_tbl,
                                         names_exogenous = c(""),
                                         extended_exo_mts = NULL,
                                         do_tests = FALSE,
-                                        both_rest_unrest = FALSE,
                                         do_rmse_average = FALSE,
                                         filter_by_rank = FALSE,
                                         max_rank_h = NULL
@@ -3130,17 +3078,24 @@ stack_models <- function(models_list) {
 }
 
 
-time_fit_cv <- function(var_data, target_level_ts, reps = 1, 
-                        var_sizes = c(3,4,5), tosample = 100, lags = c(1,3,5),
-                        use_info_lags = FALSE, t_thresholds = 0,
+time_fit_cv <- function(var_data,
+                        target_level_ts, 
+                        reps = 1, 
+                        var_sizes = c(3,4,5), 
+                        tosample = 100,
+                        lags = c(1,3,5),
+                        use_info_lags = FALSE,
+                        t_thresholds = 0,
                         training_length = "per_cv_maxs",
-                        n_cv = 10, target_transform = "diff_yoy",
-                        fc_horizon = 8) {
+                        n_cv = 10, 
+                        target_transform = "diff_yoy",
+                        fc_horizon = 8,
+                        names_exogenous = c("")) {
   
   all_reps_timings <- list_along(seq(1, reps))
   all_reps_counts <- list_along(seq(1, reps))
   mean_timing <- 0
-  
+
   for (r in seq(1, reps)) {
     print(paste0("rep ", r, " of ", reps))
     all_et_fit <- vector(mode = "numeric", length = length(var_sizes)) 
@@ -3160,12 +3115,14 @@ time_fit_cv <- function(var_data, target_level_ts, reps = 1,
                                   use_info_lags = use_info_lags,
                                   var_data = var_data, 
                                   t_thresholds = t_thresholds,
-                                  silent = TRUE)
+                                  silent = TRUE, 
+                                  names_exogenous = names_exogenous)
       
       specs_sample <- sample_n(specs, tosample)
       
       tic()
-      fit_list <- fit_tests_models_table(specs_sample, var_data = var_data)
+      fit_list <- fit_tests_models_table(specs_sample, var_data = var_data, 
+                                         names_exogenous = names_exogenous)
       fit_toc <- toc(quiet = TRUE)
       et_fit <- (fit_toc$toc - fit_toc$tic) 
       all_et_fit[i] <- et_fit
@@ -3184,7 +3141,8 @@ time_fit_cv <- function(var_data, target_level_ts, reps = 1,
                                       var_data = var_data, 
                                       fit_column = "fit", 
                                       target_transform = target_transform,
-                                      target_level_ts = target_level_ts
+                                      target_level_ts = target_level_ts,
+                                      names_exogenous = names_exogenous
       )
       cv_toc <- toc(quiet = TRUE)
       et_cv <- (cv_toc$toc - cv_toc$tic) 
@@ -3221,17 +3179,17 @@ time_size_3 <- function(var_data = var_data,
                         ratios_r1_4_5 = c(1.391993, 1.730808), 
                         ratios_r2_4_5 = c(1.593183, 1.812038), 
                         lags = c(1,3,5),
-                        n_specs = NULL) {
+                        n_specs = NULL, names_exogenous = c("")) {
   
   r1 <- t_thresholds[1]
   r2 <- t_thresholds
   
   t_100_u_s3 <- time_fit_cv(var_data = var_data, target_level_ts = this_target_ts,
-                            reps = reps, var_sizes = 3, lags = lags)
+                            reps = reps, var_sizes = 3, lags = lags, names_exogenous = names_exogenous)
   t_100_r1_s3 <- time_fit_cv(var_data = var_data, target_level_ts = this_target_ts,
-                             reps = reps, t_thresholds = r1, var_sizes = 3, lags = lags)
+                             reps = reps, t_thresholds = r1, var_sizes = 3, lags = lags, names_exogenous = names_exogenous)
   t_100_r2_s3 <- time_fit_cv(var_data = var_data, target_level_ts = this_target_ts,
-                             reps = reps, t_thresholds =  r2, var_sizes = 3, lags = lags) 
+                             reps = reps, t_thresholds =  r2, var_sizes = 3, lags = lags, names_exogenous = names_exogenous) 
   
   ts3_u <- t_100_u_s3$ave_timing[3,1]
   ts3_r1 <- t_100_r1_s3$ave_timing[3,1]

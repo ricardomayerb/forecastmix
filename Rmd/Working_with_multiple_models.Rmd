@@ -38,6 +38,9 @@ target_transformation <- data_object_ury$target_transformation
 raw_data <- data_object_ury$raw_data
 var_data <- data_object_ury$transformed_data
 print(target_transformation)
+
+names_exogenous <- c("ip_us","ip_asia","ip_ue","ip_bra","act_eco_bra","emae_arg")
+
 ```
 
 In this case, all VARs will use a  "diff-yoy" transformation of the real GDP series (i.e. first, take seasonal differences on the quarterly series and then ordinary differences on the result).    
@@ -128,7 +131,7 @@ tic()
 specifications_size_3_all_u <- all_specifications(
   var_size = 3, all_variables = colnames(var_data),
   lag_choices = c(3,4,5), use_info_lags = TRUE,
-  var_data = var_data, t_thresholds = 0)
+  var_data = var_data, t_thresholds = 0, names_exogenous = names_exogenous)
 toc()
 
 # 1742
@@ -136,7 +139,7 @@ tic()
 specifications_size_3_all_u_noinfolags <- all_specifications(
   var_size = 3, all_variables = colnames(var_data),
   lag_choices = c(3,4,5), use_info_lags = FALSE,
-  var_data = var_data, t_thresholds = 0)
+  var_data = var_data, t_thresholds = 0, names_exogenous = names_exogenous)
 toc()
 
 # 1742
@@ -144,22 +147,24 @@ tic()
 specifications_size_3_all <- all_specifications(
   var_size = 3, all_variables = colnames(var_data),
   lag_choices = c(3,4,5), use_info_lags = TRUE,
-  var_data = var_data, t_thresholds = c(1.65, 2))
+  var_data = var_data, t_thresholds = c(1.65, 2), names_exogenous = names_exogenous)
 toc()
-
-
 
 # 1305
 tic()
 specifications_size_3_all_noinfolag <- all_specifications(
   var_size = 3, all_variables = colnames(var_data), 
   lag_choices = c(3,4,5), use_info_lags = FALSE, 
-  var_data = var_data, t_thresholds = c(1.65, 2))
+  var_data = var_data, t_thresholds = c(1.65, 2), names_exogenous = names_exogenous)
 toc()
 
 
 
 ```
+
+
+
+
 
 ### Select a subset of specification for expediency in this document
 ```{r s3smmd}
@@ -176,27 +181,48 @@ specifications_size_3_170_u <- specifications_size_3_all_u[1:170, ]
 ## Fit all specifications and keep only acceptable ones
 
 ```{r  passing_models_size3small, cache=TRUE}
-ftmt_size_3_17 <- fit_tests_models_table(specifications_size_3_17, var_data = var_data)
+ftmt_size_3_17 <- fit_tests_models_table(specifications_size_3_17, var_data = var_data, names_exogenous = names_exogenous)
 pm_size_3_17 <- ftmt_size_3_17[["passing_models"]]
 print(head(pm_size_3_17))
 
-ftmt_size_3_17_u <- fit_tests_models_table(specifications_size_3_17_u, var_data = var_data)
+ftmt_size_3_17_u <- fit_tests_models_table(specifications_size_3_17_u, var_data = var_data, names_exogenous = names_exogenous)
 pm_size_3_17_u <- ftmt_size_3_17_u[["passing_models"]]
 print(head(pm_size_3_17_u))
-
-# ftmt_size_3_170_u <- fit_tests_models_table(specifications_size_3_170_u, var_data = var_data)
-# pm_size_3_170_u <- ftmt_size_3_170_u[["passing_models"]]
-# 
-# ftmt_size_3_170 <- fit_tests_models_table(specifications_size_3_170, var_data = var_data)
-# pm_size_3_170 <- ftmt_size_3_170[["passing_models"]]
-
-# ftmt_size_3_big <- fit_tests_models_table(specifications_size_3_big, var_data = var_data)
-# pm_size_3_big <- ftmt_size_3_big[["passing_models"]]
 
 ```
 
 
 ## Time Series Cross Validation on valid specifications
+
+
+### Preparation: forecast exogenous values in advance
+
+```{r extend_exo_cv,cache=TRUE}
+exodata_fullsample <- var_data[,names_exogenous]
+target_used_in_VAR <- var_data[, target_variable]
+start_target_in_VAR <- start(na.omit(target_used_in_VAR))
+end_target_in_VAR <- end(na.omit(target_used_in_VAR))
+
+
+tic()
+extension_of_exo <- extending_exogenous(exodata = exodata_fullsample,
+                                        h = fc_horizon,
+                                        endo_end = end_target_in_VAR)
+toc()
+
+tic()
+cv_extension_of_exo <- extending_exogenous_for_cv(
+  exodata = exodata_fullsample, h = fc_horizon, endo_end = end_target_in_VAR, 
+  n_cv = n_cv, same_model_across_cv = FALSE)
+toc()
+
+
+
+
+```
+
+
+### Cross Validation
 
 ```{r tscv_s3small, cache=TRUE}
 fc_horizon <- 8
@@ -215,7 +241,10 @@ cv_size_3_17 <- cv_var_from_model_tbl(h = fc_horizon,
                              var_data = var_data, 
                              fit_column = "fit", 
                              target_transform = target_transform,
-                             target_level_ts = target_level_ts,
+                             target_level_ts = target_level_ts, 
+                             names_exogenous = names_exogenous, 
+                             future_exo = extension_of_exo, 
+                             extended_exo_mts = cv_extension_of_exo  
                              )
 toc()
 
@@ -237,8 +266,37 @@ toc()
 
 ## Combine forecasts based on performance measure
 
+```{r extend_exo_full_sample}
+# tic()
+# extension_of_exo <- extending_exogenous(exodata = exodata_fullsample, h = 8,
+#                                         endo_end = end_target_in_VAR)
+# toc()
+
+# extension_of_exo[["future_exo"]]
+# extension_of_exo[["extended_exo"]]
+# extension_of_exo[["arima_models"]]
+
+```
+
+
+The function forecast_var_from_model_tbl by default, it just take all specifications in given tibble and produce forecasts of the target variable, more precisely it creates a list-column containing mean forecasts of YoY growth of the target variable over the specified forecast horizon. Some options include to keep varest or forecast objects (not advised with very long tibbles) and more importantly it can restrict the sample of models by keeping only the best  models at each horizon and computing a (rmse-)weighted average mean forecast.
+
+In this case we take our models from the cv-exercises, thus all models where already tested for stability, restrictions and white noise residuals and therefore we can spare those test here, which is the default behaviour.
+
 
 ```{r forecast_using_cv}
+
+# forecast all 21 models
+fcs_from_all <- forecast_var_from_model_tbl(
+  cv_size_3_17,
+  var_data, 
+  fc_horizon, 
+  target_transform = target_transform,
+  target_level_ts = target_level_ts,
+  do_rmse_average = TRUE,
+  names_exogenous = names_exogenous, 
+  extended_exo_mts = extension_of_exo
+)
 
 # rank and filter
 
@@ -288,18 +346,28 @@ if (do_rmse_average) {
 }
 
 moo <-  forecast_var_from_model_tbl(
-  rank_filtered_models, var_data, fc_horizon, 
+  rank_filtered_models,
+  var_data, 
+  fc_horizon, 
   target_transform = target_transform,
-  target_level_ts = target_level_ts, do_tests = FALSE,
-  both_rest_unrest = TRUE, do_rmse_average = TRUE, max_rank_h = 5) 
+  target_level_ts = target_level_ts,
+  do_tests = FALSE,
+  both_rest_unrest = TRUE,
+  do_rmse_average = TRUE,
+  max_rank_h = 5) 
 
 fc_s3_small_wavg <- moo$fcs_wavg
 
 moo <-  forecast_var_from_model_tbl(
-  rank_filtered_models, var_data, fc_horizon, 
+  rank_filtered_models,
+  var_data, 
+  fc_horizon, 
   target_transform = target_transform,
-  target_level_ts = target_level_ts, do_tests = FALSE,
-  both_rest_unrest = TRUE, do_rmse_average = TRUE, max_rank_h = 5, 
+  target_level_ts = target_level_ts,
+  do_tests = FALSE,
+  both_rest_unrest = TRUE,
+  do_rmse_average = TRUE,
+  max_rank_h = 5, 
   filter_by_rank = TRUE) 
 
 ```
