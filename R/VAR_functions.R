@@ -423,13 +423,12 @@ cv_var_from_model_tbl <- function(h, n_cv,
                                   do_tests = FALSE,
                                   silent = TRUE) { 
 
-  
   starting_names <- names(models_tbl)
   has_short_name <- "short_name" %in% starting_names
   has_t_threshold <- "t_threshold" %in% starting_names
   
   if (!has_t_threshold) {
-    models_tbl <- models_tbl %>% mutate(t_threshold = FALSE)
+    models_tbl <- models_tbl %>% mutate(t_threshold = 0)
   }
   
   if (!has_short_name) {
@@ -469,7 +468,7 @@ cv_var_from_model_tbl <- function(h, n_cv,
       models_tbl = models_tbl, 
       var_data = var_data,
       fc_horizon = fc_horizon, 
-      new_t_threshold = c(0, 1.65, 2),
+      new_t_threshold = new_t_threshold,
       target_transform = target_transform, 
       target_level_ts = target_level_ts, 
       names_exogenous = names_exogenous, 
@@ -485,10 +484,12 @@ cv_var_from_model_tbl <- function(h, n_cv,
   # tic()
   models_tbl <-  models_tbl %>%
     mutate(cv_obj = pmap(list(fit, variables, lags, t_threshold),
-                         ~ cv_var_from_one_row(var_data = var_data, fit = ..1,
+                         ~ cv_var_from_one_row(var_data = var_data,
+                                               fit = ..1,
                                                variables = ..2, lags = ..3,
                                                this_thresh = ..4,
-                                               h = h, n_cv = n_cv,
+                                               h = h, 
+                                               n_cv = n_cv,
                                                names_exogenous = names_exogenous,
                                                training_length = training_length,
                                                this_type = "const",
@@ -580,182 +581,6 @@ cv_var_from_model_tbl <- function(h, n_cv,
 
 
 
-cv_var_from_model_tbl_old <- function(h, n_cv, 
-                                  training_length, 
-                                  models_tbl, 
-                                  var_data, 
-                                  new_t_threshold = NULL, 
-                                  fit_column = NULL, 
-                                  target_transform = "yoy", 
-                                  target_level_ts = NULL,
-                                  keep_varest_obj = FALSE,
-                                  keep_cv_objects = FALSE,
-                                  keep_fc_objects = FALSE,
-                                  names_exogenous = c(""),
-                                  exo_lag = NULL,
-                                  future_exo = NULL,
-                                  future_exo_cv = NULL,
-                                  do_full_sample_fcs = FALSE,
-                                  extended_exo_mts = NULL
-                                  ) { 
-  
-  # print("in cvvarfrommodel exo vbls")
-  # print(names_exogenous)
-  
-  starting_names <- names(models_tbl)
-  has_short_name <- "short_name" %in% starting_names
-  has_t_threshold <- "t_threshold" %in% starting_names
-  
-  if (!has_t_threshold) {
-    models_tbl <- models_tbl %>% mutate(t_threshold = FALSE)
-  }
-  
-  if (!has_short_name) {
-    models_tbl <- models_tbl %>% 
-      mutate(short_name = pmap(list(variables, lags, t_threshold),
-                               ~ make_model_name(variables = ..1, lags = ..2, t_threshold = ..3)),
-             short_name = unlist(short_name))
-    
-    models_tbl <- models_tbl %>% dplyr::select(short_name, everything())
-  }
-  
-  if (is.null(fit_column)) {
-    print("There is no column with fit varest objects, so we will estimate all VARs now")
-    tic()
-    models_tbl <- estimate_var_from_model_tbl(
-      models_tbl = models_tbl, var_data = var_data, new_t_threshold = new_t_threshold, 
-      names_exogenous = names_exogenous)
-    toc()
-    
-    print("Done estimating VARs, now we will compute the forecasts")
-    
-  } else {
-    print("Using previously estimates varest objects")
-  }
-  
-  if (do_full_sample_fcs) {
-    print("Start forecasts of the estimated models")
-    
-    tic()
-    models_tbl <- forecast_var_from_model_tbl(
-      models_tbl = models_tbl, 
-      var_data = var_data,
-      fc_horizon = fc_horizon, 
-      new_t_threshold = c(0, 1.65, 2),
-      target_transform = target_transform, 
-      target_level_ts = target_level_ts, 
-      names_exogenous = names_exogenous, 
-      extended_exo_mts = extended_exo_mts, 
-      fit_column = "fit", keep_varest_obj = TRUE)
-    toc()
-  }
-  
-  # print("as_tibble(models_tbl)")
-  # print(as_tibble(models_tbl))
-  # 
-  # return(as_tibble(models_tbl))
-  
-  print("Starting cv")
-  # print("models_tbl so far")
-  # print(models_tbl)
-  tic()
-  models_tbl <-  models_tbl %>%
-    mutate(cv_obj = pmap(list(fit, variables, lags, t_threshold),
-                         ~ cv_var_from_one_row(var_data = var_data, fit = ..1,
-                                               variables = ..2, lags = ..3,
-                                               this_thresh = ..4,
-                                               h = h, n_cv = n_cv,
-                                               names_exogenous = names_exogenous,
-                                               training_length = training_length,
-                                               this_type = "const",
-                                               future_exo_cv = future_exo_cv)
-    )
-    )
-  toc()
-  
-  print("transform to yoy")
-  
-  if (target_transform != "yoy") {
-    
-    if (target_transform == "diff_yoy") {
-      
-      print("from diffyoy to yoy")
-      
-      models_tbl <- models_tbl %>%
-        rename(cv_obj_diff_yoy = cv_obj)
-      
-      models_tbl <- models_tbl %>%
-        mutate(cv_obj_yoy = map(cv_obj_diff_yoy,
-                                ~ transform_all_cv( .,
-                                                    current_form = target_transform,
-                                                    target_level_ts =  target_level_ts,
-                                                    n_cv = n_cv)
-        )
-        )
-    }
-    
-    if (target_transform == "diff") {
-      auxiliary_ts <-  target_level_ts
-      
-      models_tbl <- models_tbl %>%
-        rename(cv_obj_diff = cv_obj)
-      
-      results_all_models <- results_all_models %>%
-        mutate(cv_obj_yoy = map(cv_obj_diff,
-                                ~ transform_all_cv(cv_object  = .,
-                                                   current_form = target_transformation,
-                                                   auxiliary_ts = target_level_ts,
-                                                   n_cv = n_cv)
-        )
-        )
-    }
-    
-  }
-  
-  if (target_transform == "yoy") {
-    models_tbl <- models_tbl %>%
-      rename(cv_obj_yoy = cv_obj)
-  }
-  
-  print("done transforming")
-  
-  # print("models_tbl$cv_obj_yoy")
-  # print(models_tbl$cv_obj_yoy)
-  
-  models_tbl <- models_tbl %>%
-    mutate(rmse_yoy_all_h = map(cv_obj_yoy, all_rmse_from_cv_obj))
-  
-  rmse_tibble <- as_tibble(reduce(models_tbl$rmse_yoy_all_h, rbind))
-  names(rmse_tibble) <- paste0("rmse_", seq(1, ncol(rmse_tibble)))
-  
-  models_tbl <- models_tbl %>%
-    dplyr::select(-rmse_yoy_all_h) %>%
-    cbind(rmse_tibble)
-  
-  
-  if (!keep_varest_obj) {
-    models_tbl <- models_tbl %>%
-      dplyr::select(-fit)
-  }
-  
-  if (!keep_fc_objects) {
-    models_tbl <- models_tbl %>%
-      dplyr::select(vars_select(names(.), -starts_with("fc_ob")))
-  } else {
-    print("keeping forecast list-columns (they are pretty big ...)")
-  }
-  
-  if (!keep_cv_objects) {
-    models_tbl <- models_tbl %>%
-      dplyr::select(vars_select(names(.), -starts_with("cv_ob")))
-  }
-  
-  models_tbl <- as_tibble(models_tbl)
-
-  return(models_tbl)
-} 
-
-
 cv_var_from_one_row <- function(var_data, 
                                 fit, 
                                 variables, 
@@ -767,41 +592,17 @@ cv_var_from_one_row <- function(var_data,
                                 this_type = "const", 
                                 future_exo_cv = NULL,
                                 this_thresh = 0) {
-  
-  # print("in cv var from one row")
-  # print(names_exogenous)
-  
-  # print("inside cvvaronerow")
-  # print("this_thresh")
-  # print(this_thresh)
-  
+
   this_restriction_mat <- try(fit$restrictions, silent = TRUE) 
   
   if (class(this_restriction_mat) == "try-error") {
     this_restriction_mat <-  NULL
   }
   
-  # print("this_restriction_mat")
-  # print(this_restriction_mat)
-  
   sub_data <- na.omit(var_data[, variables])
-  
-  # print(sub_data)
-  # print("variables")
-  # print(variables)
-  
-  # print("colnames(sub_data)")
-  # print(colnames(sub_data))
-  
-  # print(1)
-  
+
   sub_data_tk_index <- tk_index(sub_data, timetk_idx = TRUE, silent = TRUE)
 
-  # print("about to this_cv")
-  # print("future_exo_cv")
-  # print(future_exo_cv)
-  
-  
   this_cv <- var_cv(var_data = sub_data,
                     h_max = h,
                     n_cv = n_cv, this_p = lags,  
@@ -816,6 +617,116 @@ cv_var_from_one_row <- function(var_data,
   # print("just did this_cv")
   
   return(this_cv)
+}
+
+
+
+
+
+cv_of_VAR_ensemble <- function(var_training_length, 
+                           n_cv, 
+                           tbl_of_models_and_rmse, 
+                           extended_x_data_ts, 
+                           var_data, 
+                           rgdp_level_ts,
+                           max_rank_h = NULL,
+                           chosen_rmse_h = NULL,
+                           h_var = NULL,
+                           ensemble_name = NULL) {
+  
+  if (is.null(ensemble_name)) {
+    ensemble_name <- "ensemble"
+  }
+  
+  
+  if (is.null(ensemble_name)) {
+    model_function_name <- "Ensemble"
+  }
+  
+  cv_ticks_lists_var <- make_test_dates_list(var_data, n = n_cv, h_max = h_var,
+                                             training_length = var_training_length)
+  cv_yq_lists_var <- cv_ticks_lists_var[["list_of_year_quarter"]]
+  cv_dates_lists_var <- cv_ticks_lists_var[["list_of_dates"]]
+  
+  cv_test_data_list <- list()
+  cv_w_fcs_list <- list()
+  cv_error_yoy_list <- list()
+  
+  for (i in 1:n_cv) {
+    this_cv_yq_list_var <- cv_yq_lists_var[[i]]
+    this_training_s_var <- this_cv_yq_list_var$tra_s
+    this_training_e_var <- this_cv_yq_list_var$tra_e
+    this_test_s_var <- this_cv_yq_list_var$tes_s
+    this_test_e_var <- this_cv_yq_list_var$tes_e
+    
+    print("this_training_s_var")
+    print(this_training_s_var)
+    print("this_training_e_var")
+    print(this_training_e_var)
+    print("this_test_s_var")
+    print(this_test_s_var)
+    print("this_test_e_var")
+    print(this_test_e_var)
+    
+    
+    # fcs_and_models <- forecast_var_from_model_tbl(foooooo)
+    # 
+    # w_ave_fc_yoy <- fcs_and_models$w_fc_yoy_ts
+    # 
+    # rgdp_test_yoy_data <- window(make_yoy_ts(rgdp_level_ts, is_log = FALSE),
+    #                              start = this_test_s_arima, 
+    #                              end = this_test_e_arima)
+    # 
+    # cv_error_yoy <- rgdp_test_yoy_data - w_ave_fc_yoy
+    # 
+    # cv_test_data_list[[i]] <- rgdp_test_yoy_data
+    # cv_w_fcs_list[[i]] <- w_ave_fc_yoy
+    # cv_error_yoy_list[[i]] <- cv_error_yoy
+    # 
+    # this_cv_dates_list_arima <- cv_dates_lists_arima[[i]]
+    # date_start_training_arima <- this_cv_dates_list_arima$tra_s
+    # 
+    # this_cv_dates_list_var <- cv_dates_lists_var[[i]]
+    # date_start_training_var <- this_cv_dates_list_var$tra_s
+    # 
+    # 
+    # if (date_start_training_var == as.yearqtr(min(time(var_data)))) {
+    #   print(paste("Training, for VAR, cannot start before this date. Current cv is",
+    #               i))
+    #   n_cv = i
+    #   break
+    # }
+    # 
+    # if (date_start_training_arima == as.yearqtr(min(time(rgdp_ts_in_arima)))) {
+    #   print(paste("Training, for Arima, cannot start before this date. Current cv is",
+    #               i))
+    #   n_cv = i
+    #   break
+    # }
+    
+  }
+  
+  
+  mat_cv_error_yoy <- matrix(
+    reduce(cv_error_yoy_list, rbind), 
+    nrow = n_cv, byrow = TRUE)
+  
+  ensemble_rmse <-   sqrt(colMeans(mat_cv_error_yoy^2))
+  
+  this_name <- ensemble_name
+  this_rmse <- ensemble_rmse
+  this_rmse_h <- paste0("rmse_", 1:length(this_rmse))
+  
+  ensemble_rmse_tbl <- tibble(variables = this_name, model_function = model_function_name, 
+                              rmse_h = this_rmse_h, rmse = this_rmse, 
+                              horizon = 1:length(this_rmse), lags = NA)
+  
+  
+  return(list(ensemble_rmse = ensemble_rmse_tbl,
+              cv_error_yoy_list = cv_error_yoy_list,
+              cv_test_data_list = cv_test_data_list,
+              cv_w_fcs_list = cv_w_fcs_list))
+  
 }
 
 
@@ -1324,13 +1235,6 @@ forecast_var_from_model_tbl <- function(models_tbl,
                                         max_rank_h = NULL
 ) {
   
-  # print("in forecast var from model tbl")
-  # print(names_exogenous)
-  
-  # print(" initial models_tbl")
-  # print(models_tbl)
-  
-  
   if (filter_by_rank) {
     surviving_names <- models_tbl %>% 
       gather(key = "rmse_h", value = "rmse", 
@@ -1343,20 +1247,17 @@ forecast_var_from_model_tbl <- function(models_tbl,
       distinct()
     
     models_tbl <- semi_join(models_tbl, surviving_names, by = "short_name")
-    print("models_tbl after filter by rank")
-    print(models_tbl)
   }
   
 
   starting_names <- names(models_tbl)
-  # print("starting_names in forecasts var from")
-  # print(starting_names)
   has_short_name <- "short_name" %in% starting_names | "model_name"  %in% starting_names 
   has_t_threshold <- "t_threshold" %in% starting_names
   
   if (!has_t_threshold) {
     models_tbl <- models_tbl %>% mutate(t_threshold = 0)
   }
+  
   
   if (!has_short_name) {
     models_tbl <- models_tbl %>% 
@@ -1394,8 +1295,6 @@ forecast_var_from_model_tbl <- function(models_tbl,
     print("Using previously estimates varest objects")
   }
   
- 
-
   models_tbl <- models_tbl %>% 
     mutate(fc_object_raw = map2(fit, variables,
                                 ~ forecast_VAR_one_row(
@@ -1466,8 +1365,11 @@ forecast_var_from_model_tbl <- function(models_tbl,
                        start = start(models_tbl$target_mean_fc_yoy[[1]]),
                        frequency = frequency(models_tbl$target_mean_fc_yoy[[1]]))
     
+    models_tbl <- ungroup(models_tbl)
+    
     return(list(models_tbl = models_tbl, fcs_wavg = fc_yoy_w_ave))
   } else {
+    models_tbl <- ungroup(models_tbl)
     return(models_tbl)
   }
   
@@ -3255,19 +3157,11 @@ var_cv <- function(var_data,
                    future_exo_cv = NULL,
                    this_thresh = 0) {
   
-  # print("in var_cv")
-  # print(names_exogenous)
+  print("this is var_cv")
+  print("chosen training length:")
+  print(training_length)
   
-  # print("")
-  # print("start var cv")
-  # print("")
-  # 
-  # print("full_sample_resmat starting var_cv()")
-  # print(full_sample_resmat)
-  # 
-  # print("this_thresh")
-  # print(this_thresh)
-  
+
   vbls_for_var <- colnames(var_data)
   
   endov <- vbls_for_var[!vbls_for_var %in% names_exogenous] 
@@ -3305,10 +3199,6 @@ var_cv <- function(var_data,
                                              external_idx = external_idx)
     
     train_test_dates <- train_test_dates[["list_of_year_quarter"]]
-    
-    # print("train_test_dates")
-    # print(train_test_dates)
-    
   }
 
   exo_and_lags <- make_exomat(exodata = exodata, exov = exov, exo_lag = exo_lag)

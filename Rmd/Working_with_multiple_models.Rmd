@@ -202,7 +202,8 @@ exodata_fullsample <- var_data[,names_exogenous]
 target_used_in_VAR <- var_data[, target_variable]
 start_target_in_VAR <- start(na.omit(target_used_in_VAR))
 end_target_in_VAR <- end(na.omit(target_used_in_VAR))
-
+fc_horizon <- 8
+n_cv <- 10
 
 tic()
 extension_of_exo <- extending_exogenous(exodata = exodata_fullsample,
@@ -225,9 +226,6 @@ toc()
 ### Cross Validation
 
 ```{r tscv_s3small, cache=TRUE}
-fc_horizon <- 8
-n_cv <- 10
-# training_length <- 30
 training_length <- "per_cv_maxs" 
 fit_column <- "fit"
 target_transform <- target_transformation
@@ -266,17 +264,6 @@ toc()
 
 ## Combine forecasts based on performance measure
 
-```{r extend_exo_full_sample}
-# tic()
-# extension_of_exo <- extending_exogenous(exodata = exodata_fullsample, h = 8,
-#                                         endo_end = end_target_in_VAR)
-# toc()
-
-# extension_of_exo[["future_exo"]]
-# extension_of_exo[["extended_exo"]]
-# extension_of_exo[["arima_models"]]
-
-```
 
 
 The function forecast_var_from_model_tbl by default, it just take all specifications in given tibble and produce forecasts of the target variable, more precisely it creates a list-column containing mean forecasts of YoY growth of the target variable over the specified forecast horizon. Some options include to keep varest or forecast objects (not advised with very long tibbles) and more importantly it can restrict the sample of models by keeping only the best  models at each horizon and computing a (rmse-)weighted average mean forecast.
@@ -293,86 +280,128 @@ fcs_from_all <- forecast_var_from_model_tbl(
   fc_horizon, 
   target_transform = target_transform,
   target_level_ts = target_level_ts,
-  do_rmse_average = TRUE,
   names_exogenous = names_exogenous, 
   extended_exo_mts = extension_of_exo
 )
 
-# rank and filter
+max_rank_h <- 4
 
-max_rank_h <- 5
-
-surviving_names <- cv_size_3_17 %>% 
-  gather(key = "rmse_h", value = "rmse", 
-         vars_select(names(.), starts_with("rmse"))) %>% 
-  group_by(rmse_h) %>% 
-  mutate(rank_h = rank(rmse)) %>% 
-  filter(rank_h <= max_rank_h) %>% 
-  ungroup() %>% 
-  dplyr::select(short_name) %>% 
-  distinct()
-
-rank_filtered_models <- semi_join(cv_size_3_17, surviving_names, by = "short_name")
-
-# use all models
-fc_s3_17 <- forecast_var_from_model_tbl(
-  rank_filtered_models, var_data, fc_horizon, 
-  target_transform = target_transform,
-  target_level_ts = target_level_ts, do_tests = FALSE, 
-  both_rest_unrest = TRUE) 
-
-do_rmse_average <- TRUE
-
-if (do_rmse_average) {
-  fcs_and_weights <- fc_s3_17 %>% 
-  gather(key = rmse_h, value = rmse, vars_select(names(.), starts_with("rmse"))) %>% 
-  group_by(rmse_h) %>% 
-  mutate(rank_h = rank(rmse)) %>% 
-  filter(rank_h <= max_rank_h) %>% 
-  mutate(inv_mse = 1/(rmse*rmse),
-         model_weight = inv_mse/sum(inv_mse),
-         horizon = as.numeric(substr(rmse_h, 6, 6)),
-         this_h_fc_yoy = map2_dbl(target_mean_fc_yoy, horizon, ~ .x[.y]),
-         weighted_this_h_fc_yoy = map2_dbl(this_h_fc_yoy, model_weight, ~ .x*.y),
-         waverage_fc_yoy_h = sum(weighted_this_h_fc_yoy)
-         ) 
-
-  fc_yoy_w_ave <- ts(unique(fcs_and_weights$waverage_fc_yoy_h), 
-                     start = start(fcs_and_weights$target_mean_fc_yoy[[1]]),
-                     frequency = frequency(fcs_and_weights$target_mean_fc_yoy[[1]]))
-  
-  fcs_and_wavg <- list(tbl_models_and_fcs = fcs_and_weights,
-                       fcs_wavg = fc_yoy_w_ave)
-}
-
-moo <-  forecast_var_from_model_tbl(
-  rank_filtered_models,
+fc_best_per_h <- forecast_var_from_model_tbl(
+  cv_size_3_17,
   var_data, 
   fc_horizon, 
   target_transform = target_transform,
   target_level_ts = target_level_ts,
-  do_tests = FALSE,
-  both_rest_unrest = TRUE,
+  names_exogenous = names_exogenous, 
+  extended_exo_mts = extension_of_exo,
   do_rmse_average = TRUE,
-  max_rank_h = 5) 
-
-fc_s3_small_wavg <- moo$fcs_wavg
-
-moo <-  forecast_var_from_model_tbl(
-  rank_filtered_models,
-  var_data, 
-  fc_horizon, 
-  target_transform = target_transform,
-  target_level_ts = target_level_ts,
-  do_tests = FALSE,
-  both_rest_unrest = TRUE,
-  do_rmse_average = TRUE,
-  max_rank_h = 5, 
+  max_rank_h = max_rank_h, 
   filter_by_rank = TRUE) 
+
+fc_rmse_weighted <- fc_best_per_h$fcs_wavg
+models_tbl_max_rank <- fc_best_per_h$models_tbl
+models_tbl_max_rank
+snames_best <-  models_tbl_max_rank %>% 
+  dplyr::select(short_name) %>% distinct()
+snames_best
+
+models_tbl_used_fc <- semi_join(cv_size_3_17, snames_best, by = "short_name")
+models_tbl_not_used_fc <- anti_join(cv_size_3_17, snames_best, by = "short_name")
+
+
+
 
 ```
 
 
+
+```{r cv_of_ensemble}
+
+variables_used <- fc_best_5_per_h$models_tbl %>% 
+  dplyr::select(variables) %>% unlist() %>% unique()
+var_data_best_fc <- var_data[, variables_used]
+
+training_length <- "per_cv_maxs"
+train_test_dates <- make_test_dates_list(
+  ts_data = na.omit(var_data[, variables_used]), 
+  type = "tscv",
+  n = n_cv, 
+  h_max = fc_horizon, 
+  training_length = training_length)
+
+# tail(var_data_train)
+
+cv_ensemble_fcs <- list_along(seq(1, n_cv))
+cv_ensemble_test_data <- list_along(seq(1, n_cv))
+cv_ensemble_errors <- list_along(seq(1, n_cv))
+
+for (i in seq(1, n_cv)) {
+  
+  train_test_yq <- train_test_dates[["list_of_year_quarter"]]
+
+  this_tra_s <- train_test_yq[[i]]$tra_s
+  this_tra_e <- train_test_yq[[i]]$tra_e
+  
+  this_tes_s <- train_test_yq[[i]]$tes_s
+  this_tes_e <- train_test_yq[[i]]$tes_e
+  
+  var_data_train <- window(var_data, start = this_tra_s, end = this_tra_e)
+  
+  print(nrow(var_data_train))
+  
+  this_fc_tbl <- forecast_var_from_model_tbl(
+  cv_size_3_17,
+  var_data_train, 
+  fc_horizon, 
+  target_transform = target_transform,
+  target_level_ts = target_level_ts,
+  names_exogenous = names_exogenous, 
+  extended_exo_mts = cv_extension_of_exo[[i]],
+  do_rmse_average = TRUE,
+  max_rank_h = 5, 
+  filter_by_rank = TRUE) 
+
+  ensemble_fc_rmse_weighted <- this_fc_tbl$fcs_wavg
+  
+  test_target_yoy <- window(make_yoy_ts(target_level_ts), 
+                           start = this_tes_s,
+                           end = this_tes_e)
+  ensemble_cv_error_yoy <- test_target_yoy - ensemble_fc_rmse_weighted
+  
+  cv_ensemble_fcs[[i]] <- ensemble_fc_rmse_weighted
+  cv_ensemble_test_data[[i]] <- test_target_yoy
+  cv_ensemble_errors[[i]] <- ensemble_cv_error_yoy
+
+}
+
+mat_cv_errors_ensemble <- matrix(
+    reduce(cv_ensemble_errors, rbind), 
+    nrow = n_cv, byrow = TRUE)
+rownames(mat_cv_errors_ensemble) <- NULL
+ensemble_rmse <- sqrt(colMeans(mat_cv_error_yoy^2))
+
+
+
+
+
+
+# cv_of_VAR_ensemble(var_training_length = "common-max", 
+#                    n_cv = n_cv,
+#                    tbl_of_models_and_rmse = fc_best_5_per_h[["models_tbl"]],
+#                    extended_x_data_ts = extension_of_exo,
+#                    var_data = var_data,
+#                    rgdp_level_ts = target_level_ts,
+#                    max_rank_h = NULL,
+#                    chosen_rmse_h = NULL,
+#                    h_var = fc_horizon,
+#                    ensemble_name = NULL)
+
+
+```
+
+this_fc_tbl
+
+ 
 ## Computing time and object size
 
 
