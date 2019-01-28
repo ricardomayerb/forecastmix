@@ -1860,7 +1860,7 @@ cv_arima <- function(y_ts,  h_max, n_cv,
 
 cv_of_ensemble <- function(var_training_length, 
                            arima_training_length,
-                           n_cv, 
+                           n_cv,  
                            tbl_of_models_and_rmse, 
                            extended_x_data_ts, 
                            rgdp_ts_in_arima, 
