@@ -903,9 +903,9 @@ make_test_dates_list <- function(ts_data, type = "tscv", n = 8, h_max = 6,
                                  timetk_idx = TRUE, training_length = 25,
                                  external_idx = NULL) {
   
-  print("this is make test dates list")
-  print("training_length")
-  print(training_length)
+  # print("this is make test dates list")
+  # print("training_length")
+  # print(training_length)
   
   
   data_length <- nrow(ts_data)

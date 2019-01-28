@@ -189,6 +189,9 @@ ftmt_size_3_17_u <- fit_tests_models_table(specifications_size_3_17_u, var_data 
 pm_size_3_17_u <- ftmt_size_3_17_u[["passing_models"]]
 print(head(pm_size_3_17_u))
 
+pm_3specs <- pm_size_3_17[c(1, 11, 21), ]
+
+
 ```
 
 
@@ -217,13 +220,14 @@ cv_extension_of_exo <- extending_exogenous_for_cv(
   n_cv = n_cv, same_model_across_cv = FALSE)
 toc()
 
-
-
-
 ```
 
 
 ### Cross Validation
+
+
+
+
 
 ```{r tscv_s3small, cache=TRUE}
 training_length <- "per_cv_maxs" 
@@ -242,7 +246,57 @@ cv_size_3_17 <- cv_var_from_model_tbl(h = fc_horizon,
                              target_level_ts = target_level_ts, 
                              names_exogenous = names_exogenous, 
                              future_exo = extension_of_exo, 
-                             extended_exo_mts = cv_extension_of_exo  
+                             extended_exo_mts = cv_extension_of_exo,
+                             keep_varest_obj = FALSE
+                             )
+toc()
+
+tic()
+cv_size_3_17_with_varest <- cv_var_from_model_tbl(h = fc_horizon,
+                             training_length = training_length, 
+                             n_cv = n_cv,
+                             models_tbl = pm_size_3_17, 
+                             var_data = var_data, 
+                             fit_column = "fit", 
+                             target_transform = target_transform,
+                             target_level_ts = target_level_ts, 
+                             names_exogenous = names_exogenous, 
+                             future_exo = extension_of_exo, 
+                             extended_exo_mts = cv_extension_of_exo,
+                             keep_varest_obj = TRUE
+                             )
+toc()
+
+
+tic()
+cv_3s <- cv_var_from_model_tbl(h = fc_horizon,
+                             training_length = training_length, 
+                             n_cv = n_cv,
+                             models_tbl = pm_3specs, 
+                             var_data = var_data, 
+                             fit_column = "fit", 
+                             target_transform = target_transform,
+                             target_level_ts = target_level_ts, 
+                             names_exogenous = names_exogenous, 
+                             future_exo = extension_of_exo, 
+                             extended_exo_mts = cv_extension_of_exo,
+                             keep_varest_obj = FALSE
+                             )
+toc()
+
+tic()
+cv_3s_with_varest <- cv_var_from_model_tbl(h = fc_horizon,
+                             training_length = training_length, 
+                             n_cv = n_cv,
+                             models_tbl = pm_3specs, 
+                             var_data = var_data, 
+                             fit_column = "fit", 
+                             target_transform = target_transform,
+                             target_level_ts = target_level_ts, 
+                             names_exogenous = names_exogenous, 
+                             future_exo = extension_of_exo, 
+                             extended_exo_mts = cv_extension_of_exo,
+                             keep_varest_obj = TRUE
                              )
 toc()
 
@@ -284,6 +338,17 @@ fcs_from_all <- forecast_var_from_model_tbl(
   extended_exo_mts = extension_of_exo
 )
 
+fcs_from_all_ve <- forecast_var_from_model_tbl(
+  cv_size_3_17_with_varest, 
+  fit_column = "fit",
+  var_data, 
+  fc_horizon, 
+  target_transform = target_transform,
+  target_level_ts = target_level_ts,
+  names_exogenous = names_exogenous, 
+  extended_exo_mts = extension_of_exo
+)
+
 max_rank_h <- 4
 
 fc_best_per_h <- forecast_var_from_model_tbl(
@@ -309,7 +374,25 @@ models_tbl_used_fc <- semi_join(cv_size_3_17, snames_best, by = "short_name")
 models_tbl_not_used_fc <- anti_join(cv_size_3_17, snames_best, by = "short_name")
 
 
+fc_best_per_h_ve <- forecast_var_from_model_tbl(
+  cv_size_3_17_with_varest,
+  fit_column = "fit",
+  var_data, 
+  fc_horizon, 
+  target_transform = target_transform,
+  target_level_ts = target_level_ts,
+  names_exogenous = names_exogenous, 
+  extended_exo_mts = extension_of_exo,
+  do_rmse_average = TRUE,
+  max_rank_h = max_rank_h, 
+  filter_by_rank = TRUE) 
 
+foo <- fc_best_per_h$models_tbl
+foove <- fc_best_per_h_ve$models_tbl
+
+fooved <- foove %>% distinct(short_name, .keep_all = TRUE)
+
+food <- foo %>% distinct(short_name, .keep_all = TRUE)
 
 ```
 
@@ -317,11 +400,22 @@ models_tbl_not_used_fc <- anti_join(cv_size_3_17, snames_best, by = "short_name"
 
 ```{r cv_of_ensemble}
 
-variables_used <- fc_best_5_per_h$models_tbl %>% 
+variables_used <- fc_best_per_h$models_tbl %>% 
   dplyr::select(variables) %>% unlist() %>% unique()
 var_data_best_fc <- var_data[, variables_used]
 
+h_max <- fc_horizon
+  
 training_length <- "per_cv_maxs"
+training_length <- "common_max"
+training_length <- 28
+
+if (training_length == "common_max") {
+    total_obs <- nrow( na.omit(var_data[, variables_used]))
+    training_length <- total_obs - h_max - (n_cv - 1)
+    print(paste0("common_max = ", training_length))
+}
+
 train_test_dates <- make_test_dates_list(
   ts_data = na.omit(var_data[, variables_used]), 
   type = "tscv",
@@ -345,23 +439,31 @@ for (i in seq(1, n_cv)) {
   this_tes_s <- train_test_yq[[i]]$tes_s
   this_tes_e <- train_test_yq[[i]]$tes_e
   
+  print(this_tra_e)
+  print(this_tra_s)
+  
   var_data_train <- window(var_data, start = this_tra_s, end = this_tra_e)
   
-  print(nrow(var_data_train))
+  # print(nrow(var_data_train))
+  # print(head(var_data_train, n = 1))
+  # print(tail(var_data_train, n = 1))
   
   this_fc_tbl <- forecast_var_from_model_tbl(
-  cv_size_3_17,
-  var_data_train, 
-  fc_horizon, 
-  target_transform = target_transform,
-  target_level_ts = target_level_ts,
-  names_exogenous = names_exogenous, 
-  extended_exo_mts = cv_extension_of_exo[[i]],
-  do_rmse_average = TRUE,
-  max_rank_h = 5, 
-  filter_by_rank = TRUE) 
+    models_tbl = cv_size_3_17, 
+    fc_horizon = fc_horizon, 
+    var_data = var_data_train,
+    target_transform = target_transform,
+    target_level_ts = target_level_ts,
+    names_exogenous = names_exogenous, 
+    extended_exo_mts = cv_extension_of_exo[[i]],
+    do_rmse_average = TRUE,
+    max_rank_h = 5,
+    filter_by_rank = TRUE) 
 
   ensemble_fc_rmse_weighted <- this_fc_tbl$fcs_wavg
+  
+  print("ensemble_fc_rmse_weighted")
+  print(ensemble_fc_rmse_weighted)
   
   test_target_yoy <- window(make_yoy_ts(target_level_ts), 
                            start = this_tes_s,
@@ -371,21 +473,20 @@ for (i in seq(1, n_cv)) {
   cv_ensemble_fcs[[i]] <- ensemble_fc_rmse_weighted
   cv_ensemble_test_data[[i]] <- test_target_yoy
   cv_ensemble_errors[[i]] <- ensemble_cv_error_yoy
-
 }
 
 mat_cv_errors_ensemble <- matrix(
     reduce(cv_ensemble_errors, rbind), 
-    nrow = n_cv, byrow = TRUE)
+    nrow = n_cv)
 rownames(mat_cv_errors_ensemble) <- NULL
-ensemble_rmse <- sqrt(colMeans(mat_cv_error_yoy^2))
+ensemble_rmse <- sqrt(colMeans(mat_cv_errors_ensemble^2, na.rm = TRUE))
+
+ensemble_rmse
+
+boo <- this_fc_tbl[["models_tbl"]]
 
 
-
-
-
-
-# cv_of_VAR_ensemble(var_training_length = "common-max", 
+ # cv_of_VAR_ensemble(var_training_length = "common-max", 
 #                    n_cv = n_cv,
 #                    tbl_of_models_and_rmse = fc_best_5_per_h[["models_tbl"]],
 #                    extended_x_data_ts = extension_of_exo,

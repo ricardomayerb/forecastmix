@@ -1075,6 +1075,7 @@ fit_VAR_rest <- function(var_data, variables, p,
                          names_exogenous = c(""),
                          exo_lag = NULL)  {
   
+  
   if(length(t_thresh) == 1) {
     if (t_thresh == 0 | is.null(t_thresh)) {
       t_thresh <- FALSE
@@ -1144,6 +1145,17 @@ fit_VAR_rest <- function(var_data, variables, p,
       
       list_of_varests[[i+1]] <- this_fit
     }
+    
+    print("in fitvarrest")
+    print("variables")
+    print(variables)
+    print("p")
+    print(p)
+    print("t_thresh")
+    print(t_thresh)
+    print("this_fit")
+    print(this_fit)
+    print("-------------------------------")
     
     thresholds_and_fits <- tibble(t_threshold = c(0, t_thresh),
                                   fit = list_of_varests)
@@ -1248,7 +1260,6 @@ forecast_var_from_model_tbl <- function(models_tbl,
     
     models_tbl <- semi_join(models_tbl, surviving_names, by = "short_name")
   }
-  
 
   starting_names <- names(models_tbl)
   has_short_name <- "short_name" %in% starting_names | "model_name"  %in% starting_names 
@@ -1257,7 +1268,6 @@ forecast_var_from_model_tbl <- function(models_tbl,
   if (!has_t_threshold) {
     models_tbl <- models_tbl %>% mutate(t_threshold = 0)
   }
-  
   
   if (!has_short_name) {
     models_tbl <- models_tbl %>% 
@@ -1361,9 +1371,29 @@ forecast_var_from_model_tbl <- function(models_tbl,
              waverage_fc_yoy_h = sum(weighted_this_h_fc_yoy)
       ) 
     
-    fc_yoy_w_ave <- ts(unique(models_tbl$waverage_fc_yoy_h), 
-                       start = start(models_tbl$target_mean_fc_yoy[[1]]),
-                       frequency = frequency(models_tbl$target_mean_fc_yoy[[1]]))
+    waverage_tbl <- models_tbl %>% 
+      dplyr::select(rmse_h, waverage_fc_yoy_h) %>% 
+      summarise(waverage_fc_yoy_h = unique(waverage_fc_yoy_h))
+    
+    # print("waverage_tbl")
+    # print(waverage_tbl, max = 10)
+    
+    
+    # print("models_tbl$waverage_fc_yoy_h")
+    # print(models_tbl$waverage_fc_yoy_h)
+    # 
+    # print("unique(models_tbl$waverage_fc_yoy_h)")
+    # print(unique(models_tbl$waverage_fc_yoy_h))
+    # 
+    # fc_yoy_w_ave <- ts(unique(models_tbl$waverage_fc_yoy_h), 
+    #                    start = start(models_tbl$target_mean_fc_yoy[[1]]),
+    #                    frequency = frequency(models_tbl$target_mean_fc_yoy[[1]]))
+    
+    fc_start <- start(models_tbl$target_mean_fc_yoy[[1]])
+    
+    fc_freq <- frequency(models_tbl$target_mean_fc_yoy[[1]])
+    
+    fc_yoy_w_ave <- ts(waverage_tbl$waverage_fc_yoy_h, start = fc_start, frequency = fc_freq)
     
     models_tbl <- ungroup(models_tbl)
     
@@ -3157,9 +3187,9 @@ var_cv <- function(var_data,
                    future_exo_cv = NULL,
                    this_thresh = 0) {
   
-  print("this is var_cv")
-  print("chosen training length:")
-  print(training_length)
+  # print("this is var_cv")
+  # print("chosen training length:")
+  # print(training_length)
   
 
   vbls_for_var <- colnames(var_data)
