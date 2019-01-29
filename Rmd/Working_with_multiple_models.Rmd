@@ -252,6 +252,22 @@ cv_size_3_17 <- cv_var_from_model_tbl(h = fc_horizon,
 toc()
 
 tic()
+cv_size_3_17_tra28 <- cv_var_from_model_tbl(h = fc_horizon,
+                             training_length = 28, 
+                             n_cv = n_cv,
+                             models_tbl = pm_size_3_17, 
+                             var_data = var_data, 
+                             fit_column = "fit", 
+                             target_transform = target_transform,
+                             target_level_ts = target_level_ts, 
+                             names_exogenous = names_exogenous, 
+                             future_exo = extension_of_exo, 
+                             extended_exo_mts = cv_extension_of_exo,
+                             keep_varest_obj = FALSE
+                             )
+toc()
+
+tic()
 cv_size_3_17_with_varest <- cv_var_from_model_tbl(h = fc_horizon,
                              training_length = training_length, 
                              n_cv = n_cv,
@@ -361,7 +377,8 @@ fc_best_per_h <- forecast_var_from_model_tbl(
   extended_exo_mts = extension_of_exo,
   do_rmse_average = TRUE,
   max_rank_h = max_rank_h, 
-  filter_by_rank = TRUE) 
+  filter_by_rank = TRUE,
+  remove_aux_unrest = TRUE) 
 
 fc_rmse_weighted <- fc_best_per_h$fcs_wavg
 models_tbl_max_rank <- fc_best_per_h$models_tbl
@@ -387,6 +404,21 @@ fc_best_per_h_ve <- forecast_var_from_model_tbl(
   max_rank_h = max_rank_h, 
   filter_by_rank = TRUE) 
 
+fc_rmse_weighted_ve <- fc_best_per_h_ve$fcs_wavg
+models_tbl_max_rank_ve <- fc_best_per_h_ve$models_tbl
+models_tbl_max_rank_ve
+snames_best_ve <-  models_tbl_max_rank_ve %>% 
+  dplyr::select(short_name) %>% distinct()
+snames_best_ve
+
+models_tbl_used_fc_ve <- semi_join(cv_size_3_17_with_varest, snames_best_ve, by = "short_name")
+models_tbl_not_used_fc_ve <- anti_join(cv_size_3_17_with_varest, snames_best_ve, by = "short_name")
+
+moove <- fc_best_per_h_ve$stmod
+moo <- fc_best_per_h$stmod
+
+
+
 foo <- fc_best_per_h$models_tbl
 foove <- fc_best_per_h_ve$models_tbl
 
@@ -403,6 +435,13 @@ food <- foo %>% distinct(short_name, .keep_all = TRUE)
 variables_used <- fc_best_per_h$models_tbl %>% 
   dplyr::select(variables) %>% unlist() %>% unique()
 var_data_best_fc <- var_data[, variables_used]
+
+variables_used_ve <- fc_best_per_h$models_tbl %>% 
+  dplyr::select(variables) %>% unlist() %>% unique()
+var_data_best_fc <- var_data[, variables_used]
+
+
+models_smaller <- cv_size_3_17[1, ]
 
 h_max <- fc_horizon
   
@@ -449,7 +488,7 @@ for (i in seq(1, n_cv)) {
   # print(tail(var_data_train, n = 1))
   
   this_fc_tbl <- forecast_var_from_model_tbl(
-    models_tbl = cv_size_3_17, 
+    models_tbl = cv_size_3_17_tra28, 
     fc_horizon = fc_horizon, 
     var_data = var_data_train,
     target_transform = target_transform,

@@ -494,7 +494,8 @@ cv_var_from_model_tbl <- function(h, n_cv,
                                                training_length = training_length,
                                                this_type = "const",
                                                future_exo_cv = future_exo_cv)
-    )
+                         ),
+           full_sample_resmat = map(cv_obj, "full_sample_resmat")
     )
   # toc()
   
@@ -814,16 +815,16 @@ fit_tests_models_table <- function(models_tbl,
                                    do_tests = TRUE,
                                    names_exogenous = c(""),
                                    exo_lag = NULL,
-                                   keep_auxiliary = TRUE,
-                                   silent = TRUE) {
-  
+                                   silent = TRUE,
+                                   remove_aux_unrest = FALSE) {
+
   models_tbl <- models_tbl %>% 
     mutate(is_unrestricted = map_lgl(t_threshold, 
                                      ~ length(.) == 1 & (all(. == 0) )
                                      ))
   
-  # print("first models_tbls")
-  # print(models_tbl)
+  print("first models_tbl in fit test models table")
+  print(models_tbl)
   
   premod_rest <- models_tbl %>% filter(!is_unrestricted)
   
@@ -832,26 +833,15 @@ fit_tests_models_table <- function(models_tbl,
       unnest(t_threshold, .drop = FALSE)
   }
    
-    
-  
-  # print("premod_rest")
-  # print(premod_rest)
-  
   premod_unrest <- models_tbl %>% filter(is_unrestricted)
-  
-  # print("premod_unrest")
-  # print(premod_unrest)
-  
+
   premod <- rbind(premod_rest, premod_unrest) %>% 
     mutate(short_name = pmap(list(variables, lags, t_threshold), 
                              ~ make_model_name(variables = ..1, 
                                                lags = ..2, 
                                                t_threshold = ..3)),
            short_name = unlist(short_name))
-  
-  # print("premod")
-  # print(premod)
-  
+
   original_short_names <- dplyr::select(premod, short_name)
 
   n_pure_unrestricted <- sum(models_tbl$is_unrestricted)
@@ -859,24 +849,18 @@ fit_tests_models_table <- function(models_tbl,
     models_tbl$t_threshold[!models_tbl$is_unrestricted]))
   n_auxiliar_unrestricted <- sum(!(models_tbl$is_unrestricted))
 
-  # n_models_to_fit <- n_pure_unrestricted + n_pure_restricted + n_auxiliar_unrestricted
-  
   if (!silent) {
     print(paste0("Number of intended unrestricted models to fit: ", n_pure_unrestricted))
     print(paste0("Number of restricted models to fit: ", n_pure_restricted))
-    print(paste0("Number of auxiliar unrestricted models to fit: ", n_auxiliar_unrestricted))
-    print(paste0("Total number of models to fit: c(", 
-                 n_pure_restricted + n_auxiliar_unrestricted, " , ", 
-                 n_pure_unrestricted + n_pure_restricted + n_auxiliar_unrestricted,
-                 ")"))
+    print(paste0("Number of purely auxiliar unrestricted models to fit: ", n_auxiliar_unrestricted - n_pure_unrestricted))
+    print(paste0("Total number of models to fit: ", 
+                 n_pure_restricted + n_auxiliar_unrestricted))
   }
   
   # some of these unrestricted models could be duplicated as auxiliar estimations
   # of restricted models. To avoid double work, estimate first restricted models
   # return also auxiliar unrestricted ones and, then, only estimate unnrestricted 
   # models that are not among the set of auxilar models
-  
-
   
   models_tbl_pure_unrestricted <- models_tbl %>%
     filter(is_unrestricted)
@@ -892,13 +876,6 @@ fit_tests_models_table <- function(models_tbl,
 
   models_tbl <- models_tbl %>% filter(!is_unrestricted)
 
- # print("models_tbl_pure_unrestricted")
- # print(models_tbl_pure_unrestricted)
- # 
- # print("models_tbl already restricted")
- # print(models_tbl)
- 
- 
   if (n_pure_restricted > 0) {
     models_tbl <- models_tbl %>% 
       mutate(fit = pmap(list(variables, lags, t_threshold),
@@ -919,7 +896,8 @@ fit_tests_models_table <- function(models_tbl,
              is_unrestricted = map_lgl(t_threshold, 
                                        ~ length(.) == 1 & (all(. == 0))
                                        )
-             )
+             ) %>% 
+      distinct(short_name, .keep_all = TRUE)
     
     # print("restricted models_tbl")
     # print(models_tbl)
@@ -984,15 +962,19 @@ fit_tests_models_table <- function(models_tbl,
   # print("before rbind models tbl")
   # print(models_tbl)
   
-  if (keep_auxiliary) {
+  if (!remove_aux_unrest) {
+    # print("NOT removing aux")
     models_tbl <- rbind(models_tbl, unrestricted_not_auxiliary, 
                         auxiliary_also_original, auxiliary_but_not_original) %>% 
       distinct(short_name, .keep_all = TRUE)
 
   } else {
+    # print("removing aux")
     models_tbl <- rbind(models_tbl, unrestricted_not_auxiliary, 
                         auxiliary_also_original) %>% 
       distinct(short_name, .keep_all = TRUE)
+    
+    # print(models_tbl)
   }
   
   # print("models ready for testing")
@@ -1042,8 +1024,6 @@ fit_tests_models_table <- function(models_tbl,
       print(paste0("Number of models to be (ts)cross-validated or forecasted: ", n_post_checkresid))
     }
     
-    
-    
     models_tbl <- models_tbl %>% dplyr::select(-c(is_stable, is_white_noise, cf))
     if(!keep_fit) {
       models_tbl <- models_tbl %>% dplyr::select(-fit)
@@ -1056,6 +1036,9 @@ fit_tests_models_table <- function(models_tbl,
                 n_lost_to_white = n_non_white_noise))
     
   } else {
+    
+    print("not doing tests")
+    
     print(paste0("Number of models to be (ts)cross-validated or forecasted: ", n_before_varestfilter))
     if (!keep_fit) {
       models_tbl <- models_tbl %>% dplyr::select(-fit)
@@ -1068,20 +1051,23 @@ fit_tests_models_table <- function(models_tbl,
 }
 
 
-
-
-fit_VAR_rest <- function(var_data, variables, p,
-                         t_thresh = FALSE, type = "const",
+fit_VAR_rest <- function(var_data, 
+                         variables,
+                         p,
+                         t_thresh = FALSE, 
+                         type = "const",
                          names_exogenous = c(""),
-                         exo_lag = NULL)  {
+                         exo_lag = NULL,
+                         resmat = NULL)  {
   
+  
+  print("in fit VAR rest")
   
   if(length(t_thresh) == 1) {
     if (t_thresh == 0 | is.null(t_thresh)) {
       t_thresh <- FALSE
     }
   }
-  
   
   this_var_data <- var_data[, variables]
   this_var_data <- na.omit(this_var_data)
@@ -1114,10 +1100,15 @@ fit_VAR_rest <- function(var_data, variables, p,
   
   if (is.null(exo_and_lags)) {
     unrestricted_fit <- vars::VAR(y = endodata, p = p, type = type) 
+    print("unrestricted_fit")
+    print(unrestricted_fit)
     
   } else {
     unrestricted_fit <- vars::VAR(y = endodata, p = p, type = type, 
                           exogen = exo_and_lags)
+    print("unrestricted_fit")
+    print(unrestricted_fit)
+    
   }
   
   
@@ -1135,9 +1126,16 @@ fit_VAR_rest <- function(var_data, variables, p,
       this_thresh <- t_thresh[i]
       # print(this_thresh)
       
-      this_fit <- try(vars::restrict(unrestricted_fit, method = "ser", 
-                                     thresh = this_thresh), silent = TRUE)
+      if(is.null(resmat)) {
+        this_fit <- try(vars::restrict(unrestricted_fit, method = "ser", 
+                                       thresh = this_thresh), silent = TRUE)
+      } else {
+        this_fit <- try(vars::restrict(unrestricted_fit, method = "manual", 
+                                       resmat = resmat), silent = TRUE)
+      }
       
+      print("this_fit")
+      print(this_fit)
       
       if (class(this_fit) == "try-error") {
         this_fit <- "one_or_more_eqn_drops"
@@ -1146,16 +1144,16 @@ fit_VAR_rest <- function(var_data, variables, p,
       list_of_varests[[i+1]] <- this_fit
     }
     
-    print("in fitvarrest")
-    print("variables")
-    print(variables)
-    print("p")
-    print(p)
-    print("t_thresh")
-    print(t_thresh)
-    print("this_fit")
-    print(this_fit)
-    print("-------------------------------")
+    # print("in fitvarrest")
+    # print("variables")
+    # print(variables)
+    # print("p")
+    # print(p)
+    # print("t_thresh")
+    # print(t_thresh)
+    # print("this_fit")
+    # print(this_fit)
+    # print("-------------------------------")
     
     thresholds_and_fits <- tibble(t_threshold = c(0, t_thresh),
                                   fit = list_of_varests)
@@ -1244,7 +1242,8 @@ forecast_var_from_model_tbl <- function(models_tbl,
                                         do_tests = FALSE,
                                         do_rmse_average = FALSE,
                                         filter_by_rank = FALSE,
-                                        max_rank_h = NULL
+                                        max_rank_h = NULL, 
+                                        remove_aux_unrest = TRUE
 ) {
   
   if (filter_by_rank) {
@@ -1257,6 +1256,9 @@ forecast_var_from_model_tbl <- function(models_tbl,
       ungroup() %>% 
       dplyr::select(short_name) %>% 
       distinct()
+    
+    # print("surviving_names, n = 20")
+    # print(surviving_names, n = 20)
     
     models_tbl <- semi_join(models_tbl, surviving_names, by = "short_name")
   }
@@ -1284,7 +1286,8 @@ forecast_var_from_model_tbl <- function(models_tbl,
     # print("pre rubvwecd")
     # print(models_tbl)
     ftmt <- fit_tests_models_table(models_tbl = models_tbl, var_data = var_data,
-                                  do_tests = do_tests)
+                                  do_tests = do_tests, remove_aux_unrest = remove_aux_unrest,
+                                  silent = FALSE)
     models_tbl <- ftmt[["passing_models"]]
     
     # print("passing models")
@@ -1304,6 +1307,9 @@ forecast_var_from_model_tbl <- function(models_tbl,
   } else {
     print("Using previously estimates varest objects")
   }
+  
+  
+  stmod <- models_tbl 
   
   models_tbl <- models_tbl %>% 
     mutate(fc_object_raw = map2(fit, variables,
@@ -1375,20 +1381,7 @@ forecast_var_from_model_tbl <- function(models_tbl,
       dplyr::select(rmse_h, waverage_fc_yoy_h) %>% 
       summarise(waverage_fc_yoy_h = unique(waverage_fc_yoy_h))
     
-    # print("waverage_tbl")
-    # print(waverage_tbl, max = 10)
-    
-    
-    # print("models_tbl$waverage_fc_yoy_h")
-    # print(models_tbl$waverage_fc_yoy_h)
-    # 
-    # print("unique(models_tbl$waverage_fc_yoy_h)")
-    # print(unique(models_tbl$waverage_fc_yoy_h))
-    # 
-    # fc_yoy_w_ave <- ts(unique(models_tbl$waverage_fc_yoy_h), 
-    #                    start = start(models_tbl$target_mean_fc_yoy[[1]]),
-    #                    frequency = frequency(models_tbl$target_mean_fc_yoy[[1]]))
-    
+
     fc_start <- start(models_tbl$target_mean_fc_yoy[[1]])
     
     fc_freq <- frequency(models_tbl$target_mean_fc_yoy[[1]])
@@ -1397,7 +1390,7 @@ forecast_var_from_model_tbl <- function(models_tbl,
     
     models_tbl <- ungroup(models_tbl)
     
-    return(list(models_tbl = models_tbl, fcs_wavg = fc_yoy_w_ave))
+    return(list(models_tbl = models_tbl, fcs_wavg = fc_yoy_w_ave, stmod = stmod))
   } else {
     models_tbl <- ungroup(models_tbl)
     return(models_tbl)
@@ -3421,7 +3414,8 @@ var_cv <- function(var_data,
               cv_vbl_names = cv_vbl_names,
               cv_lag = cv_lag,
               cv_is_white_noise = cv_is_white_noise,
-              cv_restriction_status = cv_restriction_status))
+              cv_restriction_status = cv_restriction_status,
+              full_sample_resmat = full_sample_resmat))
 }
 
 
