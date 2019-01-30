@@ -446,8 +446,8 @@ models_smaller <- cv_size_3_17[1, ]
 h_max <- fc_horizon
   
 training_length <- "per_cv_maxs"
-training_length <- "common_max"
-training_length <- 28
+# training_length <- "common_max"
+# training_length <- 28
 
 if (training_length == "common_max") {
     total_obs <- nrow( na.omit(var_data[, variables_used]))
@@ -482,13 +482,9 @@ for (i in seq(1, n_cv)) {
   print(this_tra_s)
   
   var_data_train <- window(var_data, start = this_tra_s, end = this_tra_e)
-  
-  # print(nrow(var_data_train))
-  # print(head(var_data_train, n = 1))
-  # print(tail(var_data_train, n = 1))
-  
+
   this_fc_tbl <- forecast_var_from_model_tbl(
-    models_tbl = cv_size_3_17_tra28, 
+    models_tbl = cv_size_3_17, 
     fc_horizon = fc_horizon, 
     var_data = var_data_train,
     target_transform = target_transform,
@@ -525,16 +521,6 @@ ensemble_rmse
 boo <- this_fc_tbl[["models_tbl"]]
 
 
- # cv_of_VAR_ensemble(var_training_length = "common-max", 
-#                    n_cv = n_cv,
-#                    tbl_of_models_and_rmse = fc_best_5_per_h[["models_tbl"]],
-#                    extended_x_data_ts = extension_of_exo,
-#                    var_data = var_data,
-#                    rgdp_level_ts = target_level_ts,
-#                    max_rank_h = NULL,
-#                    chosen_rmse_h = NULL,
-#                    h_var = fc_horizon,
-#                    ensemble_name = NULL)
 
 
 ```
