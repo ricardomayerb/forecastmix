@@ -816,7 +816,8 @@ fit_tests_models_table <- function(models_tbl,
                                    names_exogenous = c(""),
                                    exo_lag = NULL,
                                    silent = TRUE,
-                                   remove_aux_unrest = FALSE) {
+                                   remove_aux_unrest = FALSE,
+                                   use_resmat = FALSE) {
 
   models_tbl <- models_tbl %>% 
     mutate(is_unrestricted = map_lgl(t_threshold, 
@@ -877,12 +878,26 @@ fit_tests_models_table <- function(models_tbl,
   models_tbl <- models_tbl %>% filter(!is_unrestricted)
 
   if (n_pure_restricted > 0) {
-    models_tbl <- models_tbl %>% 
-      mutate(fit = pmap(list(variables, lags, t_threshold),
-                        ~ fit_VAR_rest(var_data, variables = ..1, 
-                                       p = ..2, t_thresh = ..3,
-                                       names_exogenous = names_exogenous))
-             )
+    if (use_resmat) {
+      models_tbl <- models_tbl %>% 
+        mutate(fit = pmap(list(variables, lags, t_threshold, full_sample_resmat),
+                          ~ fit_VAR_rest(var_data, variables = ..1, 
+                                         p = ..2, t_thresh = ..3,
+                                         resmat = ..4,
+                                         names_exogenous = names_exogenous))
+        )
+    } else {
+      models_tbl <- models_tbl %>% 
+        mutate(fit = pmap(list(variables, lags, t_threshold),
+                          ~ fit_VAR_rest(var_data, variables = ..1, 
+                                         p = ..2, t_thresh = ..3,
+                                         resmat = NULL,
+                                         names_exogenous = names_exogenous))
+        )
+    }
+    
+    print("Right after fit_VAR_rest models_tbl is")
+    print(models_tbl)
     
     models_tbl <- models_tbl  %>% 
       dplyr::select(-t_threshold) %>% 
@@ -899,27 +914,27 @@ fit_tests_models_table <- function(models_tbl,
              ) %>% 
       distinct(short_name, .keep_all = TRUE)
     
-    # print("restricted models_tbl")
-    # print(models_tbl)
-    # 
-    # print("original_short_names")
-    # print(original_short_names)
+    print("restricted and unrestricted models_tbl")
+    print(models_tbl)
+
+    print("original_short_names")
+    print(original_short_names)
     
     auxiliary_also_original <-  models_tbl %>% 
       filter(is_auxiliary) %>% 
       semi_join(original_short_names, by = "short_name") %>% 
       dplyr::select(-is_auxiliary)
     
-    # print("auxiliary_also_original")
-    # print(auxiliary_also_original)
+    print("auxiliary_also_original")
+    print(auxiliary_also_original)
     
     auxiliary_but_not_original <-  models_tbl %>% 
       filter(is_auxiliary) %>% 
       anti_join(original_short_names, by = "short_name") %>% 
       dplyr::select(-is_auxiliary)
     
-    # print("auxiliary_but_not_original")
-    # print(auxiliary_but_not_original)
+    print("auxiliary_but_not_original")
+    print(auxiliary_but_not_original)
     
     models_tbl <- models_tbl  %>% filter(!is_auxiliary) %>% 
       dplyr::select(-is_auxiliary)
@@ -928,13 +943,6 @@ fit_tests_models_table <- function(models_tbl,
     auxiliary_but_not_original <- models_tbl
     auxiliary_also_original <- models_tbl
   }
-  
-  # print("dwcssdc")
-  # print("auxiliary_but_not_original")
-  # print(auxiliary_but_not_original)
-  # print("auxiliary_also_original")
-  # print(auxiliary_also_original)
-  
   
   if (n_pure_unrestricted > 0) {
     # elimate repeated unrestricted
@@ -963,27 +971,23 @@ fit_tests_models_table <- function(models_tbl,
   # print(models_tbl)
   
   if (!remove_aux_unrest) {
-    # print("NOT removing aux")
+    print("NOT removing aux")
     models_tbl <- rbind(models_tbl, unrestricted_not_auxiliary, 
                         auxiliary_also_original, auxiliary_but_not_original) %>% 
       distinct(short_name, .keep_all = TRUE)
 
   } else {
-    # print("removing aux")
+    print("removing aux")
     models_tbl <- rbind(models_tbl, unrestricted_not_auxiliary, 
                         auxiliary_also_original) %>% 
       distinct(short_name, .keep_all = TRUE)
     
-    # print(models_tbl)
+    print(models_tbl)
   }
-  
-  # print("models ready for testing")
-  # print(models_tbl)
-  
-  
-  # print("after rbind models tbl and distinct")
-  # print(models_tbl)
-  
+
+  print("models ready for testing")
+  print(models_tbl)
+
   table_of_tried_specifications <- models_tbl %>% dplyr::select(-fit) 
   
   n_before_varestfilter <- nrow(models_tbl)
@@ -1041,8 +1045,12 @@ fit_tests_models_table <- function(models_tbl,
     
     print(paste0("Number of models to be (ts)cross-validated or forecasted: ", n_before_varestfilter))
     if (!keep_fit) {
+      print("Not keeping fit column")
       models_tbl <- models_tbl %>% dplyr::select(-fit)
     }
+    
+    print("right before returning output in fit test models table")
+    print(models_tbl)
     
     return(list(passing_models = models_tbl, 
                 tried_models = table_of_tried_specifications)
@@ -1130,6 +1138,8 @@ fit_VAR_rest <- function(var_data,
         this_fit <- try(vars::restrict(unrestricted_fit, method = "ser", 
                                        thresh = this_thresh), silent = TRUE)
       } else {
+        print("in fit var rest, using full sample resmat")
+        print(resmat)
         this_fit <- try(vars::restrict(unrestricted_fit, method = "manual", 
                                        resmat = resmat), silent = TRUE)
       }
@@ -1243,7 +1253,8 @@ forecast_var_from_model_tbl <- function(models_tbl,
                                         do_rmse_average = FALSE,
                                         filter_by_rank = FALSE,
                                         max_rank_h = NULL, 
-                                        remove_aux_unrest = TRUE
+                                        remove_aux_unrest = TRUE,
+                                        use_resmat = FALSE
 ) {
   
   if (filter_by_rank) {
@@ -1285,13 +1296,20 @@ forecast_var_from_model_tbl <- function(models_tbl,
     print("There is no column with fit varest objects, so we will estimate all VARs now")
     # print("pre rubvwecd")
     # print(models_tbl)
-    ftmt <- fit_tests_models_table(models_tbl = models_tbl, var_data = var_data,
-                                  do_tests = do_tests, remove_aux_unrest = remove_aux_unrest,
-                                  silent = FALSE)
+    if (use_resmat) {
+      print("Using pre-existent restriction matrices for restricted models")
+      ftmt <- fit_tests_models_table(models_tbl = models_tbl, var_data = var_data,
+                                     do_tests = do_tests, remove_aux_unrest = remove_aux_unrest,
+                                     silent = FALSE, use_resmat = TRUE)
+    } else {
+      ftmt <- fit_tests_models_table(models_tbl = models_tbl, var_data = var_data,
+                                     do_tests = do_tests, remove_aux_unrest = remove_aux_unrest,
+                                     silent = FALSE, use_resmat = FALSE)
+    } 
+    
     models_tbl <- ftmt[["passing_models"]]
     
-    # print("passing models")
-    # print(models_tbl)
+
     
     models_tbl <- models_tbl %>% 
       mutate(is_unrestricted = map_lgl(t_threshold, 
@@ -1308,6 +1326,8 @@ forecast_var_from_model_tbl <- function(models_tbl,
     print("Using previously estimates varest objects")
   }
   
+  print("passing models, back in forecast var from models tbl")
+  print(models_tbl)
   
   stmod <- models_tbl 
   
@@ -1319,6 +1339,10 @@ forecast_var_from_model_tbl <- function(models_tbl,
                                   extended_exo_mts = extended_exo_mts)
     )
     )
+  
+  print("After fc , before transf")
+  print(models_tbl)
+  print(models_tbl$fc_object_raw)
   
   if (target_transform == "yoy") {
     print("Target variable already in YoY form, so no transformation is needed")
@@ -1343,6 +1367,11 @@ forecast_var_from_model_tbl <- function(models_tbl,
              )
       )
   }
+  
+  print("after transformation")
+  print(models_tbl)
+  print(models_tbl$target_mean_fc)
+  print(models_tbl$target_mean_fc_yoy)
   
   if (!keep_varest_obj) {
     models_tbl <- models_tbl %>% 

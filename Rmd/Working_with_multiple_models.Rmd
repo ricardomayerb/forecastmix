@@ -442,12 +442,14 @@ var_data_best_fc <- var_data[, variables_used]
 
 
 models_smaller <- cv_size_3_17[1, ]
+models_smallerdsd <- cv_size_3_17[1:14, ]
+models_smaller_28 <- cv_size_3_17_tra28[1, ]
 
 h_max <- fc_horizon
   
 training_length <- "per_cv_maxs"
 # training_length <- "common_max"
-# training_length <- 28
+training_length <- 28
 
 if (training_length == "common_max") {
     total_obs <- nrow( na.omit(var_data[, variables_used]))
@@ -468,7 +470,9 @@ cv_ensemble_fcs <- list_along(seq(1, n_cv))
 cv_ensemble_test_data <- list_along(seq(1, n_cv))
 cv_ensemble_errors <- list_along(seq(1, n_cv))
 
-for (i in seq(1, n_cv)) {
+for (i in seq(1, 1)) {
+  
+  print(paste0("This is cv round ", i))
   
   train_test_yq <- train_test_dates[["list_of_year_quarter"]]
 
@@ -484,7 +488,7 @@ for (i in seq(1, n_cv)) {
   var_data_train <- window(var_data, start = this_tra_s, end = this_tra_e)
 
   this_fc_tbl <- forecast_var_from_model_tbl(
-    models_tbl = cv_size_3_17, 
+    models_tbl = models_smaller_28, 
     fc_horizon = fc_horizon, 
     var_data = var_data_train,
     target_transform = target_transform,
@@ -493,7 +497,8 @@ for (i in seq(1, n_cv)) {
     extended_exo_mts = cv_extension_of_exo[[i]],
     do_rmse_average = TRUE,
     max_rank_h = 5,
-    filter_by_rank = TRUE) 
+    filter_by_rank = TRUE, 
+    use_resmat = TRUE) 
 
   ensemble_fc_rmse_weighted <- this_fc_tbl$fcs_wavg
   
@@ -519,9 +524,6 @@ ensemble_rmse <- sqrt(colMeans(mat_cv_errors_ensemble^2, na.rm = TRUE))
 ensemble_rmse
 
 boo <- this_fc_tbl[["models_tbl"]]
-
-
-
 
 ```
 

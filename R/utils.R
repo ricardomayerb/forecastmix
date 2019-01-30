@@ -439,7 +439,8 @@ fcs_accu <- function(fc_mat, test_data_mat) {
 }
 
 
-find_statio_diffs <- function(data_ts, country = "this_country") {
+find_statio_diffs <- function(data_ts, country = "this_country",  return_4_seas = FALSE, 
+                              do_other_seas = FALSE, seas_test = "seas") {
   
   names_of_variables <- colnames(data_ts)
   sta_reco_list <- list_along(names_of_variables)
@@ -892,11 +893,8 @@ make_recommendation <- function(seas, sta, sta_after_seas) {
   if (seas == 1 & sta_after_seas == 2) {
     recommendation <- "diff_diff_yoy"
   } 
-  
   return(recommendation)
-  
 }
-
 
 
 make_test_dates_list <- function(ts_data, type = "tscv", n = 8, h_max = 6,
@@ -991,7 +989,6 @@ make_test_dates_list <- function(ts_data, type = "tscv", n = 8, h_max = 6,
   }
   
 }
-
 
 
 make_yoy_ts <- function(df_ts, freq = 4, is_log = FALSE) {
