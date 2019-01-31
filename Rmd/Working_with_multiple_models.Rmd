@@ -442,8 +442,9 @@ var_data_best_fc <- var_data[, variables_used]
 
 
 models_smaller <- cv_size_3_17[1, ]
-models_smallerdsd <- cv_size_3_17[1:14, ]
+models_smallerdsd <- cv_size_3_17[c(1, 11), ]
 models_smaller_28 <- cv_size_3_17_tra28[1, ]
+models_smaller_28_2 <- cv_size_3_17_tra28[c(1, 11), ]
 
 h_max <- fc_horizon
   
@@ -488,7 +489,7 @@ for (i in seq(1, 1)) {
   var_data_train <- window(var_data, start = this_tra_s, end = this_tra_e)
 
   this_fc_tbl <- forecast_var_from_model_tbl(
-    models_tbl = models_smaller_28, 
+    models_tbl = models_smaller_28_2, 
     fc_horizon = fc_horizon, 
     var_data = var_data_train,
     target_transform = target_transform,
@@ -508,6 +509,7 @@ for (i in seq(1, 1)) {
   test_target_yoy <- window(make_yoy_ts(target_level_ts), 
                            start = this_tes_s,
                            end = this_tes_e)
+  
   ensemble_cv_error_yoy <- test_target_yoy - ensemble_fc_rmse_weighted
   
   cv_ensemble_fcs[[i]] <- ensemble_fc_rmse_weighted
@@ -518,12 +520,35 @@ for (i in seq(1, 1)) {
 mat_cv_errors_ensemble <- matrix(
     reduce(cv_ensemble_errors, rbind), 
     nrow = n_cv)
+
 rownames(mat_cv_errors_ensemble) <- NULL
+
 ensemble_rmse <- sqrt(colMeans(mat_cv_errors_ensemble^2, na.rm = TRUE))
 
 ensemble_rmse
 
 boo <- this_fc_tbl[["models_tbl"]]
+soo <- spread(boo, key = "rmse_h", value = "rmse")
+
+models_info_per_h <- boo %>% group_by(rmse_h) %>% 
+  summarise(unique_vbl_per_h = list(unique(unlist(variables))),
+            freq_vbl_per_h = list(table(unlist(variables))),
+            unique_maxlag_per_h = list(unique(unlist(lags))),
+            freq_lags_per_h = list(table(unlist(lags)))
+            )
+
+ensemble_all_h_row <- tibble(varibles = list(table(unlist(boo$variables))),
+                             lags = list(table(unlist(boo$lags))),
+                             short_name = "ensemble",
+                             target_mean_fc_yoy = ensemble_fc_rmse_weighted,
+                             rmse_h = paste0("rmse_", 1:length(ensemble_fc_rmse_weighted)),
+                             rmse = ensemble_rmse)
+
+tidy_fcs_tbl <- dplyr::select(boo, c(short_name, target_mean_fc_yoy))
+
+
+uuu <- unnest(tidy_fcs_tbl, target_mean_fc_yoy, .drop = FALSE
+       )
 
 ```
 

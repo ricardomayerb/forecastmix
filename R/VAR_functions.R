@@ -1382,6 +1382,9 @@ forecast_var_from_model_tbl <- function(models_tbl,
     models_tbl <- models_tbl %>% 
       dplyr::select(-fc_object_raw)
   }
+  
+  print("before do rmse average, models tbl is:")
+  print(models_tbl)
 
   if (do_rmse_average) {
     models_tbl <- models_tbl %>% 
@@ -1390,8 +1393,9 @@ forecast_var_from_model_tbl <- function(models_tbl,
       group_by(rmse_h) %>% 
       mutate(rank_h = rank(rmse)) 
     
-    # print("models_tbl")
-    # print(models_tbl)
+    print("inside do rmse average, long form")
+    print("models_tbl")
+    print(models_tbl)
     # 
     # print("max_rank_h")
     # print(max_rank_h)
@@ -1406,6 +1410,11 @@ forecast_var_from_model_tbl <- function(models_tbl,
              waverage_fc_yoy_h = sum(weighted_this_h_fc_yoy)
       ) 
     
+    print("inside do rmse average, long form, rank-filtered, wavg")
+    print("models_tbl")
+    print(models_tbl)
+    print(models_tbl$waverage_fc_yoy_h)
+    
     waverage_tbl <- models_tbl %>% 
       dplyr::select(rmse_h, waverage_fc_yoy_h) %>% 
       summarise(waverage_fc_yoy_h = unique(waverage_fc_yoy_h))
@@ -1417,7 +1426,15 @@ forecast_var_from_model_tbl <- function(models_tbl,
     
     fc_yoy_w_ave <- ts(waverage_tbl$waverage_fc_yoy_h, start = fc_start, frequency = fc_freq)
     
+    
+    
+    waverage_fc_wide <- 1
+    
+    
     models_tbl <- ungroup(models_tbl)
+    
+    print("In do rmse ave, right before return output, models tbl is")
+    print(models_tbl)
     
     return(list(models_tbl = models_tbl, fcs_wavg = fc_yoy_w_ave, stmod = stmod))
   } else {
