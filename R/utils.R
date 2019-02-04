@@ -100,38 +100,87 @@ any_fc_2_fc_yoy <- function(current_fc, rgdp_transformation, rgdp_level_ts) {
 }
 
 comb_ndiffs <- function(this_series, return_4_seas = FALSE, 
-                        do_other_seas = FALSE, seas_test = "seas") {
+                        do_other_seas = FALSE, seas_test = "seas",
+                        tests_alpha = c(0.01, 0.05, 0.1)) {
   
   tests_names <- c("kpss", "pp", "adf")
   tests_season_names <- c("seas", "ocsb", "hegy", "ch")
-  tests_alpha <- c(0.01, 0.05, 0.1)
+  
   tests_type <- c("level", "trend")
+  
+  
+  # tests_of_stationarity <- as_tibble(
+  #   expand.grid(tests_names, tests_type, tests_alpha,
+  #               stringsAsFactors = FALSE)) %>% 
+  #   rename(test = Var1, deter_part = Var2, alpha = Var3) %>% 
+  #   mutate(seas_result = map_dbl(alpha,
+  #                                ~ nsdiffs(x = this_series, alpha = ., 
+  #                                          test = seas_test)),
+  #          seas_test = seas_test,
+  #          sta_result = pmap_dbl(list(test, alpha, deter_part),
+  #                                ~ ndiffs(x = this_series, alpha = ..2,
+  #                                         test = ..1, type = ..3)),
+  #          sta_result_after_seas = pmap_dbl(
+  #            list(test, alpha, deter_part, seas_result),
+  #            ~ ndiffs(x = my_diff(this_series, lag = 4, differences = ..4), 
+  #                     alpha = ..2, test = ..1, type = ..3)),
+  #          recommendation = pmap_chr(
+  #            list(seas_result, sta_result, sta_result_after_seas),
+  #            ~ make_recommendation(seas = ..1, sta = ..2, sta_after_seas = ..3)
+  #          )
+  #   ) %>% 
+  #   dplyr::select(test, deter_part, alpha, sta_result, seas_test,
+  #                 seas_result, sta_result_after_seas, recommendation)
   
   
   tests_of_stationarity <- as_tibble(
     expand.grid(tests_names, tests_type, tests_alpha,
-                stringsAsFactors = FALSE)) %>% 
+                stringsAsFactors = FALSE))
+  
+  # print(1)
+  # print(tests_of_stationarity)
+  
+  tests_of_stationarity <- tests_of_stationarity  %>% 
     rename(test = Var1, deter_part = Var2, alpha = Var3) %>% 
     mutate(seas_result = map_dbl(alpha,
                                  ~ nsdiffs(x = this_series, alpha = ., 
-                                           test = seas_test)),
-           seas_test = seas_test,
-           sta_result = pmap_dbl(list(test, alpha, deter_part),
-                                 ~ ndiffs(x = this_series, alpha = ..2,
-                                          test = ..1, type = ..3)),
-           sta_result_after_seas = pmap_dbl(
-             list(test, alpha, deter_part, seas_result),
-             ~ ndiffs(x = my_diff(this_series, lag = 4, differences = ..4), 
-                      alpha = ..2, test = ..1, type = ..3)),
-           recommendation = pmap_chr(
-             list(seas_result, sta_result, sta_result_after_seas),
-             ~ make_recommendation(seas = ..1, sta = ..2, sta_after_seas = ..3)
-           )
-    ) %>% 
-    dplyr::select(test, deter_part, alpha, sta_result, seas_test,
-                  seas_result, sta_result_after_seas, recommendation)
+                                           test = seas_test))
+    )
+  
+  # print(2)
+  # print(tests_of_stationarity)
+  
+
+  tests_of_stationarity <- tests_of_stationarity  %>% 
+    mutate(
+      seas_test = seas_test
+    )
+  
+  # print(3)
+  # print(tests_of_stationarity)
+  
+  tests_of_stationarity <- tests_of_stationarity  %>% 
+    mutate(sta_result_after_seas = pmap_dbl(
+      list(test, alpha, deter_part, seas_result),
+      ~ ndiffs(x = my_diff(this_series, lag = 4, differences = ..4), 
+               alpha = ..2, test = ..1, type = ..3)))
+         
+  # print(4)
+  # print(tests_of_stationarity)
+  
+  tests_of_stationarity <- tests_of_stationarity  %>% 
+    mutate(recommendation = pmap_chr(
+      list(seas_result, sta_result_after_seas),
+      ~ make_recommendation(seas = ..1, sta_after_seas = ..2)
+    ))
+  #        
+  # print(5)
+  # print(tests_of_stationarity)
+  
+
   
   if (do_other_seas) {
+    print("doing other seas")
     tests_of_seasonality <- as_tibble(
       expand.grid(tests_season_names, tests_alpha, stringsAsFactors = FALSE)) %>% 
       rename(test = Var1, alpha = Var2) %>% 
@@ -141,6 +190,10 @@ comb_ndiffs <- function(this_series, return_4_seas = FALSE,
                                                 test = .x)))
       )
   }
+  # 
+  # print(6)
+  # print(tests_of_seasonality)
+  
   
   
   if (return_4_seas) {
@@ -471,6 +524,45 @@ find_statio_diffs <- function(data_ts, country = "this_country",  return_4_seas 
 }
 
 
+
+new_find_statio_diffs <- function(data_ts, id = "this_country",  return_4_seas = FALSE, 
+                              do_other_seas = FALSE, seas_test = "seas") {
+  
+
+  names_of_variables <- colnames(data_ts)
+  sta_reco_list <- list_along(names_of_variables)
+  stationarity_list <- list_along(names_of_variables)
+  
+  
+  for (j in seq_along(names_of_variables)) {
+    this_variable_name <- names_of_variables[j]
+    this_variable_ts <- data_ts[ , this_variable_name]
+    this_variable_ts <- na.omit(this_variable_ts)
+    tests_of_stationarity <- suppressWarnings(comb_ndiffs(
+      this_variable_ts, return_4_seas = return_4_seas, 
+      do_other_seas = do_other_seas, seas_test = seas_test))
+    print("after comb")
+    tests_of_stationarity$id<- id
+    print("after id")
+    tests_of_stationarity$variable <- this_variable_name
+    print("after variable")
+    reco <- get_reco_from_sta(tests_of_stationarity, this_variable_name)
+    
+    stationarity_list[[j]] <- tests_of_stationarity
+    sta_reco_list[[j]] <- reco
+    
+  }
+  
+  names(stationarity_list) <- names_of_variables
+  names(sta_reco_list) <- names_of_variables
+  
+  reco_all_variables <- reduce(sta_reco_list, rbind)
+  
+  return(reco_all_variables)
+}
+
+
+
 follow_rec <- function(data_tbl_ts, table_of_recommendations) {
   
   rec_rows <- nrow(table_of_recommendations)
@@ -627,54 +719,65 @@ get_raw_external_data_ts <- function(data_path = "./data/excel/"){
 
 
 
-get_reco_from_sta <- function(stdata, variable_name) {
+get_reco_from_sta <- function(stdata, variable_name, this_alpha = 0.05, 
+                              this_deterministic = "level", this_sta_test = "kpss") {
+  
+  
+  
+  # print("inside get reco from sta")
+  # print(stdata)
   
   unanim <- stdata %>% 
     mutate(unanimity = min(recommendation) == max(recommendation),
            unanimity = ifelse(unanimity, recommendation, NA)) %>% 
-    dplyr::select(country, unanimity) %>% 
+    dplyr::select(id, unanimity) %>% 
+    unique()
+ 
+  
+  unanim_deterministic <- stdata %>%
+    filter(deter_part == this_deterministic ) %>% 
+    mutate(unan_deter = min(recommendation) == max(recommendation),
+           unan_deter = ifelse(unan_deter, recommendation, NA)) %>% 
+    dplyr::select(id, unan_deter) %>% 
     unique()
   
-  unanim_deter_level <- stdata %>%
-    filter(deter_part == "level" ) %>% 
-    mutate(unan_level = min(recommendation) == max(recommendation),
-           unan_level = ifelse(unan_level, recommendation, NA)) %>% 
-    dplyr::select(country, unan_level) %>% 
+  unanim_alpha_deterministic <- stdata %>%
+    filter(deter_part == this_deterministic, alpha == this_alpha ) %>% 
+    mutate(unan_alpha_deter = min(recommendation) == max(recommendation),
+           unan_alpha_deter = ifelse(unan_alpha_deter, recommendation, NA)) %>% 
+    dplyr::select(id, unan_alpha_deter) %>% 
     unique()
   
-  unanim_05_deter_level <- stdata %>%
-    filter(deter_part == "level", alpha == 0.05 ) %>% 
-    mutate(unan_05_level = min(recommendation) == max(recommendation),
-           unan_05_level = ifelse(unan_05_level, recommendation, NA)) %>% 
-    dplyr::select(country, unan_05_level) %>% 
+  unanim_test <- stdata %>% 
+    filter(test == this_sta_test) %>% 
+    mutate(unan_test = min(recommendation) == max(recommendation),
+           unan_test = ifelse(unan_test, recommendation, NA)) %>% 
+    dplyr::select(id, unan_test) %>% 
     unique()
   
-  unanim_kpss <- stdata %>% 
-    filter(test == "kpss") %>% 
-    mutate(unan_kpss = min(recommendation) == max(recommendation),
-           unan_kpss = ifelse(unan_kpss, recommendation, NA)) %>% 
-    dplyr::select(country, unan_kpss) %>% 
+  unanim_test_deterministic <- stdata %>% 
+    filter(test == this_sta_test, deter_part == this_deterministic) %>% 
+    mutate(unan_test_deter = min(recommendation) == max(recommendation),
+           unan_test_deter = ifelse(unan_test_deter, recommendation, NA)) %>% 
+    dplyr::select(id, unan_test_deter) %>% 
     unique()
   
-  unanim_kpss_level <- stdata %>% 
-    filter(test == "kpss", deter_part == "level") %>% 
-    mutate(unan_kpss_lev = min(recommendation) == max(recommendation),
-           unan_kpss_lev = ifelse(unan_kpss_lev, recommendation, NA)) %>% 
-    dplyr::select(country, unan_kpss_lev) %>% 
-    unique()
+  this_test_alpha_deter_reco <- stdata %>% 
+    filter(test == this_sta_test, deter_part == this_deterministic, alpha == this_alpha) %>%
+    dplyr::select(id, recommendation) %>% 
+    rename(this_test_alpha_deter = recommendation)
   
-  kpss_reco <- stdata %>% 
-    filter(test == "kpss", deter_part == "level", alpha == 0.05) %>%
-    dplyr::select(country, recommendation) %>% 
-    rename(kpss_05_level = recommendation)
+  id_recos <- left_join(unanim, unanim_deterministic, by = "id") %>% 
+    left_join(unanim_alpha_deterministic, by = "id") %>% 
+    left_join(unanim_test, by = "id") %>% 
+    left_join(unanim_test_deterministic, by = "id") %>% 
+    left_join(this_test_alpha_deter_reco, by = "id")
   
-  country_recos <- left_join(unanim, unanim_deter_level, by = "country") %>% 
-    left_join(unanim_05_deter_level, by = "country") %>% 
-    left_join(unanim_kpss, by = "country") %>% 
-    left_join(unanim_kpss_level, by = "country") %>% 
-    left_join(kpss_reco, by = "country")
+  id_recos$variable <- variable_name
   
-  country_recos$variable <- variable_name
+  id_recos$test_if_fixed <- this_sta_test
+  id_recos$alpha_if_fixed <- this_alpha
+  id_recos$deter_if_fixed <- this_deterministic
   
   # yoy_reco <- stdata %>% 
   #   filter(recommendation == "yoy")
@@ -682,7 +785,10 @@ get_reco_from_sta <- function(stdata, variable_name) {
   # diff_yoy_reco <- stdata %>% 
   #   filter(recommendation == "diff_yoy")
   
-  return(country_recos)
+  # print("id_recos")
+  # print(id_recos)
+  
+  return(id_recos)
 }
 
 
@@ -872,12 +978,11 @@ make_models_tbl <- function(arima_res, var_models_and_rmse, VAR_data, h_max,
 
 
 
-make_recommendation <- function(seas, sta, sta_after_seas) {
+make_recommendation <- function(seas, sta_after_seas) {
   
   if (seas == 1 & sta_after_seas == 0) {
     recommendation <- "yoy"
   } 
-  
   if (seas == 0 & sta_after_seas == 0) {
     recommendation <- "level"
   } 
