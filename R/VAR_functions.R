@@ -621,114 +621,114 @@ cv_var_from_one_row <- function(var_data,
 }
 
 
-
-
-
-cv_of_VAR_ensemble <- function(var_training_length, 
-                           n_cv, 
-                           tbl_of_models_and_rmse, 
-                           extended_x_data_ts, 
-                           var_data, 
-                           rgdp_level_ts,
-                           max_rank_h = NULL,
-                           chosen_rmse_h = NULL,
-                           h_var = NULL,
-                           ensemble_name = NULL) {
-  
-  if (is.null(ensemble_name)) {
-    ensemble_name <- "ensemble"
-  }
-  
-  
-  if (is.null(ensemble_name)) {
-    model_function_name <- "Ensemble"
-  }
-  
-  cv_ticks_lists_var <- make_test_dates_list(var_data, n = n_cv, h_max = h_var,
-                                             training_length = var_training_length)
-  cv_yq_lists_var <- cv_ticks_lists_var[["list_of_year_quarter"]]
-  cv_dates_lists_var <- cv_ticks_lists_var[["list_of_dates"]]
-  
-  cv_test_data_list <- list()
-  cv_w_fcs_list <- list()
-  cv_error_yoy_list <- list()
-  
-  for (i in 1:n_cv) {
-    this_cv_yq_list_var <- cv_yq_lists_var[[i]]
-    this_training_s_var <- this_cv_yq_list_var$tra_s
-    this_training_e_var <- this_cv_yq_list_var$tra_e
-    this_test_s_var <- this_cv_yq_list_var$tes_s
-    this_test_e_var <- this_cv_yq_list_var$tes_e
-    
-    print("this_training_s_var")
-    print(this_training_s_var)
-    print("this_training_e_var")
-    print(this_training_e_var)
-    print("this_test_s_var")
-    print(this_test_s_var)
-    print("this_test_e_var")
-    print(this_test_e_var)
-    
-    
-    # fcs_and_models <- forecast_var_from_model_tbl(foooooo)
-    # 
-    # w_ave_fc_yoy <- fcs_and_models$w_fc_yoy_ts
-    # 
-    # rgdp_test_yoy_data <- window(make_yoy_ts(rgdp_level_ts, is_log = FALSE),
-    #                              start = this_test_s_arima, 
-    #                              end = this_test_e_arima)
-    # 
-    # cv_error_yoy <- rgdp_test_yoy_data - w_ave_fc_yoy
-    # 
-    # cv_test_data_list[[i]] <- rgdp_test_yoy_data
-    # cv_w_fcs_list[[i]] <- w_ave_fc_yoy
-    # cv_error_yoy_list[[i]] <- cv_error_yoy
-    # 
-    # this_cv_dates_list_arima <- cv_dates_lists_arima[[i]]
-    # date_start_training_arima <- this_cv_dates_list_arima$tra_s
-    # 
-    # this_cv_dates_list_var <- cv_dates_lists_var[[i]]
-    # date_start_training_var <- this_cv_dates_list_var$tra_s
-    # 
-    # 
-    # if (date_start_training_var == as.yearqtr(min(time(var_data)))) {
-    #   print(paste("Training, for VAR, cannot start before this date. Current cv is",
-    #               i))
-    #   n_cv = i
-    #   break
-    # }
-    # 
-    # if (date_start_training_arima == as.yearqtr(min(time(rgdp_ts_in_arima)))) {
-    #   print(paste("Training, for Arima, cannot start before this date. Current cv is",
-    #               i))
-    #   n_cv = i
-    #   break
-    # }
-    
-  }
-  
-  
-  mat_cv_error_yoy <- matrix(
-    reduce(cv_error_yoy_list, rbind), 
-    nrow = n_cv, byrow = TRUE)
-  
-  ensemble_rmse <-   sqrt(colMeans(mat_cv_error_yoy^2))
-  
-  this_name <- ensemble_name
-  this_rmse <- ensemble_rmse
-  this_rmse_h <- paste0("rmse_", 1:length(this_rmse))
-  
-  ensemble_rmse_tbl <- tibble(variables = this_name, model_function = model_function_name, 
-                              rmse_h = this_rmse_h, rmse = this_rmse, 
-                              horizon = 1:length(this_rmse), lags = NA)
-  
-  
-  return(list(ensemble_rmse = ensemble_rmse_tbl,
-              cv_error_yoy_list = cv_error_yoy_list,
-              cv_test_data_list = cv_test_data_list,
-              cv_w_fcs_list = cv_w_fcs_list))
-  
-}
+# 
+# 
+# 
+# cv_of_VAR_ensemble <- function(var_training_length, 
+#                            n_cv, 
+#                            tbl_of_models_and_rmse, 
+#                            extended_x_data_ts, 
+#                            var_data, 
+#                            rgdp_level_ts,
+#                            max_rank_h = NULL,
+#                            chosen_rmse_h = NULL,
+#                            h_var = NULL,
+#                            ensemble_name = NULL) {
+#   
+#   if (is.null(ensemble_name)) {
+#     ensemble_name <- "ensemble"
+#   }
+#   
+#   
+#   if (is.null(ensemble_name)) {
+#     model_function_name <- "Ensemble"
+#   }
+#   
+#   cv_ticks_lists_var <- make_test_dates_list(var_data, n = n_cv, h_max = h_var,
+#                                              training_length = var_training_length)
+#   cv_yq_lists_var <- cv_ticks_lists_var[["list_of_year_quarter"]]
+#   cv_dates_lists_var <- cv_ticks_lists_var[["list_of_dates"]]
+#   
+#   cv_test_data_list <- list()
+#   cv_w_fcs_list <- list()
+#   cv_error_yoy_list <- list()
+#   
+#   for (i in 1:n_cv) {
+#     this_cv_yq_list_var <- cv_yq_lists_var[[i]]
+#     this_training_s_var <- this_cv_yq_list_var$tra_s
+#     this_training_e_var <- this_cv_yq_list_var$tra_e
+#     this_test_s_var <- this_cv_yq_list_var$tes_s
+#     this_test_e_var <- this_cv_yq_list_var$tes_e
+#     
+#     print("this_training_s_var")
+#     print(this_training_s_var)
+#     print("this_training_e_var")
+#     print(this_training_e_var)
+#     print("this_test_s_var")
+#     print(this_test_s_var)
+#     print("this_test_e_var")
+#     print(this_test_e_var)
+#     
+#     
+#     # fcs_and_models <- forecast_var_from_model_tbl(foooooo)
+#     # 
+#     # w_ave_fc_yoy <- fcs_and_models$w_fc_yoy_ts
+#     # 
+#     # rgdp_test_yoy_data <- window(make_yoy_ts(rgdp_level_ts, is_log = FALSE),
+#     #                              start = this_test_s_arima, 
+#     #                              end = this_test_e_arima)
+#     # 
+#     # cv_error_yoy <- rgdp_test_yoy_data - w_ave_fc_yoy
+#     # 
+#     # cv_test_data_list[[i]] <- rgdp_test_yoy_data
+#     # cv_w_fcs_list[[i]] <- w_ave_fc_yoy
+#     # cv_error_yoy_list[[i]] <- cv_error_yoy
+#     # 
+#     # this_cv_dates_list_arima <- cv_dates_lists_arima[[i]]
+#     # date_start_training_arima <- this_cv_dates_list_arima$tra_s
+#     # 
+#     # this_cv_dates_list_var <- cv_dates_lists_var[[i]]
+#     # date_start_training_var <- this_cv_dates_list_var$tra_s
+#     # 
+#     # 
+#     # if (date_start_training_var == as.yearqtr(min(time(var_data)))) {
+#     #   print(paste("Training, for VAR, cannot start before this date. Current cv is",
+#     #               i))
+#     #   n_cv = i
+#     #   break
+#     # }
+#     # 
+#     # if (date_start_training_arima == as.yearqtr(min(time(rgdp_ts_in_arima)))) {
+#     #   print(paste("Training, for Arima, cannot start before this date. Current cv is",
+#     #               i))
+#     #   n_cv = i
+#     #   break
+#     # }
+#     
+#   }
+#   
+#   
+#   mat_cv_error_yoy <- matrix(
+#     reduce(cv_error_yoy_list, rbind), 
+#     nrow = n_cv, byrow = TRUE)
+#   
+#   ensemble_rmse <-   sqrt(colMeans(mat_cv_error_yoy^2))
+#   
+#   this_name <- ensemble_name
+#   this_rmse <- ensemble_rmse
+#   this_rmse_h <- paste0("rmse_", 1:length(this_rmse))
+#   
+#   ensemble_rmse_tbl <- tibble(variables = this_name, model_function = model_function_name, 
+#                               rmse_h = this_rmse_h, rmse = this_rmse, 
+#                               horizon = 1:length(this_rmse), lags = NA)
+#   
+#   
+#   return(list(ensemble_rmse = ensemble_rmse_tbl,
+#               cv_error_yoy_list = cv_error_yoy_list,
+#               cv_test_data_list = cv_test_data_list,
+#               cv_w_fcs_list = cv_w_fcs_list))
+#   
+# }
 
 
 estimate_var_from_model_tbl_old <- function(models_tbl, 
@@ -824,8 +824,8 @@ fit_tests_models_table <- function(models_tbl,
                                      ~ length(.) == 1 & (all(. == 0) )
                                      ))
   
-  print("first models_tbl in fit test models table")
-  print(models_tbl)
+  # print("first models_tbl in fit test models table")
+  # print(models_tbl)
   
   premod_rest <- models_tbl %>% filter(!is_unrestricted)
   
@@ -896,8 +896,8 @@ fit_tests_models_table <- function(models_tbl,
         )
     }
     
-    print("Right after fit_VAR_rest models_tbl is")
-    print(models_tbl)
+    # print("Right after fit_VAR_rest models_tbl is")
+    # print(models_tbl)
     
     models_tbl <- models_tbl  %>% 
       dplyr::select(-t_threshold) %>% 
@@ -914,27 +914,27 @@ fit_tests_models_table <- function(models_tbl,
              ) %>% 
       distinct(short_name, .keep_all = TRUE)
     
-    print("restricted and unrestricted models_tbl")
-    print(models_tbl)
-
-    print("original_short_names")
-    print(original_short_names)
+    # print("restricted and unrestricted models_tbl")
+    # print(models_tbl)
+    # 
+    # print("original_short_names")
+    # print(original_short_names)
     
     auxiliary_also_original <-  models_tbl %>% 
       filter(is_auxiliary) %>% 
       semi_join(original_short_names, by = "short_name") %>% 
       dplyr::select(-is_auxiliary)
     
-    print("auxiliary_also_original")
-    print(auxiliary_also_original)
+    # print("auxiliary_also_original")
+    # print(auxiliary_also_original)
     
     auxiliary_but_not_original <-  models_tbl %>% 
       filter(is_auxiliary) %>% 
       anti_join(original_short_names, by = "short_name") %>% 
       dplyr::select(-is_auxiliary)
     
-    print("auxiliary_but_not_original")
-    print(auxiliary_but_not_original)
+    # print("auxiliary_but_not_original")
+    # print(auxiliary_but_not_original)
     
     models_tbl <- models_tbl  %>% filter(!is_auxiliary) %>% 
       dplyr::select(-is_auxiliary)
@@ -982,11 +982,11 @@ fit_tests_models_table <- function(models_tbl,
                         auxiliary_also_original) %>% 
       distinct(short_name, .keep_all = TRUE)
     
-    print(models_tbl)
+    # print(models_tbl)
   }
 
-  print("models ready for testing")
-  print(models_tbl)
+  # print("models ready for testing")
+  # print(models_tbl)
 
   table_of_tried_specifications <- models_tbl %>% dplyr::select(-fit) 
   
@@ -1049,8 +1049,8 @@ fit_tests_models_table <- function(models_tbl,
       models_tbl <- models_tbl %>% dplyr::select(-fit)
     }
     
-    print("right before returning output in fit test models table")
-    print(models_tbl)
+    # print("right before returning output in fit test models table")
+    # print(models_tbl)
     
     return(list(passing_models = models_tbl, 
                 tried_models = table_of_tried_specifications)
@@ -1069,7 +1069,7 @@ fit_VAR_rest <- function(var_data,
                          resmat = NULL)  {
   
   
-  print("in fit VAR rest")
+  # print("in fit VAR rest")
   
   if(length(t_thresh) == 1) {
     if (t_thresh == 0 | is.null(t_thresh)) {
@@ -1108,14 +1108,14 @@ fit_VAR_rest <- function(var_data,
   
   if (is.null(exo_and_lags)) {
     unrestricted_fit <- vars::VAR(y = endodata, p = p, type = type) 
-    print("unrestricted_fit")
-    print(unrestricted_fit)
+    # print("unrestricted_fit")
+    # print(unrestricted_fit)
     
   } else {
     unrestricted_fit <- vars::VAR(y = endodata, p = p, type = type, 
                           exogen = exo_and_lags)
-    print("unrestricted_fit")
-    print(unrestricted_fit)
+    # print("unrestricted_fit")
+    # print(unrestricted_fit)
     
   }
   
@@ -1138,14 +1138,14 @@ fit_VAR_rest <- function(var_data,
         this_fit <- try(vars::restrict(unrestricted_fit, method = "ser", 
                                        thresh = this_thresh), silent = TRUE)
       } else {
-        print("in fit var rest, using full sample resmat")
-        print(resmat)
+        # print("in fit var rest, using full sample resmat")
+        # print(resmat)
         this_fit <- try(vars::restrict(unrestricted_fit, method = "manual", 
                                        resmat = resmat), silent = TRUE)
       }
       
-      print("this_fit")
-      print(this_fit)
+      # print("this_fit")
+      # print(this_fit)
       
       if (class(this_fit) == "try-error") {
         this_fit <- "one_or_more_eqn_drops"
@@ -1184,8 +1184,8 @@ forecast_VAR_one_row <- function(fit, h, variables, extended_exo_mts,
   are_there_exo <- any(names_exogenous %in% variables)
   
   if(class(fit)[[1]] == "tbl_df") {
-    print("fit")
-    print(fit)
+    # print("fit")
+    # print(fit)
   }
 
   if (class(fit) == "varest") {
@@ -1326,8 +1326,8 @@ forecast_var_from_model_tbl <- function(models_tbl,
     print("Using previously estimates varest objects")
   }
   
-  print("passing models, back in forecast var from models tbl")
-  print(models_tbl)
+  # print("passing models, back in forecast var from models tbl")
+  # print(models_tbl)
   
   stmod <- models_tbl 
   
@@ -1340,9 +1340,9 @@ forecast_var_from_model_tbl <- function(models_tbl,
     )
     )
   
-  print("After fc , before transf")
-  print(models_tbl)
-  print(models_tbl$fc_object_raw)
+  # print("After fc , before transf")
+  # print(models_tbl)
+  # print(models_tbl$fc_object_raw)
   
   if (target_transform == "yoy") {
     print("Target variable already in YoY form, so no transformation is needed")
@@ -1356,6 +1356,9 @@ forecast_var_from_model_tbl <- function(models_tbl,
     print(paste0("Target variable is in ", target_transform,
                  " form. Forecasts will be transformed to YoY."))
     
+    # print("and target level ts is ")
+    # print(target_level_ts)
+    
     models_tbl <- models_tbl %>% 
       mutate(target_mean_fc = map(fc_object_raw,
                                   ~ .x[["forecast"]][["rgdp"]][["mean"]]),
@@ -1368,10 +1371,10 @@ forecast_var_from_model_tbl <- function(models_tbl,
       )
   }
   
-  print("after transformation")
-  print(models_tbl)
-  print(models_tbl$target_mean_fc)
-  print(models_tbl$target_mean_fc_yoy)
+  # print("after transformation")
+  # print(models_tbl)
+  # print(models_tbl$target_mean_fc)
+  # print(models_tbl$target_mean_fc_yoy)
   
   if (!keep_varest_obj) {
     models_tbl <- models_tbl %>% 
@@ -1383,8 +1386,8 @@ forecast_var_from_model_tbl <- function(models_tbl,
       dplyr::select(-fc_object_raw)
   }
   
-  print("before do rmse average, models tbl is:")
-  print(models_tbl)
+  # print("before do rmse average, models tbl is:")
+  # print(models_tbl)
 
   if (do_rmse_average) {
     models_tbl <- models_tbl %>% 
@@ -1393,9 +1396,9 @@ forecast_var_from_model_tbl <- function(models_tbl,
       group_by(rmse_h) %>% 
       mutate(rank_h = rank(rmse)) 
     
-    print("inside do rmse average, long form")
-    print("models_tbl")
-    print(models_tbl)
+    # print("inside do rmse average, long form")
+    # print("models_tbl")
+    # print(models_tbl)
     # 
     # print("max_rank_h")
     # print(max_rank_h)
@@ -1410,10 +1413,10 @@ forecast_var_from_model_tbl <- function(models_tbl,
              waverage_fc_yoy_h = sum(weighted_this_h_fc_yoy)
       ) 
     
-    print("inside do rmse average, long form, rank-filtered, wavg")
-    print("models_tbl")
-    print(models_tbl)
-    print(models_tbl$waverage_fc_yoy_h)
+    # print("inside do rmse average, long form, rank-filtered, wavg")
+    # print("models_tbl")
+    # print(models_tbl)
+    # print(models_tbl$waverage_fc_yoy_h)
     
     waverage_tbl <- models_tbl %>% 
       dplyr::select(rmse_h, waverage_fc_yoy_h) %>% 
@@ -1433,8 +1436,8 @@ forecast_var_from_model_tbl <- function(models_tbl,
     
     models_tbl <- ungroup(models_tbl)
     
-    print("In do rmse ave, right before return output, models tbl is")
-    print(models_tbl)
+    # print("In do rmse ave, right before return output, models tbl is")
+    # print(models_tbl)
     
     return(list(models_tbl = models_tbl, fcs_wavg = fc_yoy_w_ave, stmod = stmod))
   } else {

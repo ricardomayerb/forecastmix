@@ -235,6 +235,8 @@ pm_3specs <- pm_size_3_17[c(1, 11, 21), ]
 
 
 ```{r tscv_s3small, cache=TRUE}
+n_cv <- 10
+fc_horizon <- 8
 training_length <- "per_cv_maxs" 
 fit_column <- "fit"
 target_transform <- target_transformation
@@ -549,7 +551,8 @@ ensemble_all_h_row <- tibble(varibles = list(table(unlist(boo$variables))),
                              rmse_h = paste0("rmse_", 1:length(ensemble_fc_rmse_weighted)),
                              rmse = ensemble_rmse)
 
-tidy_fcs_tbl <- dplyr::select(boo, c(short_name, target_mean_fc_yoy))
+tidy_fcs_tbl <- dplyr::select(boo, c(short_name, target_mean_fc_yoy)) %>% 
+  distinct(short_name, .keep_all = TRUE)
 
 
 uuu <- unnest(tidy_fcs_tbl, target_mean_fc_yoy, .drop = FALSE
