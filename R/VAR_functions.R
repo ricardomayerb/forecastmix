@@ -1250,11 +1250,16 @@ forecast_var_from_model_tbl <- function(models_tbl,
                                         names_exogenous = c(""),
                                         extended_exo_mts = NULL,
                                         do_tests = FALSE,
-                                        do_rmse_average = FALSE,
                                         filter_by_rank = FALSE,
                                         max_rank_h = NULL, 
                                         remove_aux_unrest = TRUE,
-                                        use_resmat = FALSE
+                                        use_resmat = FALSE,
+                                        do_weigthed_average_fc = FALSE,
+                                        do_ensemble_cv = FALSE,
+                                        n_cv = NULL,
+                                        training_length = NULL,
+                                        cv_extension_of_exo = NULL
+                                        
 ) {
   
   if (filter_by_rank) {
@@ -1325,12 +1330,7 @@ forecast_var_from_model_tbl <- function(models_tbl,
   } else {
     print("Using previously estimates varest objects")
   }
-  
-  # print("passing models, back in forecast var from models tbl")
-  # print(models_tbl)
-  
-  stmod <- models_tbl 
-  
+
   models_tbl <- models_tbl %>% 
     mutate(fc_object_raw = map2(fit, variables,
                                 ~ forecast_VAR_one_row(
@@ -1339,11 +1339,7 @@ forecast_var_from_model_tbl <- function(models_tbl,
                                   extended_exo_mts = extended_exo_mts)
     )
     )
-  
-  # print("After fc , before transf")
-  # print(models_tbl)
-  # print(models_tbl$fc_object_raw)
-  
+
   if (target_transform == "yoy") {
     print("Target variable already in YoY form, so no transformation is needed")
     models_tbl <- models_tbl %>% 
@@ -1355,27 +1351,34 @@ forecast_var_from_model_tbl <- function(models_tbl,
     
     print(paste0("Target variable is in ", target_transform,
                  " form. Forecasts will be transformed to YoY."))
-    
-    # print("and target level ts is ")
-    # print(target_level_ts)
-    
+
+    # models_tbl <- models_tbl %>% 
+    #   mutate(target_mean_fc = map(fc_object_raw,
+    #                               ~ .x[["forecast"]][["rgdp"]][["mean"]]),
+    #          target_mean_fc_yoy = map(target_mean_fc, 
+    #                                   ~ any_fc_2_fc_yoy(
+    #                                     current_fc = .x, 
+    #                                     rgdp_transformation = target_transform,
+    #                                     rgdp_level_ts = target_level_ts)
+    #          )
+    #   )
+
     models_tbl <- models_tbl %>% 
       mutate(target_mean_fc = map(fc_object_raw,
-                                  ~ .x[["forecast"]][["rgdp"]][["mean"]]),
-             target_mean_fc_yoy = map(target_mean_fc, 
+                                  ~ .x[["forecast"]][["rgdp"]][["mean"]])
+      )
+
+    models_tbl <- models_tbl %>% 
+      mutate(target_mean_fc_yoy = map(target_mean_fc, 
                                       ~ any_fc_2_fc_yoy(
                                         current_fc = .x, 
                                         rgdp_transformation = target_transform,
                                         rgdp_level_ts = target_level_ts)
-             )
+                                      )
       )
+
   }
-  
-  # print("after transformation")
-  # print(models_tbl)
-  # print(models_tbl$target_mean_fc)
-  # print(models_tbl$target_mean_fc_yoy)
-  
+
   if (!keep_varest_obj) {
     models_tbl <- models_tbl %>% 
       dplyr::select(-fit)
@@ -1385,42 +1388,66 @@ forecast_var_from_model_tbl <- function(models_tbl,
     models_tbl <- models_tbl %>% 
       dplyr::select(-fc_object_raw)
   }
-  
-  # print("before do rmse average, models tbl is:")
-  # print(models_tbl)
 
-  if (do_rmse_average) {
+  rmse_names <- paste0("rmse_", 1:fc_horizon)
+  
+  if (do_weigthed_average_fc) {
+    # print(5)
+    
+    if (! "rmse_h" %in% names(models_tbl)) {
+      # i.e. is still in wide form with rmse_1, rmse_2 etc
+      models_tbl <- models_tbl %>% 
+        gather(key = "rmse_h", value = "rmse", rmse_names) 
+    }
+    
     models_tbl <- models_tbl %>% 
-      gather(key = rmse_h, value = rmse, 
-             vars_select(names(.), starts_with("rmse"))) %>% 
       group_by(rmse_h) %>% 
       mutate(rank_h = rank(rmse)) 
-    
-    # print("inside do rmse average, long form")
-    # print("models_tbl")
-    # print(models_tbl)
-    # 
-    # print("max_rank_h")
-    # print(max_rank_h)
+
+    # models_tbl <- models_tbl %>% 
+    #   filter(rank_h <= max_rank_h) %>% 
+    #   mutate(inv_mse = 1/(rmse*rmse),
+    #          model_weight = inv_mse/sum(inv_mse),
+    #          horizon = as.numeric(substr(rmse_h, 6, 6)),
+    #          this_h_fc_yoy = map2_dbl(target_mean_fc_yoy, horizon, ~ .x[.y]),
+    #          weighted_this_h_fc_yoy = map2_dbl(this_h_fc_yoy, model_weight, ~ .x*.y),
+    #          waverage_fc_yoy_h = sum(weighted_this_h_fc_yoy)
+    #   ) 
     
     models_tbl <- models_tbl %>% 
-      filter(rank_h <= max_rank_h) %>% 
+      filter(rank_h <= max_rank_h)
+
+    models_tbl <- models_tbl %>% 
       mutate(inv_mse = 1/(rmse*rmse),
-             model_weight = inv_mse/sum(inv_mse),
-             horizon = as.numeric(substr(rmse_h, 6, 6)),
-             this_h_fc_yoy = map2_dbl(target_mean_fc_yoy, horizon, ~ .x[.y]),
-             weighted_this_h_fc_yoy = map2_dbl(this_h_fc_yoy, model_weight, ~ .x*.y),
-             waverage_fc_yoy_h = sum(weighted_this_h_fc_yoy)
+             model_weight = inv_mse/sum(inv_mse)
+             )
+
+    models_tbl <- models_tbl %>% 
+      mutate(horizon = as.numeric(substr(rmse_h, 6, 6))
       ) 
     
-    # print("inside do rmse average, long form, rank-filtered, wavg")
-    # print("models_tbl")
-    # print(models_tbl)
-    # print(models_tbl$waverage_fc_yoy_h)
+    print(models_tbl)
+
+    models_tbl <- models_tbl %>% 
+      mutate(this_h_fc_yoy = map2_dbl(target_mean_fc_yoy, horizon, ~ .x[.y])
+      ) 
+
+    models_tbl <- models_tbl %>% 
+      mutate(weighted_this_h_fc_yoy = map2_dbl(this_h_fc_yoy, model_weight, ~ .x*.y)
+      ) 
     
+    print(models_tbl)
+
+    models_tbl <- models_tbl %>% 
+      mutate(waverage_fc_yoy_h = sum(weighted_this_h_fc_yoy)
+      ) 
+
     waverage_tbl <- models_tbl %>% 
       dplyr::select(rmse_h, waverage_fc_yoy_h) %>% 
       summarise(waverage_fc_yoy_h = unique(waverage_fc_yoy_h))
+    
+    print("waverage_tbl")
+    print(waverage_tbl)
     
 
     fc_start <- start(models_tbl$target_mean_fc_yoy[[1]])
@@ -1429,22 +1456,70 @@ forecast_var_from_model_tbl <- function(models_tbl,
     
     fc_yoy_w_ave <- ts(waverage_tbl$waverage_fc_yoy_h, start = fc_start, frequency = fc_freq)
     
-    
-    
-    waverage_fc_wide <- 1
-    
-    
     models_tbl <- ungroup(models_tbl)
+    
+    ensemble_all_h <- tibble(variables = list(table(unlist(models_tbl$variables))),
+                             lags = list(table(unlist(models_tbl$lags))),
+                             short_name = "ensemble",
+                             horizon = sort(unique(models_tbl$horizon)),
+                             this_h_fc_yoy = as.numeric(fc_yoy_w_ave)
+                             )
+    
+    
+    if (do_ensemble_cv) {
+      
+      # print("inside do_ensemble_cv")
+      # print(paste0("n_cv: ", n_cv))
+      # print(paste0("fc_horizon: ", fc_horizon))
+      # print(paste0("training_length: ", training_length))
+      # print(paste0("target_transform: ", target_transform))
+      # print(paste0("max_rank_h: ", max_rank_h))
+      # print("target_level_ts: ")
+      # print(target_level_ts)
+      
+      ensemble_rmse <- cv_of_VAR_ensemble(var_data = var_data, 
+                                          used_cv_models = models_tbl,
+                                          fc_horizon = fc_horizon, 
+                                          n_cv = n_cv,
+                                          training_length = training_length, 
+                                          cv_extension_of_exo = cv_extension_of_exo,
+                                          names_exogenous = names_exogenous,
+                                          max_rank_h = max_rank_h,
+                                          target_transform = target_transform,
+                                          target_level_ts = target_level_ts)
+      
+      ensemble_all_h <- ensemble_all_h %>% 
+        mutate(rmse_h = paste0("rmse_", 1:fc_horizon),
+               rmse = ensemble_rmse)
+      
+      models_tbl_sel <- dplyr::select(models_tbl, variables,  short_name, horizon, 
+                                      this_h_fc_yoy, rmse_h, rmse)
+      
+      models_and_ensemble <- bind_rows(dplyr::select(ensemble_all_h, -lags), models_tbl_sel)
+    } else {
+      models_and_ensemble <- NULL
+      ensemble_rmse <- NULL
+    }
+    
+    models_info_per_h <- models_tbl %>% group_by(rmse_h) %>% 
+      summarise(unique_vbl_per_h = list(unique(unlist(variables))),
+                freq_vbl_per_h = list(table(unlist(variables))),
+                unique_maxlag_per_h = list(unique(unlist(lags))),
+                freq_lags_per_h = list(table(unlist(lags)))
+      )
     
     # print("In do rmse ave, right before return output, models tbl is")
     # print(models_tbl)
     
-    return(list(models_tbl = models_tbl, fcs_wavg = fc_yoy_w_ave, stmod = stmod))
+    return(list(models_tbl = models_tbl, 
+                fcs_wavg = fc_yoy_w_ave, 
+                models_info_per_h = models_info_per_h,
+                ensemble_rmse = ensemble_rmse,
+                models_and_ensemble = models_and_ensemble))
   } else {
     models_tbl <- ungroup(models_tbl)
     return(models_tbl)
   }
-  
   
 }
 
