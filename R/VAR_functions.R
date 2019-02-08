@@ -1252,8 +1252,13 @@ forecast_var_from_model_tbl <- function(models_tbl,
                                         do_tests = FALSE,
                                         remove_aux_unrest = TRUE,
                                         use_resmat = FALSE,
-                                        keep_wide_tbl = FALSE) {
+                                        keep_wide_tbl = FALSE, 
+                                        max_rank_h = NULL) {
   
+  
+  if (!is.null(max_rank_h)) {
+    models_tbl <- discard_by_rank(models_tbl, max_rank_h = max_rank_h, is_wide = TRUE)
+  }
 
 
   starting_names <- names(models_tbl)
@@ -1365,6 +1370,26 @@ forecast_var_from_model_tbl <- function(models_tbl,
 
   models_tbl <- models_tbl %>% 
     gather(key = "rmse_h", value = "rmse", rmse_names)
+  
+  models_tbl <- models_tbl %>% 
+    mutate(horizon = as.numeric(substr(rmse_h, 6, 6))
+    ) 
+  
+  models_tbl <- models_tbl %>% 
+    mutate(this_h_fc_yoy = map2_dbl(target_mean_fc_yoy, horizon, ~ .x[.y])
+    ) 
+  
+  models_tbl <- models_tbl %>% 
+    group_by(horizon) %>% 
+    mutate(rank = rank(rmse))  
+  
+  if (!is.null(max_rank_h)) {
+    models_tbl <- discard_by_rank(models_tbl, max_rank_h = max_rank_h,
+                                  is_wide =FALSE)
+  }
+  
+  models_tbl <- ungroup(models_tbl)
+  
 
   models_info_per_h <- models_tbl %>% group_by(rmse_h) %>% 
     summarise(unique_vbl_per_h = list(unique(unlist(variables))),
