@@ -24,12 +24,11 @@ We will use the example dataset with domestic series from Uruguay and few extern
 
 ```{r loading_data}
 data_object_ury <- readRDS("./data/examples/example_data_ury.rds")
-print(names(data_object_ury))
 country <- data_object_ury$country_name
 target_transformation <- data_object_ury$target_transformation
 raw_data <- data_object_ury$raw_data
 var_data <- data_object_ury$transformed_data
-print(target_transformation)
+print(paste0("target transformation: ",target_transformation))
 
 names_exogenous <- c("ip_us","ip_asia","ip_ue","ip_bra","act_eco_bra","emae_arg")
 
@@ -48,14 +47,29 @@ all_variables <- colnames(var_data)
 target_variable <- "rgdp"
 non_target_fixed <- c("")
 
-tic()
-specifications_size_3_all <- all_specifications(
+# only "size 3" specifications
+specifications_all <- all_specifications(
   var_size = 3, all_variables = colnames(var_data),
-  lag_choices = c(3,4,5), use_info_lags = TRUE,
+  lag_choices = c(3, 5), use_info_lags = TRUE,
   var_data = var_data, t_thresholds = c(1.65, 2), names_exogenous = names_exogenous)
-toc()
 
-specifications_size_3_17 <- specifications_size_3_all[1:17, ] 
+table(specifications_all$lags)
+
+# specifications_1to20 <- specifications_all[1:20, ] 
+# specifications_n20 <- dplyr::sample_n(specifications_all, 20)
+# saveRDS(object = specifications_n20, file = "./data/examples/ury_specifications_n20.rds")
+
+specifications_n20 <- readRDS(file = "./data/examples/ury_specifications_n20.rds")
+
+table(specifications_n20$lags)
+print(specifications_n20, n = 20)
+
+specifications_n20endo <- specifications_n20[-c(6, 13, 18, 19), ]
+specifications_n20oneexo <- specifications_n20[-c(13, 18, 19), ]
+specifications_n20twoexo <- specifications_n20[-c(18, 19), ]
+specifications_n20threeexo <- specifications_n20[-c(19), ]
+
+specifications_n20justrow19 <- specifications_n20[19, ]
 
 
 ```
@@ -64,7 +78,18 @@ specifications_size_3_17 <- specifications_size_3_all[1:17, ]
 ## Fit all specifications and keep only acceptable ones
 
 ```{r  passing_models_size3small, cache=TRUE}
-ftmt_size_3_17 <- fit_tests_models_table(specifications_size_3_17, var_data = var_data, names_exogenous = names_exogenous)
+ftmt_n20endo <- fit_tests_models_table(specifications_n20endo, var_data = var_data, names_exogenous = names_exogenous)
+ftmt_n20oneexo <- fit_tests_models_table(specifications_n20oneexo, var_data = var_data, names_exogenous = names_exogenous)
+ftmt_n20twoexo <- fit_tests_models_table(specifications_n20twoexo, var_data = var_data, names_exogenous = names_exogenous)
+ftmt_n20threeexo <- fit_tests_models_table(specifications_n20threeexo, var_data = var_data, names_exogenous = names_exogenous)
+ftmt_n20 <- fit_tests_models_table(specifications_n20, var_data = var_data, names_exogenous = names_exogenous)
+
+foo1 <- ftmt_n20oneexo$passing_models
+foo2 <- ftmt_n20oneexo$tried_models
+foo3 <- ftmt_n20oneexo$n_lost_to_threshold
+foo4 <- ftmt_n20oneexo$n_lost_to_roots
+foo5 <- ftmt_n20oneexo$n_lost_to_white
+
 pm_size_3_17 <- ftmt_size_3_17[["passing_models"]]
 print(head(pm_size_3_17))
 pm_3specs <- pm_size_3_17[c(1, 11, 21), ]
@@ -225,8 +250,8 @@ identical(sort(unique(foo_long$short_name)), sort(unique(foo_wide$short_name)))
 
 
 
-fcs_from_all_e_10 <- forecast_var_from_model_tbl(
-  models_tbl = cv_size_3_17_estimate,
+fcs_from_10 <- forecast_var_from_model_tbl(
+  models_tbl = cv_size_3_17,
   var_data, 
   fc_horizon, 
   target_transform = target_transform,
