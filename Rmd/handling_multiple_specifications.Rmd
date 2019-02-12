@@ -32,8 +32,34 @@ print(paste0("target transformation: ",target_transformation))
 
 names_exogenous <- c("ip_us","ip_asia","ip_ue","ip_bra","act_eco_bra","emae_arg")
 
-extension_of_exo <- readRDS(file = "./data/examples/example_extension_of_exo.rds")
-cv_extension_of_exo <- readRDS(file = "./data/examples/example_cv_extension_of_exo.rds")
+
+# exodata_fullsample <- var_data[,names_exogenous]
+# target_used_in_VAR <- var_data[, target_variable]
+# start_target_in_VAR <- start(na.omit(target_used_in_VAR))
+# end_target_in_VAR <- end(na.omit(target_used_in_VAR))
+# fc_horizon <- 8
+# n_cv <- 10
+# 
+# tic()
+# extension_of_exo_list <- extending_exogenous(exodata = exodata_fullsample,
+#                                         h = fc_horizon,
+#                                         endo_end = end_target_in_VAR)
+# toc()
+# 
+# tic()
+# cv_extension_of_exo_list <- extending_exogenous_for_cv(
+#   exodata = exodata_fullsample, h = fc_horizon, endo_end = end_target_in_VAR,
+#   n_cv = n_cv, same_model_across_cv = FALSE)
+# toc()
+# 
+# saveRDS(object = extension_of_exo_list, file = "./data/examples/example_extension_of_exo.rds")
+# saveRDS(object = cv_extension_of_exo_list, file = "./data/examples/cv_example_extension_of_exo.rds")
+
+extension_of_exo_list <- readRDS(file = "./data/examples/example_extension_of_exo.rds")
+extension_of_exo <- extension_of_exo_list$extended_exo
+
+cv_extension_of_exo_list <- readRDS(file = "./data/examples/example_cv_extension_of_exo.rds")
+cv_extension_of_exo <- cv_extension_of_exo_list$future_exo_cv
 
 ```
 
@@ -64,10 +90,10 @@ specifications_n20 <- readRDS(file = "./data/examples/ury_specifications_n20.rds
 table(specifications_n20$lags)
 print(specifications_n20, n = 20)
 
-specifications_n20endo <- specifications_n20[-c(6, 13, 18, 19), ]
-specifications_n20oneexo <- specifications_n20[-c(13, 18, 19), ]
-specifications_n20twoexo <- specifications_n20[-c(18, 19), ]
-specifications_n20threeexo <- specifications_n20[-c(19), ]
+specifications_n20endo <- specifications_n20[-c(6, 9, 13, 18, 19), ]
+specifications_n20oneexo <- specifications_n20[-c(9, 13, 18, 19), ]
+specifications_n20twoexo <- specifications_n20[-c(13, 18, 19), ]
+specifications_n20threeexo <- specifications_n20[-c(18, 19), ]
 
 specifications_n20justrow19 <- specifications_n20[19, ]
 
@@ -84,15 +110,23 @@ ftmt_n20twoexo <- fit_tests_models_table(specifications_n20twoexo, var_data = va
 ftmt_n20threeexo <- fit_tests_models_table(specifications_n20threeexo, var_data = var_data, names_exogenous = names_exogenous)
 ftmt_n20 <- fit_tests_models_table(specifications_n20, var_data = var_data, names_exogenous = names_exogenous)
 
+# foo1 <- ftmt_n20oneexo$passing_models
+# foo2 <- ftmt_n20oneexo$tried_models
+# foo3 <- ftmt_n20oneexo$n_lost_to_threshold
+# foo4 <- ftmt_n20oneexo$n_lost_to_roots
+# foo5 <- ftmt_n20oneexo$n_lost_to_white
+
 foo1 <- ftmt_n20oneexo$passing_models
 foo2 <- ftmt_n20oneexo$tried_models
 foo3 <- ftmt_n20oneexo$n_lost_to_threshold
 foo4 <- ftmt_n20oneexo$n_lost_to_roots
 foo5 <- ftmt_n20oneexo$n_lost_to_white
 
-pm_size_3_17 <- ftmt_size_3_17[["passing_models"]]
-print(head(pm_size_3_17))
-pm_3specs <- pm_size_3_17[c(1, 11, 21), ]
+pm_n20 <- ftmt_n20[["passing_models"]]
+print(head(pm_n20))
+
+
+totasia165 <- pm_n20[15, ]
 
 
 ```
@@ -101,20 +135,18 @@ pm_3specs <- pm_size_3_17[c(1, 11, 21), ]
 ## Add forecast performance information via Time Series Cross Validation 
 
 
-```{r tscv}
+```{r tscv, message=FALSE, warning=FALSE, results='hide'}
 n_cv <- 10
 fc_horizon <- 8
 training_length <- "per_cv_maxs" 
-fit_column <- "fit"
 target_transform <- target_transformation
 target_level_ts <- na.omit(raw_data[, target_variable])
 
 
-tic()
-cv_size_3_17 <- cv_var_from_model_tbl(h = fc_horizon,
+cv_n20 <- cv_var_from_model_tbl(h = fc_horizon,
                              training_length = training_length, 
                              n_cv = n_cv,
-                             models_tbl = pm_size_3_17, 
+                             models_tbl = pm_n20, 
                              var_data = var_data, 
                              fit_column = NULL, 
                              target_transform = target_transform,
@@ -124,14 +156,29 @@ cv_size_3_17 <- cv_var_from_model_tbl(h = fc_horizon,
                              extended_exo_mts = cv_extension_of_exo,
                              keep_varest_obj = FALSE
                              )
-toc()
+
+pm_n20endo <- ftmt_n20endo[["passing_models"]]
+cv_n20endo <- cv_var_from_model_tbl(h = fc_horizon,
+                             training_length = training_length, 
+                             n_cv = n_cv,
+                             models_tbl = pm_n20endo, 
+                             var_data = var_data, 
+                             fit_column = NULL, 
+                             target_transform = target_transform,
+                             target_level_ts = target_level_ts, 
+                             names_exogenous = names_exogenous, 
+                             future_exo = extension_of_exo, 
+                             extended_exo_mts = cv_extension_of_exo,
+                             keep_varest_obj = FALSE
+                             )
+
 
 # 
 # tic()
-# cv_size_3_17_use_previous_fit <- cv_var_from_model_tbl(h = fc_horizon,
+# cv_n20_usefit <- cv_var_from_model_tbl(h = fc_horizon,
 #                                                training_length = training_length, 
 #                                                n_cv = n_cv,
-#                                                models_tbl = pm_size_3_17, 
+#                                                models_tbl = pm_n20, 
 #                                                var_data = var_data, 
 #                                                fit_column = "fit", 
 #                                                target_transform = target_transform,
@@ -152,8 +199,21 @@ toc()
 
 ```{r full_sample_fc}
 
+
+fcs_from_endo <- forecast_var_from_model_tbl(
+  models_tbl = cv_n20endo,
+  var_data = var_data, 
+  fc_horizon = fc_horizon, 
+  target_transform = target_transform,
+  target_level_ts = target_level_ts,
+  names_exogenous = names_exogenous, 
+  extended_exo_mts = extension_of_exo, 
+  keep_wide_tbl = TRUE
+)
+
+
 fcs_from_all <- forecast_var_from_model_tbl(
-  models_tbl = cv_size_3_17,
+  models_tbl = cv_n20,
   var_data = var_data, 
   fc_horizon = fc_horizon, 
   target_transform = target_transform,
@@ -219,7 +279,7 @@ models_and_ensemble_fcs <- rbind(ensemble_fc_and_rmse,
 
 ```{r threestepsinone}
 
-final_tbl <- ensemble_fc_from_models_rmse(models_tbl_with_rmse = cv_size_3_17,
+final_tbl <- ensemble_fc_from_models_rmse(models_tbl_with_rmse = cv_n20,
                              var_data = var_data, 
                              n_cv = n_cv, 
                              training_length = training_length, 
@@ -251,7 +311,7 @@ identical(sort(unique(foo_long$short_name)), sort(unique(foo_wide$short_name)))
 
 
 fcs_from_10 <- forecast_var_from_model_tbl(
-  models_tbl = cv_size_3_17,
+  models_tbl = cv_n20,
   var_data, 
   fc_horizon, 
   target_transform = target_transform,
@@ -264,7 +324,8 @@ fcs_from_10 <- forecast_var_from_model_tbl(
 
 
 
-final_tbl_10 <- ensemble_fc_from_models_rmse(models_tbl_with_rmse = cv_size_3_17,
+final_tbl_10 <- ensemble_fc_from_models_rmse(
+                             models_tbl_with_rmse = cv_n20,
                              var_data = var_data, 
                              n_cv = n_cv, 
                              training_length = training_length, 
