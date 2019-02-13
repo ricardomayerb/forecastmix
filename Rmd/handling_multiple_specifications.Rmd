@@ -1,5 +1,5 @@
 ---
-title: 'Multiple models: a two-models speedy case'
+title: 'Working with multiple VARs'
 author: "Ricardo Mayer"
 date: "12/6/2018"
 output:
@@ -32,29 +32,6 @@ print(paste0("target transformation: ",target_transformation))
 
 names_exogenous <- c("ip_us","ip_asia","ip_ue","ip_bra","act_eco_bra","emae_arg")
 
-
-# exodata_fullsample <- var_data[,names_exogenous]
-# target_used_in_VAR <- var_data[, target_variable]
-# start_target_in_VAR <- start(na.omit(target_used_in_VAR))
-# end_target_in_VAR <- end(na.omit(target_used_in_VAR))
-# fc_horizon <- 8
-# n_cv <- 10
-# 
-# tic()
-# extension_of_exo_list <- extending_exogenous(exodata = exodata_fullsample,
-#                                         h = fc_horizon,
-#                                         endo_end = end_target_in_VAR)
-# toc()
-# 
-# tic()
-# cv_extension_of_exo_list <- extending_exogenous_for_cv(
-#   exodata = exodata_fullsample, h = fc_horizon, endo_end = end_target_in_VAR,
-#   n_cv = n_cv, same_model_across_cv = FALSE)
-# toc()
-# 
-# saveRDS(object = extension_of_exo_list, file = "./data/examples/example_extension_of_exo.rds")
-# saveRDS(object = cv_extension_of_exo_list, file = "./data/examples/cv_example_extension_of_exo.rds")
-
 extension_of_exo_list <- readRDS(file = "./data/examples/example_extension_of_exo.rds")
 extension_of_exo <- extension_of_exo_list$extended_exo
 
@@ -66,6 +43,19 @@ cv_extension_of_exo <- cv_extension_of_exo_list$future_exo_cv
 
 
 ## Getting a tibble with multiple specifications
+
+Throught this document we will work with just a few models of size 3 (i.e. the target variable plus two more variables), to keep things simple and relatively fast. But there nonetheless enough models to illustrate all the important points, including the reduction of the set of considered models.
+
+The strategy is to generate all possible specifications given our choices and the select randomly 20 combinations of variables and lags. We show you how to select 20 models at random but for reproducibility we will load a previosly saved selection.
+
+In particular, the all specifications are generated:
+- using all variables in the data set
+- forming all size-3 combinations of variables (target variable and two more)
+- using two choices of maximum lag, 3 and 5
+- using the VARselect function from *vars* we add any other choice of max lag suggested by various information criteria
+- This generates 1576 variables-and-lag combinations 
+- For each variables-and-lag combination we consider three version of the model: the unrestricted one and two restricted versions, one using a threshold of 1.65 and other using a threshold of 2.0
+- Finally we select, randomly,  20 variables-and-lag combinations (and their three restricted/unrestricted versions)
 
 ```{r subsetsofspecifications}
 var_size <- 3 
@@ -79,26 +69,33 @@ specifications_all <- all_specifications(
   lag_choices = c(3, 5), use_info_lags = TRUE,
   var_data = var_data, t_thresholds = c(1.65, 2), names_exogenous = names_exogenous)
 
-table(specifications_all$lags)
-
-# specifications_1to20 <- specifications_all[1:20, ] 
 # specifications_n20 <- dplyr::sample_n(specifications_all, 20)
 # saveRDS(object = specifications_n20, file = "./data/examples/ury_specifications_n20.rds")
 
 specifications_n20 <- readRDS(file = "./data/examples/ury_specifications_n20.rds")
 
-table(specifications_n20$lags)
-print(specifications_n20, n = 20)
-
 specifications_n20endo <- specifications_n20[-c(6, 9, 13, 18, 19), ]
-specifications_n20oneexo <- specifications_n20[-c(9, 13, 18, 19), ]
-specifications_n20twoexo <- specifications_n20[-c(13, 18, 19), ]
-specifications_n20threeexo <- specifications_n20[-c(18, 19), ]
 
-specifications_n20justrow19 <- specifications_n20[19, ]
+```
+
+Looking at a table with values of max lag in our specifications, we found that unsurprignly 3 and 5 are the most common values with 435 appeareances each, that max lag 1 resulted very popular after applying VARselect and max lag 4 was also pretty popular. Values 2, 6 and 7 maxlag do appear but much fewer cases.
+
+Our selection of 20 rows, it happens to preserve that structure by picking only maxlag values of 1, 3, 4 and 5.
+
+```{r large_and_small_tbl_of_specs}
+nrow(specifications_all)
+table(specifications_all$lags)
+table(specifications_n20$lags)
 
 
 ```
+
+A closer look to the variables in these specifications, shows us that both edogenous and exogenous variables appear in some of the VARs
+
+```{r see_spec_20}
+knitr::kable(specifications_n20)
+```
+
 
 
 ## Fit all specifications and keep only acceptable ones
@@ -135,7 +132,7 @@ totasia165 <- pm_n20[15, ]
 ## Add forecast performance information via Time Series Cross Validation 
 
 
-```{r tscv, message=FALSE, warning=FALSE, results='hide'}
+```{r tscv, message=FALSE, warning=FALSE, results='hide', cache=TRUE}
 n_cv <- 10
 fc_horizon <- 8
 training_length <- "per_cv_maxs" 
@@ -197,7 +194,7 @@ cv_n20endo <- cv_var_from_model_tbl(h = fc_horizon,
 
 ### First step: forecasts from individual models
 
-```{r full_sample_fc}
+```{r full_sample_fc, results='hide', cache=TRUE}
 
 
 fcs_from_endo <- forecast_var_from_model_tbl(
@@ -241,7 +238,7 @@ ensemble_fc_ts <- ensemble_fc_list$weighted_avg_fc_yoy
 
 ### Third step: TSCV of weighted average, compute RMSE and put all together
 
-```{r tscv_of_ensemble}
+```{r tscv_of_ensemble, results='hide', cache=TRUE}
 ensemble_cv <- cv_of_VAR_ensemble(var_data = var_data,
                                   used_cv_models = fcs_from_all$models_tbl_wide,
                                   fc_horizon = fc_horizon,
@@ -277,7 +274,7 @@ models_and_ensemble_fcs <- rbind(ensemble_fc_and_rmse,
 
 ### Three steps in one function
 
-```{r threestepsinone}
+```{r threestepsinone, results='hide', cache=TRUE}
 
 final_tbl <- ensemble_fc_from_models_rmse(models_tbl_with_rmse = cv_n20,
                              var_data = var_data, 
@@ -298,7 +295,7 @@ final_tbl <- ensemble_fc_from_models_rmse(models_tbl_with_rmse = cv_n20,
 ## Change the number of models based on model rankings
 
 
-```{r fcs_max_10}
+```{r fcs_max_10, results='hide'}
 
 foo_long <- discard_by_rank(fcs_from_all$models_tbl, max_rank_h = 3, is_wide = FALSE)
 
