@@ -690,6 +690,7 @@ count_combn <- function(var_size, n_total, n_exo, n_fixed = 1) {
            ncombn_adjusted = ncomb_notpureexo))
 }
 
+
 cv_var_from_model_tbl <- function(h, n_cv, 
                                   training_length, 
                                   models_tbl, 
@@ -709,6 +710,20 @@ cv_var_from_model_tbl <- function(h, n_cv,
                                   extended_exo_mts = NULL,
                                   do_tests = FALSE,
                                   silent = TRUE) { 
+  
+  
+  if ("fit" %in% names(models_tbl)) {
+    table_of_tried_specifications <- models_tbl %>% dplyr::select(-fit) 
+  } else {
+    table_of_tried_specifications <- models_tbl
+  }
+  
+  if (!do_tests) {
+    passing_models <-  models_tbl
+    n_lost_to_threshold <-  NULL
+    n_lost_to_roots <-  NULL
+    n_lost_to_white <-  NULL
+  }
 
   starting_names <- names(models_tbl)
   has_short_name <- "short_name" %in% starting_names
@@ -721,7 +736,9 @@ cv_var_from_model_tbl <- function(h, n_cv,
   if (!has_short_name) {
     models_tbl <- models_tbl %>% 
       mutate(short_name = pmap(list(variables, lags, t_threshold),
-                               ~ make_model_name(variables = ..1, lags = ..2, t_threshold = ..3)),
+                               ~ make_model_name(variables = ..1, 
+                                                 lags = ..2,
+                                                 t_threshold = ..3)),
              short_name = unlist(short_name))
     
     models_tbl <- models_tbl %>% dplyr::select(short_name, everything())
@@ -734,11 +751,18 @@ cv_var_from_model_tbl <- function(h, n_cv,
     #   models_tbl = models_tbl, var_data = var_data, new_t_threshold = new_t_threshold, 
     #   names_exogenous = names_exogenous)
     
-    models_tbl <- fit_tests_models_table(models_tbl = models_tbl, 
-                                         var_data = var_data,
-                                         names_exogenous = names_exogenous,
-                                         exo_lag = exo_lag)[["passing_models"]]
     
+    ftmt <- fit_tests_models_table(models_tbl = models_tbl,
+                                   do_tests = do_tests, 
+                                   var_data = var_data,
+                                   names_exogenous = names_exogenous,
+                                   exo_lag = exo_lag)
+    
+    models_tbl <- ftmt[["passing_models"]]
+    tried_models <- ftmt[["tried_models"]]
+    n_lost_to_threshold <- ftmt[["n_lost_to_threshold"]]
+    n_lost_to_roots <- ftmt[["n_lost_to_roots"]]
+    n_lost_to_white <- ftmt[["n_lost_to_white"]]
     # toc()
     
     print("Done estimating VARs, now we will compute the forecasts")
@@ -865,7 +889,11 @@ cv_var_from_model_tbl <- function(h, n_cv,
   
   models_tbl <- as_tibble(models_tbl)
 
-  return(models_tbl)
+  return(list(passing_models = models_tbl, 
+              tried_models = table_of_tried_specifications,
+              n_lost_to_threshold = n_lost_to_threshold,
+              n_lost_to_roots = n_lost_to_roots,
+              n_lost_to_white = n_lost_to_white))
 } 
 
 
@@ -1111,7 +1139,7 @@ fit_tests_models_table <- function(models_tbl,
     mutate(is_unrestricted = map_lgl(t_threshold, 
                                      ~ length(.) == 1 & (all(. == 0) )
                                      ))
-  
+
   # print("first models_tbl in fit test models table")
   # print(models_tbl)
   
@@ -1341,7 +1369,10 @@ fit_tests_models_table <- function(models_tbl,
     # print(models_tbl)
     
     return(list(passing_models = models_tbl, 
-                tried_models = table_of_tried_specifications)
+                tried_models = table_of_tried_specifications,
+                n_lost_to_threshold = NULL,
+                n_lost_to_roots = NULL,
+                n_lost_to_white = NULL)
            )
   }
 }
@@ -3835,30 +3866,15 @@ variable_freq_by_n <- function(tbl_of_models, h_max = 8, max_rank = 20,
            avg = total_n/length(rmse_names)) %>% 
     arrange(desc(total_n))
 
-  # print("max_small_rank + 1")
-  # print(max_small_rank + 1)
-  # 
-  # print(tbl_of_models)
-  # list_best_small <- map(vec_of_rmse_h, 
-  #                        ~ tbl_of_models %>% 
-  #                          filter(rmse_h == .x, rank_h < max_small_rank + 1) 
-  # )
-  # 
-  # print("list_best_small")
-  # print(list_best_small)
   
   list_best_small <- map(vec_of_rmse_h, 
                          ~ tbl_of_models %>% 
                            filter(rmse_h == .x) %>% arrange(rmse)
   )
-  # 
-  # print("first list_best_small")
-  # print(list_best_small)
+
   
   small_effective_rank <- map_dbl(list_best_small, ~ sort(.x[["rank_h"]])[max_small_rank])
-  
-  # print("small_effective_rank")
-  # print(small_effective_rank)
+
   
   
   list_best_small <- map2(list_best_small, small_effective_rank,
@@ -3869,62 +3885,30 @@ variable_freq_by_n <- function(tbl_of_models, h_max = 8, max_rank = 20,
                             as_tibble() %>% 
                             arrange(desc(n)) 
   ) 
-  
-  # print("second list_best_small ")
-  # 
-  # print(list_best_small )
-  
+
   for (k in seq_along(list_best_small)) {
     names(list_best_small[[k]]) <- c("vbl", "n")
   }
-  
-  # print(9)
-  # 
-  # print(list_best_small )
-  
+
   tbl_best_small <- reduce(list_best_small, full_join, by = c("vbl"))
-  
-  # print(10)
-  
+
   names(tbl_best_small) <- c("vbl", paste("h", seq(h_max), sep = "_"))
 
-  # print(11)
-  
   tbl_best_small <- tbl_best_small %>% 
     mutate(total_n = rowSums(.[2:(h_max + 1)], na.rm = TRUE),
            avg = total_n / length(rmse_names)) %>% 
     arrange(desc(total_n))
-  
-  # print("tbl_best_small")
-  # print(tbl_best_small)
-  
-  
+
   variables_in_top_small <- unique(unlist(tbl_best_small[, "vbl"]))
-  
-  
-  # print(paste0("top_small N = ", length(variables_in_top_small)))
-  
-  
-  # print("tbl_best")
-  # print(tbl_best)
-  
-  # print(paste0("Variables in best-", max_small_rank, " VARs at any h:"))
-  # print(variables_in_top_small)
-  
+
   tbl_best_not_in_small <- tbl_best %>% 
     filter(! vbl %in% variables_in_top_small) %>% 
     arrange(desc( total_n ))
   
   variables_not_in_top_small <- unique(unlist(tbl_best_not_in_small[, "vbl"]))
-  
-  # print("tbl_best_not_in_small")
-  # print(tbl_best_not_in_small)
-  
+
   by_total_not_in_top_small <- unique(unlist(tbl_best_not_in_small[, "vbl"]))
-  
-  # print("variables_not_in_top_small")
-  # print(variables_not_in_top_small)
-  
+
   by_total <- tbl_best %>% 
     arrange(desc(total_n)) %>% 
     dplyr::select(vbl) %>% 

@@ -794,7 +794,7 @@ get_reco_from_sta <- function(stdata, variable_name, this_alpha = 0.05,
 
 
 
-make_model_name <- function(variables, lags, t_threshold = NULL, model_function = NULL, 
+make_model_name_old <- function(variables, lags, t_threshold = NULL, model_function = NULL, 
                             base_variable = "rgdp", remove_base = FALSE) {
   
   if(is.null(t_threshold) | t_threshold == 0 | !is.numeric(t_threshold)){
@@ -840,6 +840,29 @@ make_model_name <- function(variables, lags, t_threshold = NULL, model_function 
   return(model_name)
 }
 
+
+
+make_model_name <- function(variables, 
+                                lags, 
+                                t_threshold = NULL) {
+  
+  if(is.null(t_threshold) | t_threshold == 0 | !is.numeric(t_threshold)){
+    threshold_string <-  "000"
+  } else {
+    threshold_string <- as.character(100*t_threshold)
+  }
+  
+  variables <- sort(variables)
+  
+  colap_variables <- paste(variables, collapse = "___")
+  # print(colap_variables)
+  
+  short_name <- paste(colap_variables, lags, threshold_string, 
+                          sep = "__")
+  model_name <- short_name
+  
+  return(model_name)
+}
 
 
 
