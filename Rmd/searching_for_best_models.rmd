@@ -1,0 +1,41 @@
+---
+title: "searching_for_best_models"
+author: "Ricardo Mayer"
+date: "1/23/2019"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+```
+
+```{r source-and-lib, message=FALSE, warning=FALSE}
+source('./R/combinations_functions.R')
+```
+
+We will start with a ready to use data set with quarterly, stationary series than can be used in an ordinary VAR, and we will not explain how the data munging is done. In particular, we will *not* discuss the following important points:
+    - how the data was obtained
+    - how monthly data was converted to quaterly frequency
+    - how monthly data was *extended* to complete its current final quarter
+    - how (potentially) exogenous data was forecasted in order to make it available to produce conditional forecasts
+    - how each series was transformed using seasonal and oridinary differeces to render them stationary
+    
+All those points are discussed in the data preparation document, see *here*
+
+## VAR-ready data set
+    
+We will use the example dataset with domestic series from Uruguay and few external series. The rds file contains the country's name, the transformation applied to rgdp to render it stationary and two data sets: the original or raw data and one ready to used in VAR estimation,  containing only stationary versions of the original series. 
+
+
+```{r loading_data}
+data_object_ury <- readRDS("./data/examples/example_data_ury.rds")
+print(names(data_object_ury))
+country <- data_object_ury$country_name
+target_transformation <- data_object_ury$target_transformation
+raw_data <- data_object_ury$raw_data
+var_data <- data_object_ury$transformed_data
+print(target_transformation)
+```
+

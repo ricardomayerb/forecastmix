@@ -344,6 +344,7 @@ extending_exogenous <- function(exodata, h, endo_end, list_of_models = NULL) {
   extended_exo_mts <- reduce(extended_exo_list, ts.union)
   future_exo_mts <- reduce(future_exo_list, ts.union)
   colnames(extended_exo_mts) <- colnames(exodata)
+  colnames(future_exo_mts) <- colnames(exodata)
   
   return(list(extended_exo = extended_exo_mts,
               future_exo = future_exo_mts,

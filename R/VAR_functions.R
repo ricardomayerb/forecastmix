@@ -2,7 +2,6 @@ source(file = "./R/utils.R")
 library(MTS)
 library(vars)
 
-
 discard_by_rank <- function(models_tbl, max_rank_h, is_wide = TRUE) {
   
   if (is_wide) {
@@ -105,11 +104,18 @@ fc_mean_of_VAR_ensemble <- function(models_tbl, max_rank_h = NULL) {
 }
 
 
-cv_of_VAR_ensemble <- function(var_data, used_cv_models, fc_horizon, n_cv,
-                               training_length, cv_extension_of_exo, names_exogenous, 
-                               target_transform, target_level_ts, 
-                               max_rank_h = NULL, full_cv_output = FALSE) {
-  
+cv_of_VAR_ensemble <- function(var_data,
+                               used_cv_models,
+                               fc_horizon,
+                               n_cv,
+                               training_length,
+                               cv_extension_of_exo,
+                               names_exogenous, 
+                               target_transform, 
+                               target_level_ts, 
+                               max_rank_h = NULL, 
+                               full_cv_output = FALSE) {
+
   # print("inside cv of VAR ensemble")
   # 
   # print("used_cv_models")
@@ -159,6 +165,15 @@ cv_of_VAR_ensemble <- function(var_data, used_cv_models, fc_horizon, n_cv,
     this_tes_e <- train_test_yq[[i]]$tes_e
     
     var_data_train <- window(var_data, start = this_tra_s, end = this_tra_e)
+
+        future_exo_in_cv <- cv_extension_of_exo[[i]]
+    sample_exo_in_cv <- window(extension_of_exo, end = start(future_exo_in_cv))
+    sample_exo_in_cv <- subset(sample_exo_in_cv, end = nrow(sample_exo_in_cv)-1)
+    this_extened_exo_mts <- ts(
+      rbind(sample_exo_in_cv, future_exo_in_cv),
+      start = start(sample_exo_in_cv), frequency = frequency(sample_exo_in_cv))
+    
+    # print()
     
     this_fc_list <- forecast_var_from_model_tbl(
       models_tbl = used_cv_models, 
@@ -167,7 +182,7 @@ cv_of_VAR_ensemble <- function(var_data, used_cv_models, fc_horizon, n_cv,
       target_transform = target_transform,
       target_level_ts = target_level_ts,
       names_exogenous = names_exogenous, 
-      extended_exo_mts = cv_extension_of_exo[[i]],
+      extended_exo_mts = this_extened_exo_mts,
       use_resmat = TRUE,
       keep_wide_tbl = FALSE,
       max_rank_h = max_rank_h) 
@@ -199,7 +214,7 @@ cv_of_VAR_ensemble <- function(var_data, used_cv_models, fc_horizon, n_cv,
   
   ensemble_rmse <- sqrt(colMeans(mat_cv_errors_ensemble^2, na.rm = TRUE))
   
-  if (!full_cv_output) {
+  if (!full_cv_output){
     cv_ensemble_fcs <- NULL 
     cv_ensemble_test_data <- NULL
     cv_ensemble_errors <- NULL
@@ -272,7 +287,6 @@ ensemble_fc_from_models_rmse <- function(models_tbl_with_rmse,
   return(models_and_ensemble_fcs)
   
 }
-
 
 
 add_prechosen_for_this_step <- function(search_plan, step_index, prechosen_so_far, 
@@ -746,7 +760,8 @@ cv_var_from_model_tbl <- function(h, n_cv,
       target_level_ts = target_level_ts, 
       names_exogenous = names_exogenous, 
       extended_exo_mts = extended_exo_mts, 
-      fit_column = "fit", keep_varest_obj = TRUE)
+      fit_column = "fit", 
+      keep_varest_obj = TRUE)
     toc()
   }
 
@@ -1170,7 +1185,7 @@ fit_tests_models_table <- function(models_tbl,
     }
     
     # print("Right after fit_VAR_rest models_tbl is")
-    # print(models_tbl)
+    # print(models_tbl, n = 40)
     
     models_tbl <- models_tbl  %>% 
       dplyr::select(-t_threshold) %>% 
@@ -1359,8 +1374,22 @@ fit_VAR_rest <- function(var_data,
   
   if (length(endov) == 1) {
     this_fit <- NA
+    # this_fit <- "one endog"
+    
     print("only one endogenous variable, not a real VAR, returning NA")
-    return(this_fit)
+    
+    
+    if (t_thresh) {
+      thresholds_and_fits <- tibble(t_threshold = c(0, t_thresh),
+                                    fit = this_fit)
+      
+    } else {
+      thresholds_and_fits <- tibble(t_threshold = c(0),
+                                    fit = this_fit)
+      
+    }
+    
+    return(thresholds_and_fits)
   }
   
   endodata <- this_var_data[ , endov]
@@ -1456,6 +1485,16 @@ forecast_VAR_one_row <- function(fit, h, variables, extended_exo_mts,
   
   are_there_exo <- any(names_exogenous %in% variables)
   
+  # print("are_there_exo")
+  # print(are_there_exo)
+  # print("variables")
+  # print("variables")
+  # print(variables)
+  # print("names_exo")
+  # print(names_exogenous)
+  # print("fit")
+  # print(fit)
+  
   if(class(fit)[[1]] == "tbl_df") {
     # print("fit")
     # print(fit)
@@ -1474,30 +1513,43 @@ forecast_VAR_one_row <- function(fit, h, variables, extended_exo_mts,
       exo_and_lags <- NULL
       exo_and_lags_extended <- NULL
     } else {
-      
+
       exodata <- extended_exo_mts[, exov]
-      
+
       if (is.null(exo_lag)) {
         exo_lag <- fit$p
       }
+
+      
       exo_and_lags_extended <- make_exomat(exodata = exodata, 
                                            exov = exov,
                                            exo_lag = exo_lag)
-
+     
+      # print("thisvardata")
+      # print(this_var_data)
+      # print("exodata")
+      # print(exodata)
+      # print("exo_and_lags_extended")
+      # print(exo_and_lags_extended)
+      # print("exov")
+      # print(exov)
+      
       exo_and_lags <- window(exo_and_lags_extended,
                              end = end(this_var_data))
+
       exo_and_lags_for_fc <- subset(exo_and_lags_extended, 
                                     start = nrow(exo_and_lags) + 1)
-
+      
       assign("exo_and_lags", exo_and_lags,
              envir = .GlobalEnv)
       
     }
     
-    
+  
     if (is.null(exo_and_lags_extended)) {
       this_fc <- forecast(fit, h = h)
     } else {
+      
       this_fc <- forecast(fit, h = h, dumvar = exo_and_lags_for_fc,
                           exogen = exo_and_lags)
     }
@@ -1510,6 +1562,10 @@ forecast_VAR_one_row <- function(fit, h, variables, extended_exo_mts,
   }
   return(this_fc)
 }
+
+
+
+
 
 forecast_var_from_model_tbl <- function(models_tbl, 
                                         var_data,
@@ -1528,6 +1584,13 @@ forecast_var_from_model_tbl <- function(models_tbl,
                                         keep_wide_tbl = FALSE, 
                                         max_rank_h = NULL) {
   
+  
+  
+  # print("In fc from mdel tibble")
+  # print("names_exogenous")
+  # print(names_exogenous)
+  # print("models_tbl")
+  # print(models_tbl)
   
   if (!is.null(max_rank_h)) {
     models_tbl <- discard_by_rank(models_tbl, max_rank_h = max_rank_h, is_wide = TRUE)
@@ -1558,18 +1621,29 @@ forecast_var_from_model_tbl <- function(models_tbl,
     # print(models_tbl)
     if (use_resmat) {
       print("Using pre-existent restriction matrices for restricted models")
-      ftmt <- fit_tests_models_table(models_tbl = models_tbl, var_data = var_data,
-                                     do_tests = do_tests, remove_aux_unrest = remove_aux_unrest,
-                                     silent = FALSE, use_resmat = TRUE)
+      ftmt <- fit_tests_models_table(models_tbl = models_tbl,
+                                     var_data = var_data,
+                                     do_tests = do_tests,
+                                     remove_aux_unrest = remove_aux_unrest,
+                                     silent = FALSE, 
+                                     use_resmat = TRUE, 
+                                     names_exogenous = names_exogenous)
+      # print("ftmt[[passing_models]]$fit")
+      # print(ftmt[["passing_models"]]$fit)
     } else {
-      ftmt <- fit_tests_models_table(models_tbl = models_tbl, var_data = var_data,
-                                     do_tests = do_tests, remove_aux_unrest = remove_aux_unrest,
-                                     silent = FALSE, use_resmat = FALSE)
+      print("Using t-threshold values for restricted models")
+      
+      ftmt <- fit_tests_models_table(models_tbl = models_tbl, 
+                                     var_data = var_data,
+                                     do_tests = do_tests, 
+                                     remove_aux_unrest = remove_aux_unrest,
+                                     silent = FALSE, 
+                                     use_resmat = FALSE, 
+                                     names_exogenous = names_exogenous)
     } 
     
     models_tbl <- ftmt[["passing_models"]]
     
-
     
     models_tbl <- models_tbl %>% 
       mutate(is_unrestricted = map_lgl(t_threshold, 
@@ -1586,14 +1660,20 @@ forecast_var_from_model_tbl <- function(models_tbl,
     print("Using previously estimates varest objects")
   }
 
+  # print(1)
+  # print("models_tbl")
+  # print(models_tbl)
+  # print(models_tbl$fit)
+  # print(models_tbl$variables)
+  
   models_tbl <- models_tbl %>% 
     mutate(fc_object_raw = map2(fit, variables,
                                 ~ forecast_VAR_one_row(
                                   fit = .x, variables = .y, h = fc_horizon, 
                                   names_exogenous = names_exogenous,
                                   extended_exo_mts = extended_exo_mts)
-    )
-    )
+                                )
+           )
 
   if (target_transform == "yoy") {
     print("Target variable already in YoY form, so no transformation is needed")

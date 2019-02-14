@@ -1,36 +1,9 @@
-#' ---
-#' title: 'Multiple models: a two-models speedy case'
-#' author: "Ricardo Mayer"
-#' date: "12/6/2018"
-#' output:
-#'   html_document: default
-#'   pdf_document: default
-#' ---
-#' 
-## ----setup, include=FALSE------------------------------------------------
+
 knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
 
-#' 
-## ----source-and-lib, message=FALSE, warning=FALSE------------------------
 source('./R/combinations_functions.R')
 
-#' 
-#' We will start with a ready to use data set with quarterly, stationary series than can be used in an ordinary VAR, and we will not explain how the data munging is done. In particular, we will *not* discuss the following important points:
-#'     - how the data was obtained
-#'     - how monthly data was converted to quaterly frequency
-#'     - how monthly data was *extended* to complete its current final quarter
-#'     - how (potentially) exogenous data was forecasted in order to make it available to produce conditional forecasts
-#'     - how each series was transformed using seasonal and oridinary differeces to render them stationary
-#'     
-#' All those points are discussed in the data preparation document, see *here*
-#' 
-#' ## VAR-ready data set
-#'     
-#' We will use the example dataset with domestic series from Uruguay and few external series. The rds file contains the country's name, the transformation applied to rgdp to render it stationary and two data sets: the original or raw data and one ready to used in VAR estimation,  containing only stationary versions of the original series. 
-#' 
-#' 
-## ----loading_data--------------------------------------------------------
 data_object_ury <- readRDS("./data/examples/example_data_ury.rds")
 print(names(data_object_ury))
 country <- data_object_ury$country_name
@@ -44,36 +17,17 @@ names_exogenous <- c("ip_us","ip_asia","ip_ue","ip_bra","act_eco_bra","emae_arg"
 extension_of_exo <- readRDS(file = "./data/examples/example_extension_of_exo.rds")
 cv_extension_of_exo <- readRDS(file = "./data/examples/example_cv_extension_of_exo.rds")
 
-# exodata_fullsample <- var_data[,names_exogenous]
-# target_used_in_VAR <- var_data[, target_variable]
-# start_target_in_VAR <- start(na.omit(target_used_in_VAR))
-# end_target_in_VAR <- end(na.omit(target_used_in_VAR))
-# fc_horizon <- 8
-# n_cv <- 10
-# 
-# tic()
-# extension_of_exo <- extending_exogenous(exodata = exodata_fullsample,
-#                                         h = fc_horizon,
-#                                         endo_end = end_target_in_VAR)
-# toc()
-# 
-# tic()
-# cv_extension_of_exo <- extending_exogenous_for_cv(
-#   exodata = exodata_fullsample, h = fc_horizon, endo_end = end_target_in_VAR, 
-#   n_cv = n_cv, same_model_across_cv = FALSE)
-# toc()
-# 
+
+# So how many VARs are "all" VARs?
+# A better defined quantity is how many combinations of variables which contains the target variables
+# and then there is the number of variations given by your choices of max lag and restrictions
+# So suppose there are 1000 combiantions of variables that include rgdp, and you want to try VAR(p) specifications with p euqal 3 and p equal 5. 
+# Furthermore for each VAR(p) you want to see how the unrestricted models performs but also a more parsimonious version where
+# all coefficietes with t tests lower than 1.65 are set to zero. That is two version of each VAR(p) and two choices of p, 
+# given 4 VARs per each variable combination. And that could escalate quickly to 6 if we eanted to explore an additional p, and to 9 if on
+# top of that we want aditional t test value to filter coefficients. So you can go from 1000 models to 9000 thousand models very easily
 
 
-
-#' 
-#' 
-#' 
-#' 
-#' 
-#' In this case, all VARs will use a  "diff-yoy" transformation of the real GDP series (i.e. first, take seasonal differences on the quarterly series and then ordinary differences on the result).    
-#' 
-#' 
 #' ## Counting specifications
 #' 
 #' The total number of potential specifications depends on a number of factors:
@@ -107,9 +61,24 @@ cv_extension_of_exo <- readRDS(file = "./data/examples/example_cv_extension_of_e
 ## ----countingcombinations------------------------------------------------
 
 
-ncombs <- map(2:7, ~ count_combn(var_size = .x, n_total = 31, n_exo = 6, n_fixed = 1))
-ntable <- as_tibble(cbind(n = ncol(var_data), n_fixed = 1, size = 2:7, reduce(ncombs, rbind)))
-print(ntable)
+ncombs_31 <- map(2:7, ~ count_combn(var_size = .x, n_total = 31, n_exo = 6, n_fixed = 1))
+ntable_31 <- as_tibble(cbind(n = 31, n_fixed = 1, size = 2:7, reduce(ncombs_31, rbind)))
+print(ntable_31)
+
+
+ncombs_15 <- map(2:7, ~ count_combn(var_size = .x, n_total = 15, n_exo = 6, n_fixed = 1))
+ntable_15 <- as_tibble(cbind(n = 15, n_fixed = 1, size = 2:7, reduce(ncombs_15, rbind)))
+print(ntable_15)
+
+
+ncombs_12 <- map(2:7, ~ count_combn(var_size = .x, n_total = 12, n_exo = 6, n_fixed = 1))
+ntable_12 <- as_tibble(cbind(n = 12, n_fixed = 1, size = 2:7, reduce(ncombs_12, rbind)))
+print(ntable_12)
+
+# so with 15 variables, we have, summing sizes 2 to 5, 1470 (or 1414 if we dicard all-exogenous VARs)
+# that mea exploring the performance of 5880 VARs, tow-third of them restricted vars (or 5656)
+# With 12 variables the 1470 go down to 561 and 5880 to 2244 (505 and 2020)
+
 
 # ncombs41 <- map(2:7, ~ count_combn(var_size = .x, n_total = 41, n_exo = 6, n_fixed = 1))
 # ntable41 <- as_tibble(cbind(n = ncol(var_data), n_fixed = 1, size = 2:7, reduce(ncombs41, rbind)))
@@ -505,3 +474,38 @@ sort(unique(foo_wide$short_name))
 identical(sort(unique(foo_long$short_name)), sort(unique(foo_wide$short_name)))
 
 
+fc10 <- discard_by_rank(fcs_from_all_e$models_tbl, max_rank_h = 8, is_wide = FALSE)
+
+
+ensemble_fc_from_models_rmse(models_tbl_with_rmse = cv_size_3_17_estimate,
+                             var_data = var_data, 
+                             n_cv = n_cv, 
+                             training_length = training_length, 
+                             max_rank_h = 10, 
+                             fc_horizon = fc_horizon,
+                             names_exogenous = names_exogenous, 
+                             target_transform = target_transform,
+                             target_level_ts = target_level_ts,
+                             extension_of_exo = extension_of_exo, 
+                             cv_extension_of_exo = cv_extension_of_exo, 
+                             fit_column = NULL)
+
+
+# ensemble_all_h <- ensemble_all_h %>% 
+#   mutate(rmse_h = paste0("rmse_", 1:fc_horizon),
+#          rmse = ensemble_rmse)
+# 
+# models_tbl_sel <- dplyr::select(models_tbl, variables,  short_name, horizon, 
+#                                 this_h_fc_yoy, rmse_h, rmse)
+# 
+# models_and_ensemble <- bind_rows(dplyr::select(ensemble_all_h, -lags), models_tbl_sel)
+# }
+
+
+# 
+# 
+# p <- ggplot(data = models_and_ensemble,
+#             aes(x = horizon, y = this_h_fc_yoy, color = short_name)) + 
+#   geom_line()
+# 
+# p
