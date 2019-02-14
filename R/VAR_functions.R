@@ -3813,9 +3813,12 @@ var_cv <- function(var_data,
 }
 
 
-variable_freq_by_n <- function(tbl_of_models, h_max = 8, max_rank = 20, 
-                               n_freq = 10, is_wide = FALSE, max_small_rank = 3,
-                               max_smallest_rank = 1) {
+variable_freq_by_n <- function(tbl_of_models, 
+                               h_max = 8,
+                               max_rank = 20, 
+                               n_freq = 10, 
+                               is_wide = FALSE, 
+                               max_small_rank = 3) {
   
   rmse_names <- paste("rmse", seq(h_max), sep = "_")
   
@@ -3873,7 +3876,8 @@ variable_freq_by_n <- function(tbl_of_models, h_max = 8, max_rank = 20,
   )
 
   
-  small_effective_rank <- map_dbl(list_best_small, ~ sort(.x[["rank_h"]])[max_small_rank])
+  small_effective_rank <- map_dbl(list_best_small,
+                                  ~ sort(.x[["rank_h"]])[max_small_rank])
 
   
   

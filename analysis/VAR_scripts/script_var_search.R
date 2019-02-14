@@ -122,6 +122,7 @@ accumulated_tried_models <- mutate(
   short_name = unlist(short_name)
 )
   
+in_best_2_some_h <- discard_by_rank(accumulated_passing_models, max_rank_h = 2, is_wide = TRUE)
 in_best_10_some_h <- discard_by_rank(accumulated_passing_models, max_rank_h = 10, is_wide = TRUE)
 in_best_20_some_h <- discard_by_rank(accumulated_passing_models, max_rank_h = 20, is_wide = TRUE)
 
@@ -185,7 +186,7 @@ augment_with_variable <- function(models_tbl_to_aug, vec_of_extra_variables) {
 
 in_best_10_augmented <- augment_with_variable(in_best_10_some_h, names_12)
 
-not_already_tried_models <-  ! in_best_10_augmented$short_name %in% accumulated_tried_models$short_name
+not_already_tried_models <- !in_best_10_augmented$short_name %in% accumulated_tried_models$short_name
 
 in_best_10_augmented_not_tried <- in_best_10_augmented[not_already_tried_models, ]
 
@@ -195,12 +196,46 @@ f_vbls <- variable_freq_by_n(accumulated_passing_models,
                              max_rank = 10,
                              n_freq = 10, 
                              is_wide = TRUE, 
-                             max_small_rank = 5)
+                             max_small_rank = 3)
 
 
-f_vbls
+new_names_by_freq <- sort(f_vbls$variables_in_top_small)
+
+names_in_best_2 <- unique(unlist(in_best_2_some_h$variables))
+
+new_names_by_freq
+
+new_names_by_freq_and_best_2 <- sort(unique(c(new_names_by_freq, names_in_best_2)))
 
 
+specs_size_4_freq <- all_specifications(
+  var_size = 4,
+  all_variables = new_names_by_freq,
+  lag_choices = lag_choices, 
+  use_info_lags = FALSE,
+  var_data = var_data_12[, new_names_by_freq],
+  t_thresholds = 0,
+  names_exogenous = names_exogenous)
+
+specs_size_4_freq <- mutate(specs_size_4_freq,
+                            short_name = pmap(list(variables, lags, t_threshold),
+                                              ~ make_model_name(variables = ..1, 
+                                                                lags = ..2,
+                                                                t_threshold = ..3)),
+                            short_name = unlist(short_name))
+
+not_in_best_10 <- !specs_size_4_freq$short_name %in% in_best_10_augmented_not_tried$short_name
+sum(not_in_best_10)
+specs_size_4_freq_not_in_best_10 <- specs_size_4_freq[not_in_best_10, ]
+not_tried <- !specs_size_4_freq_not_in_best_10$short_name %in% accumulated_tried_models$short_name
+specs_size_4_freq_proposed <- specs_size_4_freq_not_in_best_10[not_tried, ]
+
+
+proposed_specs_s4 <- rbind(dplyr::select(in_best_10_augmented_not_tried, 
+                                         names(specs_size_4_freq_proposed)),
+                           specs_size_4_freq_proposed)
+
+nrow(distinct(proposed_specs_s4, short_name))
 
 search_plan <- 1:4
 n_steps <- length(search_plan)
