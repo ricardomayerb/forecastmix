@@ -11,6 +11,12 @@ target_transformation <- data_object_ury$target_transformation
 raw_data <- data_object_ury$raw_data
 var_data <- data_object_ury$transformed_data
 print(target_transformation)
+n_cv <- 10
+fc_horizon <- 8
+training_length <- "per_cv_maxs" 
+target_transform <- target_transformation
+target_level_ts <- na.omit(raw_data[, target_variable])
+
 
 names_exogenous <- c("ip_us","ip_asia","ip_ue","ip_bra","act_eco_bra","emae_arg")
 
@@ -75,154 +81,138 @@ ncombs_12 <- map(2:7, ~ count_combn(var_size = .x, n_total = 12, n_exo = 6, n_fi
 ntable_12 <- as_tibble(cbind(n = 12, n_fixed = 1, size = 2:7, reduce(ncombs_12, rbind)))
 print(ntable_12)
 
+names_all <- colnames(var_data)
+names_all
+names_12 <- names_all[c(1,2,3,4,5,11,12,16,17,23,25,29)]
+length(names_12)
+names_12
+
+
 # so with 15 variables, we have, summing sizes 2 to 5, 1470 (or 1414 if we dicard all-exogenous VARs)
 # that mea exploring the performance of 5880 VARs, tow-third of them restricted vars (or 5656)
 # With 12 variables the 1470 go down to 561 and 5880 to 2244 (505 and 2020)
 
 
-# ncombs41 <- map(2:7, ~ count_combn(var_size = .x, n_total = 41, n_exo = 6, n_fixed = 1))
-# ntable41 <- as_tibble(cbind(n = ncol(var_data), n_fixed = 1, size = 2:7, reduce(ncombs41, rbind)))
-# print(ntable41)
-# 
-# ncombs10 <- map(2:7, ~ count_combn(var_size = .x, n_total = 10, n_exo = 6, n_fixed = 1))
-# ntable10 <- as_tibble(cbind(n = ncol(var_data), n_fixed = 1, size = 2:7, reduce(ncombs10, rbind)))
-# print(ntable10)
-
-#' 
-#'  
-#' Notice how rapidly the number of combinations increases with VAR size. Since $comb_x$ is relatively small here, for the next table we will consider $ncomb$ alone. Depending on the number of different lags and restrictions the final number of specification will tipically  be from two (no restrictions and two lag choices) to twelve times (two restrictions and four lag choices) the number of variable combinations. In the following table we consider the resulting number of specification under those two scenarios plus the number of estimations made taking into account ten rounds of cross validations in addition to the full sample original estimate. Since at least some models will fail the tests, only a fraction of them will qualify to be passed to cross-validation. The table below assume that between 20 to 90 percent of the models will pass. So the minimum number of VAR estimation to do happens in the no-restriction, two lag choices and 20% of qulifiying, whereas the maximum number of estimation would happens if 90% of the models pass the test and we are trying four lag choices and two restrictions.
-#' 
-#' 
-## ----nspecifications-----------------------------------------------------
-
-nspectable <- ntable %>% dplyr::select(size, ncomb)
-
-nspectable <- nspectable %>% 
-  mutate(nVAR_2 = ncomb*2, nVAR_12 = ncomb*12, cv_min = nVAR_2*0.2*10, cv_max = nVAR_12*0.9*10)
-
-print(nspectable)
-
-
-
-#' 
-#' Even with a modest size of 4, we can be dealing with 50,000 specification (and tests) and almost half a million estimations. Projecting how long those estimatiation would take, needs to consider that restricted estimations are slower than unrestrited ones and we will leave that for later. By this time we just want to notice that in order to use VAR of size 5 we either confine ourselves to unrestricted models and few lag choices or we need to find a strategy to select variables that lowers the number of possible combinations to be explored.
-#' 
-#' To expede wthing up in this document we will restrict oour attention to size-3 VARs, usig at first two variable combinations and at the end using all of them.
-#' 
-#' 
-#' 
-#' ## Generate all specifications for a given size
-#' 
-#' 
-#' 
-## ----tuplesofvbls, cache=TRUE--------------------------------------------
 
 var_size <- 3 
-all_variables <- colnames(var_data)
+all_variables <- names_12
 target_variable <- "rgdp"
 non_target_fixed <- c("")
+lag_choices <- c(3, 5)
+var_data_12 <- var_data[, names_12]
 
 
-# 1742
+
 tic()
-specifications_size_3_all_u <- all_specifications(
-  var_size = 3, all_variables = colnames(var_data),
-  lag_choices = c(3,4,5), use_info_lags = TRUE,
-  var_data = var_data, t_thresholds = 0, names_exogenous = names_exogenous)
-toc()
-
-# 1742
-tic()
-specifications_size_3_all_u_noinfolags <- all_specifications(
-  var_size = 3, all_variables = colnames(var_data),
-  lag_choices = c(3,4,5), use_info_lags = FALSE,
-  var_data = var_data, t_thresholds = 0, names_exogenous = names_exogenous)
-toc()
-
-# 1742
-tic()
-specifications_size_3_all <- all_specifications(
-  var_size = 3, all_variables = colnames(var_data),
-  lag_choices = c(3,4,5), use_info_lags = TRUE,
-  var_data = var_data, t_thresholds = c(1.65, 2), names_exogenous = names_exogenous)
-toc()
-
-# 1305
-tic()
-specifications_size_3_all_noinfolag <- all_specifications(
-  var_size = 3, all_variables = colnames(var_data), 
-  lag_choices = c(3,4,5), use_info_lags = FALSE, 
-  var_data = var_data, t_thresholds = c(1.65, 2), names_exogenous = names_exogenous)
+specs_size_2_u <- all_specifications(
+  var_size = 2,
+  all_variables = names_12,
+  lag_choices = lag_choices, 
+  use_info_lags = FALSE,
+  var_data = var_data_12,
+  t_thresholds = 0,
+  names_exogenous = names_exogenous)
 toc()
 
 
+tic()
+specs_size_3_u <- all_specifications(
+  var_size = 3,
+  all_variables = names_12,
+  lag_choices = lag_choices, 
+  use_info_lags = FALSE,
+  var_data = var_data_12,
+  t_thresholds = 0,
+  names_exogenous = names_exogenous)
+toc()
+
+tic()
+specs_size_4_u <- all_specifications(
+  var_size = 4,
+  all_variables = names_12,
+  lag_choices = lag_choices, 
+  use_info_lags = FALSE,
+  var_data = var_data_12,
+  t_thresholds = 0,
+  names_exogenous = names_exogenous)
+toc()
+
+tic()
+specs_size_5_u <- all_specifications(
+  var_size = 5,
+  all_variables = names_12,
+  lag_choices = lag_choices, 
+  use_info_lags = FALSE,
+  var_data = var_data_12,
+  t_thresholds = 0,
+  names_exogenous = names_exogenous)
+toc()
 
 
-#' 
-#' 
-#' 
-#' 
-#' 
-#' ### Select a subset of specification for expediency in this document
-## ----s3smmd--------------------------------------------------------------
-
-specifications_size_3_17 <- specifications_size_3_all[1:17, ] 
-specifications_size_3_170 <- specifications_size_3_all[1:170, ] 
-
-specifications_size_3_17_u <- specifications_size_3_all_u[1:17, ] 
-specifications_size_3_170_u <- specifications_size_3_all_u[1:170, ] 
 
 
-#' 
-#' 
-#' ## Fit all specifications and keep only acceptable ones
-#' 
-## ----passing_models_size3small, cache=TRUE-------------------------------
-ftmt_size_3_17 <- fit_tests_models_table(specifications_size_3_17, 
-                                         var_data = var_data,
+
+tic()
+ftmt_size_2 <- fit_tests_models_table(specs_size_2_u, 
+                                      var_data = var_data_12,
+                                      names_exogenous = names_exogenous
+)
+toc()
+pm_size_2 <- ftmt_size_2[["passing_models"]]
+
+
+tic()
+ftmt_size_3 <- fit_tests_models_table(specs_size_3_u, 
+                                         var_data = var_data_12,
                                          names_exogenous = names_exogenous
-                                         )
-pm_size_3_17 <- ftmt_size_3_17[["passing_models"]]
-print(head(pm_size_3_17))
+)
+toc()
+pm_size_3 <- ftmt_size_3[["passing_models"]]
 
-ftmt_size_3_17_u <- fit_tests_models_table(specifications_size_3_17_u, 
-                                           var_data = var_data, 
-                                           names_exogenous = names_exogenous)
-pm_size_3_17_u <- ftmt_size_3_17_u[["passing_models"]]
-print(head(pm_size_3_17_u))
-
-pm_3specs <- pm_size_3_17[c(1, 11, 21), ]
-
-
-
-#' 
-#' 
-#' ## Time Series Cross Validation on valid specifications
-#' 
-#' 
-#' ### Preparation: forecast exogenous values in advance
-#' 
-#' ### Cross Validation
-#' 
-#' 
-#' 
-#' 
-#' 
-## ----tscv_s3small, cache=TRUE--------------------------------------------
-n_cv <- 10
-fc_horizon <- 8
-training_length <- "per_cv_maxs" 
-fit_column <- "fit"
-target_transform <- target_transformation
-target_level_ts <- na.omit(raw_data[, target_variable])
 
 tic()
-cv_size_3_17_use <- cv_var_from_model_tbl(h = fc_horizon,
+ftmt_size_4 <- fit_tests_models_table(specs_size_4_u, 
+                                      var_data = var_data_12,
+                                      names_exogenous = names_exogenous
+)
+toc()
+pm_size_4 <- ftmt_size_4[["passing_models"]]
+
+
+tic()
+ftmt_size_5 <- fit_tests_models_table(specs_size_5_u, 
+                                      var_data = var_data_12,
+                                      names_exogenous = names_exogenous
+)
+toc()
+pm_size_5 <- ftmt_size_5[["passing_models"]]
+
+
+tic()
+cv_size_2 <- cv_var_from_model_tbl(h = fc_horizon,
+                                   training_length = training_length, 
+                                   n_cv = n_cv,
+                                   models_tbl = specs_size_2_u, 
+                                   var_data = var_data_12, 
+                                   fit_column = NULL, 
+                                   target_transform = target_transform,
+                                   target_level_ts = target_level_ts, 
+                                   names_exogenous = names_exogenous, 
+                                   future_exo = extension_of_exo, 
+                                   extended_exo_mts = cv_extension_of_exo,
+                                   keep_varest_obj = FALSE
+)
+toc()
+
+
+
+tic()
+cv_size_3 <- cv_var_from_model_tbl(h = fc_horizon,
                                                training_length = training_length, 
                                                n_cv = n_cv,
-                                               models_tbl = pm_size_3_17, 
-                                               var_data = var_data, 
-                                               fit_column = "fit", 
+                                               models_tbl = specs_size_3_u, 
+                                               var_data = var_data_12, 
+                                               fit_column = NULL, 
                                                target_transform = target_transform,
                                                target_level_ts = target_level_ts, 
                                                names_exogenous = names_exogenous, 
@@ -233,279 +223,78 @@ cv_size_3_17_use <- cv_var_from_model_tbl(h = fc_horizon,
 toc()
 
 
-tic()
-cv_size_3_17_estimate <- cv_var_from_model_tbl(h = fc_horizon,
-                             training_length = training_length, 
-                             n_cv = n_cv,
-                             models_tbl = pm_size_3_17, 
-                             var_data = var_data, 
-                             fit_column = NULL, 
-                             target_transform = target_transform,
-                             target_level_ts = target_level_ts, 
-                             names_exogenous = names_exogenous, 
-                             future_exo = extension_of_exo, 
-                             extended_exo_mts = cv_extension_of_exo,
-                             keep_varest_obj = FALSE
-                             )
-toc()
-
-
 
 tic()
-cv_size_3_17_use_and_keep <- cv_var_from_model_tbl(h = fc_horizon,
-                             training_length = training_length, 
-                             n_cv = n_cv,
-                             models_tbl = pm_size_3_17, 
-                             var_data = var_data, 
-                             fit_column = "fit", 
-                             target_transform = target_transform,
-                             target_level_ts = target_level_ts, 
-                             names_exogenous = names_exogenous, 
-                             future_exo = extension_of_exo, 
-                             extended_exo_mts = cv_extension_of_exo,
-                             keep_varest_obj = TRUE
-                             )
-toc()
-
-
-tic()
-cv_size_3_17_estimate_and_keep <- cv_var_from_model_tbl(h = fc_horizon,
-                                               training_length = training_length, 
-                                               n_cv = n_cv,
-                                               models_tbl = pm_size_3_17, 
-                                               var_data = var_data, 
-                                               fit_column = NULL, 
-                                               target_transform = target_transform,
-                                               target_level_ts = target_level_ts, 
-                                               names_exogenous = names_exogenous, 
-                                               future_exo = extension_of_exo, 
-                                               extended_exo_mts = cv_extension_of_exo,
-                                               keep_varest_obj = TRUE
+cv_size_4 <- cv_var_from_model_tbl(h = fc_horizon,
+                                   training_length = training_length, 
+                                   n_cv = n_cv,
+                                   models_tbl = specs_size_4_u, 
+                                   var_data = var_data_12, 
+                                   fit_column = NULL, 
+                                   target_transform = target_transform,
+                                   target_level_ts = target_level_ts, 
+                                   names_exogenous = names_exogenous, 
+                                   future_exo = extension_of_exo, 
+                                   extended_exo_mts = cv_extension_of_exo,
+                                   keep_varest_obj = FALSE
 )
-toc()
-
-
-tic()
-cv_3s_use <- cv_var_from_model_tbl(h = fc_horizon,
-                             training_length = training_length, 
-                             n_cv = n_cv,
-                             models_tbl = pm_3specs, 
-                             var_data = var_data, 
-                             fit_column = "fit", 
-                             target_transform = target_transform,
-                             target_level_ts = target_level_ts, 
-                             names_exogenous = names_exogenous, 
-                             future_exo = extension_of_exo, 
-                             extended_exo_mts = cv_extension_of_exo,
-                             keep_varest_obj = FALSE
-                             )
-toc()
-
-tic()
-cv_3s_use_and_keep <- cv_var_from_model_tbl(h = fc_horizon,
-                             training_length = training_length, 
-                             n_cv = n_cv,
-                             models_tbl = pm_3specs, 
-                             var_data = var_data, 
-                             fit_column = "fit", 
-                             target_transform = target_transform,
-                             target_level_ts = target_level_ts, 
-                             names_exogenous = names_exogenous, 
-                             future_exo = extension_of_exo, 
-                             extended_exo_mts = cv_extension_of_exo,
-                             keep_varest_obj = TRUE
-                             )
 toc()
 
 
 
 
-## ----forecast_using_cv---------------------------------------------------
-
-# forecast all 21 models
-fcs_from_all_eak <- forecast_var_from_model_tbl(
-  cv_size_3_17_estimate_and_keep,
-  var_data, 
-  fc_horizon, 
-  target_transform = target_transform,
-  target_level_ts = target_level_ts,
-  names_exogenous = names_exogenous, 
-  extended_exo_mts = extension_of_exo, 
-  keep_wide_tbl = TRUE
+tic()
+cv_size_5 <- cv_var_from_model_tbl(h = fc_horizon,
+                                   training_length = training_length, 
+                                   n_cv = n_cv,
+                                   models_tbl = specs_size_5_u, 
+                                   var_data = var_data_12, 
+                                   fit_column = NULL, 
+                                   target_transform = target_transform,
+                                   target_level_ts = target_level_ts, 
+                                   names_exogenous = names_exogenous, 
+                                   future_exo = extension_of_exo, 
+                                   extended_exo_mts = cv_extension_of_exo,
+                                   keep_varest_obj = FALSE
 )
-
-mod1 <- fcs_from_all_eak$models_tbl
-mod1i <- fcs_from_all_eak$models_info_per_h
-mod1w <- fcs_from_all_eak$models_tbl_wide
-
-fcs_from_all_uak <- forecast_var_from_model_tbl(
-  cv_size_3_17_use_and_keep, 
-  fit_column = "fit",
-  var_data, 
-  fc_horizon, 
-  target_transform = target_transform,
-  target_level_ts = target_level_ts,
-  names_exogenous = names_exogenous, 
-  extended_exo_mts = extension_of_exo, 
-  keep_wide_tbl = TRUE
-)
-
-fcs_from_all_e <- forecast_var_from_model_tbl(
-  cv_size_3_17_estimate,
-  var_data, 
-  fc_horizon, 
-  target_transform = target_transform,
-  target_level_ts = target_level_ts,
-  names_exogenous = names_exogenous, 
-  extended_exo_mts = extension_of_exo, 
-  keep_wide_tbl = TRUE
-)
-
-fcs_from_all_u <- forecast_var_from_model_tbl(
-  cv_size_3_17_use, 
-  var_data, 
-  fc_horizon, 
-  target_transform = target_transform,
-  target_level_ts = target_level_ts,
-  names_exogenous = names_exogenous, 
-  extended_exo_mts = extension_of_exo, 
-  keep_wide_tbl = TRUE
-)
+toc()
 
 
-fcs_from_all_e_10 <- forecast_var_from_model_tbl(
-  models_tbl = cv_size_3_17_estimate,
-  var_data, 
-  fc_horizon, 
-  target_transform = target_transform,
-  target_level_ts = target_level_ts,
-  names_exogenous = names_exogenous, 
-  extended_exo_mts = extension_of_exo, 
-  keep_wide_tbl = TRUE,
-  max_rank_h = 10
-)
 
-# fc_rmse_weighted <- fc_best_per_h$fcs_wavg
-# models_tbl_max_rank <- fc_best_per_h$models_tbl
-# models_tbl_max_rank
-# snames_best <-  models_tbl_max_rank %>% 
-#   dplyr::select(short_name) %>% distinct()
-# snames_best
-# 
-# models_tbl_used_fc <- semi_join(cv_size_3_17, snames_best, by = "short_name")
-# models_tbl_not_used_fc <- anti_join(cv_size_3_17, snames_best, by = "short_name")
 
-models_smaller1 <- cv_size_3_17_estimate[1, ]
-models_smaller2 <- cv_size_3_17_estimate[c(1, 11), ]
-models_smaller3 <- cv_size_3_17_estimate[c(1, 11, 21), ]
-
-h_max <- fc_horizon
-
-training_length <- "per_cv_maxs"
-
+#' # ncombs41 <- map(2:7, ~ count_combn(var_size = .x, n_total = 41, n_exo = 6, n_fixed = 1))
+#' # ntable41 <- as_tibble(cbind(n = ncol(var_data), n_fixed = 1, size = 2:7, reduce(ncombs41, rbind)))
+#' # print(ntable41)
+#' # 
+#' # ncombs10 <- map(2:7, ~ count_combn(var_size = .x, n_total = 10, n_exo = 6, n_fixed = 1))
+#' # ntable10 <- as_tibble(cbind(n = ncol(var_data), n_fixed = 1, size = 2:7, reduce(ncombs10, rbind)))
+#' # print(ntable10)
+#' 
+#' #' 
+#' #'  
+#' #' Notice how rapidly the number of combinations increases with VAR size. Since $comb_x$ is relatively small here, for the next table we will consider $ncomb$ alone. Depending on the number of different lags and restrictions the final number of specification will tipically  be from two (no restrictions and two lag choices) to twelve times (two restrictions and four lag choices) the number of variable combinations. In the following table we consider the resulting number of specification under those two scenarios plus the number of estimations made taking into account ten rounds of cross validations in addition to the full sample original estimate. Since at least some models will fail the tests, only a fraction of them will qualify to be passed to cross-validation. The table below assume that between 20 to 90 percent of the models will pass. So the minimum number of VAR estimation to do happens in the no-restriction, two lag choices and 20% of qulifiying, whereas the maximum number of estimation would happens if 90% of the models pass the test and we are trying four lag choices and two restrictions.
+#' #' 
+#' #' 
+#' ## ----nspecifications-----------------------------------------------------
+#' 
+#' nspectable <- ntable %>% dplyr::select(size, ncomb)
+#' 
+#' nspectable <- nspectable %>% 
+#'   mutate(nVAR_2 = ncomb*2, nVAR_12 = ncomb*12, cv_min = nVAR_2*0.2*10, cv_max = nVAR_12*0.9*10)
+#' 
+#' print(nspectable)
 #' 
 #' 
 #' 
-## ----cv_of_ensemble------------------------------------------------------
-
-
-
-# models_tbl_sel <- dplyr::select(boo, variables,  short_name, horizon, 
-#                                 this_h_fc_yoy, rmse_h, rmse)
-
-
-
-ensemble_fc_list <- fc_mean_of_VAR_ensemble(models_tbl = fcs_from_all_e$models_tbl)
-ensemble_fc_list_10 <- fc_mean_of_VAR_ensemble(models_tbl = fcs_from_all_e$models_tbl, max_rank_h = 10)
-
-ensemble_fc_tbl <- ensemble_fc_list$ensemble_tbl
-ensemble_fc_ts <- ensemble_fc_list$weighted_avg_fc_yoy
-
-ensemble_fc_tbl_10 <- ensemble_fc_list_10$ensemble_tbl
-ensemble_fc_ts_10 <- ensemble_fc_list_10$weighted_avg_fc_yoy
-
-
-ensemble_cv <- cv_of_VAR_ensemble(var_data = var_data,
-                                  used_cv_models = fcs_from_all_e$models_tbl_wide,
-                                  fc_horizon = fc_horizon,
-                                  n_cv = n_cv,
-                                  training_length = training_length,
-                                  cv_extension_of_exo = cv_extension_of_exo,
-                                  names_exogenous = names_exogenous,
-                                  max_rank_h = NULL,
-                                  target_transform = target_transform,
-                                  target_level_ts = target_level_ts)
-
-
-ensemble_cv_10 <- cv_of_VAR_ensemble(var_data = var_data,
-                                  used_cv_models = fcs_from_all_e$models_tbl_wide,
-                                  fc_horizon = fc_horizon,
-                                  n_cv = n_cv,
-                                  training_length = training_length,
-                                  cv_extension_of_exo = cv_extension_of_exo,
-                                  names_exogenous = names_exogenous,
-                                  max_rank_h = 10,
-                                  target_transform = target_transform,
-                                  target_level_ts = target_level_ts)
-
-
-
-ensemble_fc_and_rmse <- ensemble_fc_tbl %>% 
-  mutate(rmse_h = paste0("rmse_", 1:n()),
-         rmse = ensemble_cv$ensemble_rmse,
-         rank = -1)
-
-fcs_models_to_bind <- fcs_from_all_e$models_tbl %>% 
-  mutate(lags = list(lags)) %>% 
-  dplyr::select(names(ensemble_fc_and_rmse))
-
-
-models_and_ensemble_fcs <- rbind(ensemble_fc_and_rmse, 
-                                 fcs_models_to_bind)
-
-
-foo_long <- discard_by_rank(fcs_from_all_e$models_tbl, max_rank_h = 3, is_wide = FALSE)
-
-foo_wide <- discard_by_rank(fcs_from_all_e$models_tbl_wide, max_rank_h = 3, is_wide = TRUE)
-
-sort(unique(foo_long$short_name))
-sort(unique(foo_wide$short_name))
-
-identical(sort(unique(foo_long$short_name)), sort(unique(foo_wide$short_name)))
-
-
-fc10 <- discard_by_rank(fcs_from_all_e$models_tbl, max_rank_h = 8, is_wide = FALSE)
-
-
-ensemble_fc_from_models_rmse(models_tbl_with_rmse = cv_size_3_17_estimate,
-                             var_data = var_data, 
-                             n_cv = n_cv, 
-                             training_length = training_length, 
-                             max_rank_h = 10, 
-                             fc_horizon = fc_horizon,
-                             names_exogenous = names_exogenous, 
-                             target_transform = target_transform,
-                             target_level_ts = target_level_ts,
-                             extension_of_exo = extension_of_exo, 
-                             cv_extension_of_exo = cv_extension_of_exo, 
-                             fit_column = NULL)
-
-
-# ensemble_all_h <- ensemble_all_h %>% 
-#   mutate(rmse_h = paste0("rmse_", 1:fc_horizon),
-#          rmse = ensemble_rmse)
-# 
-# models_tbl_sel <- dplyr::select(models_tbl, variables,  short_name, horizon, 
-#                                 this_h_fc_yoy, rmse_h, rmse)
-# 
-# models_and_ensemble <- bind_rows(dplyr::select(ensemble_all_h, -lags), models_tbl_sel)
-# }
-
-
-# 
-# 
-# p <- ggplot(data = models_and_ensemble,
-#             aes(x = horizon, y = this_h_fc_yoy, color = short_name)) + 
-#   geom_line()
-# 
-# p
+#' #' 
+#' #' Even with a modest size of 4, we can be dealing with 50,000 specification (and tests) and almost half a million estimations. Projecting how long those estimatiation would take, needs to consider that restricted estimations are slower than unrestrited ones and we will leave that for later. By this time we just want to notice that in order to use VAR of size 5 we either confine ourselves to unrestricted models and few lag choices or we need to find a strategy to select variables that lowers the number of possible combinations to be explored.
+#' #' 
+#' #' To expede wthing up in this document we will restrict oour attention to size-3 VARs, usig at first two variable combinations and at the end using all of them.
+#' #' 
+#' #' 
+#' #' 
+#' #' ## Generate all specifications for a given size
+#' #' 
+#' #' 
+#' #' 
+#' ## ----tuplesofvbls, cache=TRUE--------------------------------------------
