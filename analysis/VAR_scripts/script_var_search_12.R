@@ -124,11 +124,10 @@ accumulated_tried_models <- mutate(
 
 ###### start size 4 choosing specs and variables
   
-in_best_2_some_h <- discard_by_rank(accumulated_passing_models, max_rank_h = 3, is_wide = TRUE)
+in_best_2_some_h <- discard_by_rank(accumulated_passing_models, max_rank_h = 2, is_wide = TRUE)
 in_best_10_some_h <- discard_by_rank(accumulated_passing_models, max_rank_h = 10, is_wide = TRUE)
 in_best_20_some_h <- discard_by_rank(accumulated_passing_models, max_rank_h = 20, is_wide = TRUE)
 
-nrow(in_best_2_some_h)
 nrow(in_best_10_some_h)
 nrow(in_best_20_some_h)
 
@@ -149,17 +148,12 @@ f_vbls <- variable_freq_by_n(accumulated_passing_models,
 
 new_names_by_freq <- sort(f_vbls$variables_in_top_small)
 
-first_by_total <- f_vbls$vbl_by_total[2]
-second_by_total <- f_vbls$vbl_by_total[3]
-
 names_in_best_2 <- unique(unlist(in_best_2_some_h$variables))
 
-sort(new_names_by_freq)
-sort(names_in_best_2)
-
+new_names_by_freq
 
 new_names_by_freq_and_best_2 <- sort(unique(c(new_names_by_freq, names_in_best_2)))
-new_names_by_freq_and_best_2 
+
 
 specs_size_4_freq <- all_specifications(
   var_size = 4,
@@ -188,41 +182,9 @@ proposed_specs_s4 <- rbind(dplyr::select(in_best_10_augmented_not_tried,
                                          names(specs_size_4_freq_proposed)),
                            specs_size_4_freq_proposed)
 
-names_proposed_s4 <- unique(unlist(proposed_specs_s4$variables))
-
 nrow(distinct(proposed_specs_s4, short_name))
 
 tic()
-
-cv_4_from_proposed <- cv_var_from_model_tbl(h = fc_horizon,
-                                            training_length = training_length, 
-                                            n_cv = n_cv,
-                                            models_tbl = proposed_specs_s4, 
-                                            var_data = var_data_12[ , names_proposed_s4], 
-                                            fit_column = NULL, 
-                                            target_transform = target_transform,
-                                            target_level_ts = target_level_ts, 
-                                            names_exogenous = names_exogenous, 
-                                            future_exo = extension_of_exo, 
-                                            extended_exo_mts = cv_extension_of_exo,
-                                            keep_varest_obj = FALSE, 
-                                            do_tests = TRUE
-)
-
-
-toc()
-
-
-
-search_plan <- 1:4
-n_steps <- length(search_plan)
-per_size_results <- list_along(1:n_steps)
-f_vbls_list <- list_along(1:n_steps)
-current_consolidated_models_list <- list_along(1:n_steps)
-cv_objects_list <- list_along(1:n_steps)
-prechosen_variables_at_each_step <- list_along(1:n_steps)
-all_prechosen_variables_at_each_step <- list_along(seq(1, n_steps))
-
 cv_proposed_size_4 <- cv_var_from_model_tbl(
   h = fc_horizon,
   training_length = training_length, 
