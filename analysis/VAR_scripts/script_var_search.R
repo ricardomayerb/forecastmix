@@ -130,59 +130,6 @@ nrow(in_best_2_some_h)
 nrow(in_best_10_some_h)
 nrow(in_best_20_some_h)
 
-add_one_variable <- function(current_vbls, extra_vbl) {
-  
-  if (extra_vbl %in% current_vbls) {
-    next_vbls <- "repeated_variables" 
-    return(next_vbls)
-  }
-  
-  next_vbls <- c(current_vbls, extra_vbl)
-  return(next_vbls)
-}
-
-
-augment_with_variable <- function(models_tbl_to_aug, vec_of_extra_variables) {
-  
-  models_tbl_to_aug <- models_tbl_to_aug %>% 
-    dplyr::select(variables, lags, t_threshold, is_unrestricted, full_sample_resmat) %>% 
-    rename(previous_variables = variables) 
-  
-  list_of_tbl <- list_along(vec_of_extra_variables)
-  
-  for (i in seq(1, length(vec_of_extra_variables))) {
-    this_variable <- vec_of_extra_variables[i]
-    this_augmented_tbl <-  mutate(models_tbl_to_aug, 
-                                  variables = map(
-                                    previous_variables,
-                                    ~ add_one_variable(.x, this_variable)))
-    this_augmented_tbl <-  filter(this_augmented_tbl, 
-                                  !variables == "repeated_variables")
-    this_augmented_tbl <-  dplyr::select(this_augmented_tbl, variables, lags,
-                                         t_threshold, is_unrestricted, 
-                                         full_sample_resmat)
-    list_of_tbl[[i]] <- this_augmented_tbl
-  }
-  
-  augmented_tbl <- reduce(list_of_tbl, rbind)
-  augmented_tbl <- mutate(augmented_tbl,
-                          short_name = pmap(list(variables, lags, t_threshold),
-                                            ~ make_model_name(variables = ..1, 
-                                                              lags = ..2,
-                                                              t_threshold = ..3)),
-                          short_name = unlist(short_name),
-                          size = map_dbl(variables, length)
-                          )
-  
-  augmented_tbl <- distinct(augmented_tbl, short_name, .keep_all = TRUE)
-  
-  augmented_tbl <-  dplyr::select(augmented_tbl, short_name, variables, 
-                                  size, lags, t_threshold, is_unrestricted,
-                                  full_sample_resmat)
-  
-  return(augmented_tbl)
-  
-}
 
 
 in_best_10_augmented <- augment_with_variable(in_best_10_some_h, names_12)
@@ -241,10 +188,25 @@ proposed_specs_s4 <- rbind(dplyr::select(in_best_10_augmented_not_tried,
                                          names(specs_size_4_freq_proposed)),
                            specs_size_4_freq_proposed)
 
+names_proposed_s4 <- unique(unlist(proposed_specs_s4$variables))
+
 nrow(distinct(proposed_specs_s4, short_name))
 
 tic()
-cv_4_from_proposed
+cv_4_from_proposed <- cv_var_from_model_tbl(h = fc_horizon,
+                                            training_length = training_length, 
+                                            n_cv = n_cv,
+                                            models_tbl = proposed_specs_s4, 
+                                            var_data = var_data_12[ , names_proposed_s4], 
+                                            fit_column = NULL, 
+                                            target_transform = target_transform,
+                                            target_level_ts = target_level_ts, 
+                                            names_exogenous = names_exogenous, 
+                                            future_exo = extension_of_exo, 
+                                            extended_exo_mts = cv_extension_of_exo,
+                                            keep_varest_obj = FALSE, 
+                                            do_tests = TRUE
+)
 
 
 toc()
