@@ -1,6 +1,6 @@
 source('./R/combinations_functions.R')
 
-all_specs_objects <- readRDS("./data/examples/all_ury_models_15_variables.rds")
+all_specs_objects <- readRDS("./data/examples/all_ury_models_15_variables_restr.rds")
 all_passing_models <- all_specs_objects[[6]]
 
 data_object_ury <- readRDS("./data/examples/example_data_ury.rds")
@@ -38,18 +38,19 @@ target_variable <- "rgdp"
 non_target_fixed <- c("")
 lag_choices <- c(3, 5)
 var_data_15 <- var_data[, names_15]
+this_t_thresholds <- c(1.65)
 
 accumulated_tried_models <- tibble()
 accumulated_passing_models <- tibble()
 
 ### generate all size 2 and do cv
-specs_size_2_u <- all_specifications(
+specs_size_2_r <- all_specifications(
   var_size = 2,
   all_variables = names_15,
   lag_choices = lag_choices, 
   use_info_lags = FALSE,
   var_data = var_data_15,
-  t_thresholds = 0,
+  t_thresholds = this_t_thresholds,
   names_exogenous = names_exogenous)
 
 
@@ -57,7 +58,7 @@ tic()
 cv_size_2 <- cv_var_from_model_tbl(h = fc_horizon,
                                    training_length = training_length, 
                                    n_cv = n_cv,
-                                   models_tbl = specs_size_2_u, 
+                                   models_tbl = specs_size_2_r, 
                                    var_data = var_data_15, 
                                    fit_column = NULL, 
                                    target_transform = target_transform,
@@ -79,13 +80,13 @@ accumulated_passing_models <- rbind(accumulated_passing_models, passing_models_s
 
 ### generate all size 3 and do cv
 tic()
-specs_size_3_u <- all_specifications(
+specs_size_3_r <- all_specifications(
   var_size = 3,
   all_variables = names_15,
   lag_choices = lag_choices, 
   use_info_lags = FALSE,
   var_data = var_data_15,
-  t_thresholds = 0,
+  t_thresholds = this_t_thresholds,
   names_exogenous = names_exogenous)
 toc()
 
@@ -94,7 +95,7 @@ tic()
 cv_size_3 <- cv_var_from_model_tbl(h = fc_horizon,
                                    training_length = training_length, 
                                    n_cv = n_cv,
-                                   models_tbl = specs_size_3_u, 
+                                   models_tbl = specs_size_3_r, 
                                    var_data = var_data_15, 
                                    fit_column = NULL, 
                                    target_transform = target_transform,
@@ -160,7 +161,7 @@ specs_size_4_freq <- all_specifications(
   lag_choices = lag_choices, 
   use_info_lags = FALSE,
   var_data = var_data_15[, new_names_by_freq],
-  t_thresholds = 0,
+  t_thresholds = this_t_thresholds,
   names_exogenous = names_exogenous)
 
 specs_size_4_freq <- mutate(specs_size_4_freq,
@@ -257,7 +258,7 @@ specs_size_5_freq <- all_specifications(
   lag_choices = lag_choices, 
   use_info_lags = FALSE,
   var_data = var_data_15[, new_names_by_freq],
-  t_thresholds = 0,
+  t_thresholds = this_t_thresholds,
   names_exogenous = names_exogenous)
 
 specs_size_5_freq <- mutate(specs_size_5_freq,
@@ -419,7 +420,5 @@ sort(search_best_20_models_h1$short_name)
 
 
 saveRDS(end_of_search_models,
-        file = "./data/examples/end_of_search_models_15.rds")
-
-
+        file = "./data/examples/end_of_search_models_15_restr.rds")
 
