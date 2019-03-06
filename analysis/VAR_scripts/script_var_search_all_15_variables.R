@@ -153,43 +153,42 @@ specs_size_5_u <- all_specifications(
 toc()
 
 
+specs_to_rmse <- function(variables, lags, t_thresholds = 0) {
+  
+  if (length(t_thresholds) == 1) {
+    if (t_thresholds == 0) {
+      is_unrestricted <- TRUE
+    }
+  } else {
+    is_unrestricted <- FALSE
+  }
+  
+  # do the unrestricted even if it is restricted
+  
+  fit_u <- fit_VAR_rest(var_data = var_data, variables = variables, p = lags, 
+                        t_thresh = 0, names_exogenous = names_exogenous)
+  
+  if (!is_unrestricted) {
+    fit_r <- fit_VAR_rest(var_data = var_data, variables = variables, p = lags, 
+                          t_thresh = t_thresholds,
+                          names_exogenous = names_exogenous)
+  }
+  
+  return(fit_u)
+}
 
 
 
-# tic()
-# ftmt_size_2 <- fit_tests_models_table(specs_size_2_u, 
-#                                       var_data = var_data_15,
+
+foo_size_2 <- specs_size_2_u %>% 
+  mutate(this_foo = pmap(list(variables, lags, t_threshold), 
+                         ~ specs_to_rmse(variables = ..1, lags = ..2,
+                                         t_thresholds = ..3))
+  )
+#                                       var_data = var_data_12,
 #                                       names_exogenous = names_exogenous
 # )
-# toc()
-# pm_size_2 <- ftmt_size_2[["passing_models"]]
-# 
-# 
-# tic()
-# ftmt_size_3 <- fit_tests_models_table(specs_size_3_u, 
-#                                          var_data = var_data_15,
-#                                          names_exogenous = names_exogenous
-# )
-# toc()
-# pm_size_3 <- ftmt_size_3[["passing_models"]]
-# 
-# 
-# tic()
-# ftmt_size_4 <- fit_tests_models_table(specs_size_4_u, 
-#                                       var_data = var_data_15,
-#                                       names_exogenous = names_exogenous
-# )
-# toc()
-# pm_size_4 <- ftmt_size_4[["passing_models"]]
-# 
-# 
-# tic()
-# ftmt_size_5 <- fit_tests_models_table(specs_size_5_u, 
-#                                       var_data = var_data_15,
-#                                       names_exogenous = names_exogenous
-# )
-# toc()
-# pm_size_5 <- ftmt_size_5[["passing_models"]]
+
 
 
 tic()
