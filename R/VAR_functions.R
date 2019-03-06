@@ -1102,6 +1102,62 @@ cv_var_from_one_row <- function(var_data,
 # }
 
 
+
+
+cv_var_from_tbl_by_row <- function(h, n_cv, 
+                                   training_length, 
+                                   models_tbl, 
+                                   var_data, 
+                                   fit_column = NULL, 
+                                   target_transform = "yoy", 
+                                   target_level_ts = NULL,
+                                   keep_varest_obj = FALSE,
+                                   keep_cv_objects = FALSE,
+                                   names_exogenous = c(""),
+                                   exo_lag = NULL,
+                                   extended_exo_mts = NULL,
+                                   do_tests = TRUE,
+                                   silent = TRUE) {
+  
+  variables <- models_tbl$variables
+  lags <- models_tbl$lags
+  t_threshold <- models_tbl$t_threshold
+  
+  model_and_rmse <- mutate(
+    models_tbl,
+    tests_and_rmses = pmap(list(variables, lags, t_threshold),
+                           ~ specs_to_rmse(var_data = var_data, 
+                                           variables = ..1,
+                                           lags = ..2, 
+                                           t_thresholds = ..3,
+                                           future_exo_cv = future_exo_cv,
+                                           training_length = training_length,
+                                           h = fc_horizon, n_cv = n_cv,
+                                           target_transform = target_transform, 
+                                           target_level_ts = target_level_ts, 
+                                           names_exogenous = names_exogenous)
+    )
+  )
+  
+  model_and_rmse <- unnest(model_and_rmse, tests_and_rmses) 
+  model_and_rmse <- mutate(model_and_rmse, 
+                           short_name = pmap_chr(list(variables, lags, t_threshold),
+                                             ~ make_model_name(..1, ..2, ..3)
+                           )
+  )
+  
+  names_tried_models <- model_and_rmse$short_name
+  
+  model_and_rmse <- filter(model_and_rmse, pass_tests)
+  names_passing_models <- model_and_rmse$short_name
+  
+  
+  return(list(models_tbl = model_and_rmse, tried = names_tried_models, 
+              passing = names_passing_models))
+}
+
+
+
 estimate_var_from_model_tbl_old <- function(models_tbl, 
                                         var_data, 
                                         new_t_threshold = NULL, 
@@ -3405,6 +3461,123 @@ search_var_one_size <- function(var_data,
   }
 }
 
+
+specs_to_rmse <- function(var_data, variables, lags, h, n_cv, training_length, 
+                          future_exo_cv, target_transform, target_level_ts,
+                          t_thresholds = 0, 
+                          do_tests = TRUE, names_exogenous = c("")) {
+  pass_tests <- TRUE
+  
+  if (length(t_thresholds) == 1) {
+    if (t_thresholds == 0) {
+      is_unrestricted <- TRUE
+    }
+  } else {
+    is_unrestricted <- FALSE
+  }
+  
+  # do the unrestricted even if it is restricted
+  
+  fit_u <- try(fit_VAR_rest(var_data = var_data, variables = variables, p = lags, 
+                            t_thresh = 0, names_exogenous = names_exogenous),
+               silent = TRUE)
+  
+  if (!is_unrestricted) {
+    fit_r <- try(fit_VAR_rest(var_data = var_data, variables = variables, p = lags, 
+                              t_thresh = t_thresholds,
+                              names_exogenous = names_exogenous),
+                 silent = TRUE)
+  }
+  
+  fit_u_class <- class(fit_u)[[1]]
+  
+  if (fit_u_class != "varest") {
+    do_tests <- FALSE
+    pass_tests <- FALSE
+    tested <- FALSE
+  }
+  
+  if (do_tests) {
+    tested <- TRUE
+    is_stable <-  all(vars::roots(fit_u) < 1)
+    is_white_noise <-  check_resid_VAR(fit_u)
+    pass_tests <- is_stable & is_white_noise
+    # print(pass_tests)
+  }
+  
+  names_rmses <- paste0("rmse_", seq(1, h))
+  
+  rmse_yoy_all_h <- rep(NA, h)
+  names(rmse_yoy_all_h) <- names_rmses
+  
+  
+  
+  if (pass_tests) {
+    cv_obj <- cv_var_from_one_row(fit = fit_u, var_data = var_data, 
+                                  variables = variables, lags = lags, h = h, 
+                                  n_cv = n_cv, training_length = training_length, 
+                                  names_exogenous = names_exogenous, 
+                                  this_type = "const",
+                                  this_thresh = t_thresholds, 
+                                  future_exo_cv = future_exo_cv)
+    
+    full_sample_resmat = cv_obj[["full_sample_resmat"]]
+    # print("transform to yoy")
+    
+    if (target_transform != "yoy") {
+      
+      if (target_transform == "diff_yoy") {
+        
+        # print("from diff_yoy to yoy")
+        
+        cv_obj_diff_yoy <-  cv_obj
+        
+        cv_obj_yoy = transform_all_cv(cv_obj_diff_yoy,
+                                      current_form = target_transform,
+                                      target_level_ts =  target_level_ts,
+                                      n_cv = n_cv)
+      }
+      
+      if (target_transform == "diff") {
+        # print("from diff to yoy")
+        auxiliary_ts <-  target_level_ts
+        
+        models_tbl <- models_tbl %>%
+          rename(cv_obj_diff = cv_obj)
+        
+        results_all_models <- results_all_models %>%
+          mutate(cv_obj_yoy = map(cv_obj_diff,
+                                  ~ transform_all_cv(cv_object  = .,
+                                                     current_form = target_transformation,
+                                                     auxiliary_ts = target_level_ts,
+                                                     n_cv = n_cv)
+          )
+          )
+      }
+      
+    }
+    
+    if (target_transform == "yoy") {
+      # print("Already in yoy form")
+      cv_obj_yoy <- cv_obj
+    }
+    
+    # print("done transforming")
+    
+    
+    rmse_yoy_all_h <-  all_rmse_from_cv_obj(cv_obj_yoy)
+    names(rmse_yoy_all_h) <- names_rmses
+    
+    
+  }
+  
+  tibble_to_return <- tibble(tested = tested, pass_tests = pass_tests)
+  
+  tibble_to_return <- as_tibble(c(tibble_to_return, rmse_yoy_all_h))
+  # print(tibble_to_return)
+  
+  return(tibble_to_return)
+}
 
 
 stack_models <- function(models_list) {
