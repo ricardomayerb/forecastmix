@@ -192,6 +192,8 @@ foo_size_2 <- mutate(specs_size_2_u,
                                          names_exogenous = names_exogenous)
                          )
   )
+
+
 foo_size_2 <- unnest(foo_size_2, this_foo) 
 
 

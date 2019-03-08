@@ -3616,7 +3616,14 @@ specs_to_rmse <- function(var_data, variables, lags, h, n_cv, training_length,
       names(rmse_yoy_all_h) <- names_rmses
     }
     
+    
     tibble_to_return <- tibble(msg = msg, tested = tested, pass_tests = pass_tests)
+    
+    if(!"variables" %in% names(tibble_to_return)) {
+      tibble_to_return <- mutate(tibble_to_return,
+                                 variables = variables,
+                                 t_threshold = this_thresh)
+    }
     
     tibble_to_return <- as_tibble(c(tibble_to_return, rmse_yoy_all_h))
     
