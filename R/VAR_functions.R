@@ -3621,7 +3621,7 @@ specs_to_rmse <- function(var_data, variables, lags, h, n_cv, training_length,
     
     if(!"variables" %in% names(tibble_to_return)) {
       tibble_to_return <- mutate(tibble_to_return,
-                                 variables = variables,
+                                 variables = list(variables),
                                  t_threshold = this_thresh)
     }
     
