@@ -1116,6 +1116,7 @@ cv_var_from_tbl_by_row <- function(h, n_cv,
                                    names_exogenous = c(""),
                                    exo_lag = NULL,
                                    extended_exo_mts = NULL,
+                                   future_exo_cv = NULL,
                                    do_tests = TRUE,
                                    silent = TRUE) {
   
