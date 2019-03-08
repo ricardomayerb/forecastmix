@@ -401,10 +401,11 @@ specs_to_rmse <- function(var_data, variables, lags, h, n_cv, training_length,
     thresh_fit_tbl <- fit
   }
   
-  print("thresh_fit_tbl")
-  print(thresh_fit_tbl)
+  # print("thresh_fit_tbl")
+  # print(thresh_fit_tbl)
   
   nfits <- nrow(thresh_fit_tbl)
+  all_fits_list <- list_along(seq(1, nfits))
   
   for (f in seq(1, nfits)) {
     this_row <- thresh_fit_tbl[f, ]
@@ -412,8 +413,8 @@ specs_to_rmse <- function(var_data, variables, lags, h, n_cv, training_length,
     # print("this_fit")
     # print(this_fit)
     fit_class <- class(this_fit)[[1]]
-    print("fit_class")
-    print(fit_class)
+    # print("fit_class")
+    # print(fit_class)
     
     if (fit_class != "varest") {
         do_tests <- FALSE
@@ -485,14 +486,20 @@ specs_to_rmse <- function(var_data, variables, lags, h, n_cv, training_length,
     
     tibble_to_return <- as_tibble(c(tibble_to_return, rmse_yoy_all_h))
     
-    print("tibble_to_return")
-    print(tibble_to_return)
+    # print("tibble_to_return")
+    # print(tibble_to_return)
+    
+    all_fits_list[f] <- tibble_to_return
     
   }
   
-  return(1)
+  # tibble_to_return <- reduce(all_fits_list, rbind)
+  
+  print("tibble_to_return")
+  print(all_fits_list)
 
-  # return(tibble_to_return_r)
+  return(tibble_to_return)
+
 }
 
 
