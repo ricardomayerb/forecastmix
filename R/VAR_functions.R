@@ -1501,7 +1501,7 @@ fit_VAR_rest <- function(var_data,
   
   # print("in fit VAR rest")
   
-  if(length(t_thresh) == 1) {
+  if (length(t_thresh) == 1) {
     if (t_thresh == 0 | is.null(t_thresh)) {
       t_thresh <- FALSE
     }
