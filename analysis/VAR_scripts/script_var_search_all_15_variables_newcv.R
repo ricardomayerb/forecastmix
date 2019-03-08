@@ -413,8 +413,8 @@ specs_to_rmse <- function(var_data, variables, lags, h, n_cv, training_length,
     # print("this_fit")
     # print(this_fit)
     fit_class <- class(this_fit)[[1]]
-    # print("fit_class")
-    # print(fit_class)
+    print("fit_class")
+    print(fit_class)
     
     if (fit_class != "varest") {
         do_tests <- FALSE
@@ -429,6 +429,8 @@ specs_to_rmse <- function(var_data, variables, lags, h, n_cv, training_length,
       is_stable <-  all(vars::roots(this_fit) < 1)
       is_white_noise <-  check_resid_VAR(this_fit)
       pass_tests <- is_stable & is_white_noise
+      print("doing tests")
+      print(pass_tests)
     }
     
     names_rmses <- paste0("rmse_", seq(1, h))
@@ -486,17 +488,18 @@ specs_to_rmse <- function(var_data, variables, lags, h, n_cv, training_length,
     
     tibble_to_return <- as_tibble(c(tibble_to_return, rmse_yoy_all_h))
     
-    # print("tibble_to_return")
+    # print("intermediate tibble_to_return")
     # print(tibble_to_return)
     
-    all_fits_list[f] <- tibble_to_return
+    all_fits_list[[f]] <- tibble_to_return
     
   }
   
-  # tibble_to_return <- reduce(all_fits_list, rbind)
   
-  print("tibble_to_return")
-  print(all_fits_list)
+  print("final tibble_to_return")
+  tibble_to_return <- reduce(all_fits_list, rbind)
+  
+  print(tibble_to_return)
 
   return(tibble_to_return)
 
