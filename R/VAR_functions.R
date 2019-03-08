@@ -3469,6 +3469,11 @@ specs_to_rmse <- function(var_data, variables, lags, h, n_cv, training_length,
                           t_thresholds = 0, 
                           do_tests = TRUE, names_exogenous = c("")) {
   pass_tests <- TRUE
+  print(t_thresholds)
+  t_length <- length(t_thresholds)
+  t_0 <- t_thresholds == 0
+  print(t_length)
+  print(t_0)
   
   if (length(t_thresholds) == 1) {
     if (t_thresholds == 0) {
@@ -3619,13 +3624,22 @@ specs_to_rmse <- function(var_data, variables, lags, h, n_cv, training_length,
     
     tibble_to_return <- tibble(msg = msg, tested = tested, pass_tests = pass_tests)
     
-    if(!"variables" %in% names(tibble_to_return)) {
+    
+    
+    tibble_to_return <- as_tibble(c(tibble_to_return, rmse_yoy_all_h))
+    
+    if(! "variables" %in% names(tibble_to_return)) {
       tibble_to_return <- mutate(tibble_to_return,
                                  variables = list(variables),
                                  t_threshold = this_thresh)
     }
     
-    tibble_to_return <- as_tibble(c(tibble_to_return, rmse_yoy_all_h))
+    if(! is_unrestricted) {
+      print("is restricted")
+      tibble_to_return <- mutate(tibble_to_return,
+                                 variables = list(variables),
+                                 t_threshold = this_thresh)
+    }
     
     # print("intermediate tibble_to_return")
     # print(tibble_to_return)
@@ -3635,10 +3649,10 @@ specs_to_rmse <- function(var_data, variables, lags, h, n_cv, training_length,
   }
   
   
-  # print("final tibble_to_return")
+  print("final tibble_to_return")
   tibble_to_return <- reduce(all_fits_list, rbind)
   
-  # print(tibble_to_return)
+  print(tibble_to_return)
   
   return(tibble_to_return)
   

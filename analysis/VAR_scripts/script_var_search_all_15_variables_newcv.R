@@ -169,9 +169,11 @@ toc()
 
 
 foo_size_2_r <- mutate(specs_size_2_r,
-                       this_foo = pmap(list(variables, lags, t_threshold), 
-                                       ~ specs_to_rmse(var_data = var_data_15,variables = ..1,
-                                                       lags = ..2, t_thresholds = ..3, 
+                       this_foo_r = pmap(list(variables, lags, t_threshold), 
+                                       ~ specs_to_rmse(var_data = var_data_15,
+                                                       variables = ..1,
+                                                       lags = ..2, 
+                                                       t_thresholds = ..3, 
                                                        future_exo_cv = future_exo_cv, 
                                                        training_length = training_length, 
                                                        h = fc_horizon, n_cv = n_cv,
@@ -181,9 +183,11 @@ foo_size_2_r <- mutate(specs_size_2_r,
 
 
 foo_size_2 <- mutate(specs_size_2_u,
-                     this_foo = pmap(list(variables, lags, t_threshold), 
-                         ~ specs_to_rmse(var_data = var_data_15,variables = ..1,
-                                         lags = ..2, t_thresholds = ..3, 
+                     this_foo_u = pmap(list(variables, lags, t_threshold), 
+                         ~ specs_to_rmse(var_data = var_data_15, 
+                                         variables = ..1,
+                                         lags = ..2,
+                                         t_thresholds = ..3, 
                                          future_exo_cv = future_exo_cv, 
                                          training_length = training_length, 
                                          h = fc_horizon, n_cv = n_cv,
@@ -194,10 +198,11 @@ foo_size_2 <- mutate(specs_size_2_u,
   )
 
 
-foo_size_2 <- unnest(foo_size_2, this_foo) 
+foo_size_2 <- unnest(foo_size_2, this_foo_u) 
+foo_size_2
 
-
-foo_size_2_r <- unnest(foo_size_2_r, this_foo) 
+foo_size_2_r <- unnest(foo_size_2_r, this_foo_r) 
+foo_size_2_r
 
 tic()
 cv_size_2_per_row <- cv_var_from_tbl_by_row(h = fc_horizon, n_cv = n_cv, 
