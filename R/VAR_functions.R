@@ -974,6 +974,14 @@ cv_var_from_one_row <- function(var_data,
   sub_data <- na.omit(var_data[, variables])
 
   sub_data_tk_index <- tk_index(sub_data, timetk_idx = TRUE, silent = TRUE)
+  
+  print("in var cv from one row")
+  print("names in subdata")
+  print(colnames(sub_data))
+  print("names_exogenous")
+  print(names_exogenous)
+  
+  
 
   this_cv <- var_cv(var_data = sub_data,
                     h_max = h,
@@ -1115,7 +1123,6 @@ cv_var_from_tbl_by_row <- function(h, n_cv,
                                    keep_cv_objects = FALSE,
                                    names_exogenous = c(""),
                                    exo_lag = NULL,
-                                   extended_exo_mts = NULL,
                                    future_exo_cv = NULL,
                                    do_tests = TRUE,
                                    silent = TRUE) {
@@ -3467,8 +3474,11 @@ search_var_one_size <- function(var_data,
 
 
 
-specs_to_rmse <- function(var_data, variables, lags, h, n_cv, training_length, 
-                          future_exo_cv, target_transform, target_level_ts,
+specs_to_rmse <- function(var_data, 
+                          variables, lags,
+                          h, n_cv, training_length, 
+                          future_exo_cv,
+                          target_transform, target_level_ts,
                           t_thresholds = 0, 
                           do_tests = TRUE, names_exogenous = c("")) {
   pass_tests <- TRUE
@@ -3492,11 +3502,18 @@ specs_to_rmse <- function(var_data, variables, lags, h, n_cv, training_length,
   
   # do the unrestricted even if it is restricted
   
+  # print(var_data)
+  # print(variables)
+  # print(lags)
+  # print(t_thresholds)
+  # print(names_exogenous)
+  
   fit <- try(fit_VAR_rest(var_data = var_data, variables = variables,
                           p = lags, t_thresh = t_thresholds,
                           names_exogenous = names_exogenous),
              silent = TRUE)
   
+  # print(fit)
   
   if (is_unrestricted) {
     thresh_fit_tbl <- tibble(t_threshold = t_thresholds, fit = list(fit))
@@ -3506,7 +3523,7 @@ specs_to_rmse <- function(var_data, variables, lags, h, n_cv, training_length,
   } else {
     thresh_fit_tbl <- fit
   }
-  
+
   # print("thresh_fit_tbl")
   # print(thresh_fit_tbl)
   

@@ -150,7 +150,7 @@ comb_ndiffs <- function(this_series, return_4_seas = FALSE,
   # print(2)
   # print(tests_of_stationarity)
   
-  
+
   tests_of_stationarity <- tests_of_stationarity  %>% 
     mutate(
       seas_test = seas_test
@@ -164,7 +164,7 @@ comb_ndiffs <- function(this_series, return_4_seas = FALSE,
       list(test, alpha, deter_part, seas_result),
       ~ ndiffs(x = my_diff(this_series, lag = 4, differences = ..4), 
                alpha = ..2, test = ..1, type = ..3)))
-  
+         
   # print(4)
   # print(tests_of_stationarity)
   
@@ -177,7 +177,7 @@ comb_ndiffs <- function(this_series, return_4_seas = FALSE,
   # print(5)
   # print(tests_of_stationarity)
   
-  
+
   
   if (do_other_seas) {
     print("doing other seas")
@@ -209,7 +209,6 @@ comb_ndiffs <- function(this_series, return_4_seas = FALSE,
 drop_this_vars <- function(df, vars_to_drop) {
   new_df <- df[,!(names(df) %in% vars_to_drop)]
 }
-
 
 
 each_plot_rmse_all_h <- function(selected_one, selected_two, extra_models = NULL,
@@ -493,48 +492,8 @@ fcs_accu <- function(fc_mat, test_data_mat) {
   return(mean_rmse)
 }
 
-find_statio_diffs <- function(data_ts, id = "this_country",  return_4_seas = FALSE, 
-                              do_other_seas = FALSE, seas_test = "seas",
-                              tests_alpha = c(0.01, 0.05, 0.1),
-                              this_alpha = 0.05,
-                              this_deterministic = "level", this_sta_test = "kpss") {
-  
-  
-  names_of_variables <- colnames(data_ts)
-  sta_reco_list <- list_along(names_of_variables)
-  stationarity_list <- list_along(names_of_variables)
-  
-  
-  for (j in seq_along(names_of_variables)) {
-    this_variable_name <- names_of_variables[j]
-    this_variable_ts <- data_ts[ , this_variable_name]
-    this_variable_ts <- na.omit(this_variable_ts)
-    tests_of_stationarity <- suppressWarnings(comb_ndiffs(
-      this_variable_ts, return_4_seas = return_4_seas, 
-      do_other_seas = do_other_seas, seas_test = seas_test, tests_alpha = tests_alpha))
-    # print("after comb")
-    tests_of_stationarity$id<- id
-    # print("after id")
-    tests_of_stationarity$variable <- this_variable_name
-    # print("after variable")
-    reco <- get_reco_from_sta(stdata = tests_of_stationarity, variable_name = this_variable_name,
-                              this_alpha = this_alpha,
-                              this_deterministic = this_deterministic, this_sta_test = this_sta_test)
-    
-    stationarity_list[[j]] <- tests_of_stationarity
-    sta_reco_list[[j]] <- reco
-    
-  }
-  
-  names(stationarity_list) <- names_of_variables
-  names(sta_reco_list) <- names_of_variables
-  
-  reco_all_variables <- reduce(sta_reco_list, rbind)
-  
-  return(reco_all_variables)
-}
 
-find_statio_diffs_old <- function(data_ts, country = "this_country",  return_4_seas = FALSE, 
+find_statio_diffs <- function(data_ts, country = "this_country",  return_4_seas = FALSE, 
                               do_other_seas = FALSE, seas_test = "seas") {
   
   names_of_variables <- colnames(data_ts)
@@ -568,9 +527,9 @@ find_statio_diffs_old <- function(data_ts, country = "this_country",  return_4_s
 
 
 new_find_statio_diffs <- function(data_ts, id = "this_country",  return_4_seas = FALSE, 
-                                  do_other_seas = FALSE, seas_test = "seas") {
+                              do_other_seas = FALSE, seas_test = "seas") {
   
-  
+
   names_of_variables <- colnames(data_ts)
   sta_reco_list <- list_along(names_of_variables)
   stationarity_list <- list_along(names_of_variables)
@@ -604,60 +563,8 @@ new_find_statio_diffs <- function(data_ts, id = "this_country",  return_4_seas =
 }
 
 
-follow_rec <- function(data_tbl_ts, table_of_recommendations) {
-  
-  rec_rows <- nrow(table_of_recommendations)
-  
-  rec_column <- "this_test_alpha_deter"
-  
-  new_variables_list <- list_along(1:rec_rows)
-  
-  for (i in seq_len(rec_rows)) {
-    
-    this_rec <- table_of_recommendations[[i, rec_column]]
-    this_variable <- table_of_recommendations[[i, "variable"]]
-    this_variable_ts <- data_tbl_ts[, this_variable] 
-    
-    
-    
-    if (this_rec == "level") {
-      new_variable_ts <- this_variable_ts
-    }
-    
-    if (this_rec == "yoy") {
-      new_variable_ts <- make_yoy_ts(this_variable_ts)
-    }
-    
-    if (this_rec == "diff") {
-      new_variable_ts <- base::diff(this_variable_ts)
-    }
-    
-    if (this_rec == "diff_yoy") {
-      new_variable_ts <- base::diff(make_yoy_ts(this_variable_ts))
-    }
-    
-    if (this_rec == "diff_diff") {
-      new_variable_ts <- base::diff(this_variable_ts, differences = 2)
-    }
-    
-    if (this_rec == "diff_diff_yoy") {
-      new_variable_ts <- base::diff(make_yoy_ts(this_variable_ts),
-                                    differences = 2)
-    }
-    
-    new_variables_list[[i]] <- new_variable_ts
-    
-    
-  }
-  
-  new_data_ts <- reduce(new_variables_list, ts.union)
-  colnames(new_data_ts) <- colnames(data_tbl_ts)
-  
-  return(new_data_ts)
-  
-}
 
-follow_rec_old <- function(data_tbl_ts, table_of_recommendations) {
+follow_rec <- function(data_tbl_ts, table_of_recommendations) {
   
   rec_rows <- nrow(table_of_recommendations)
   
@@ -710,72 +617,11 @@ follow_rec_old <- function(data_tbl_ts, table_of_recommendations) {
   
 }
 
-get_raw_data_ts <- function(id, data_path, 
-                            general_variables_to_drop,
-                            sheet_q_variables,
-                            sheet_m_variables, 
-                            column_number_date_q = 1,
-                            column_number_date_m = 1){
-  
-  variables_to_drop <- general_variables_to_drop
-  
-  this_q <- read_excel(data_path, sheet = sheet_q_variables, na = c("", "NaN"))
-  this_q <- drop_this_vars(this_q, variables_to_drop)
-  
-  # This code makes sure that the column name is called date, even if the modeller chooses a different name. 
-  colnames(this_q)[column_number_date_q] <- "date"
-  this_q <- as_tbl_time(this_q, index = date)
-  this_q[is.nan(as.matrix(this_q))] <- NA
-  
-  
-  if(id == "Uruguay") {
-    this_q[, "rm"] <- - this_q[, "rm"]
-  }
-  
-  this_m <- read_excel(data_path, sheet = sheet_m_variables, na = c("", "NaN"))
-  this_m <- drop_this_vars(this_m, variables_to_drop)
-  
-  # this_m <- replace_na(data = this_m, replace = "NaN")
-  this_m[is.nan(as.matrix(this_m))] <- NA
-  # print(this_m, n = 320)
-  colnames(this_m)[column_number_date_m] <- "date"
-  this_m <- as_tbl_time(this_m, index = date)
-  
-  this_m_q <- this_m  %>%
-    collapse_by(period = "quarterly") %>%
-    group_by(date) %>% transmute_all(mean, na.rm = TRUE) %>%
-    distinct(date, .keep_all = TRUE) %>% 
-    ungroup() 
-  
-  # this_m_q[is.nan(as.matrix(as_tibble(this_m_q)))] <- NA
-  
-  # print(this_m_q, n = 320)
-  
-  
-  # this_m_q <- drop_this_vars(this_m_q, variables_to_drop)
-  
-  # print("this_q")
-  # print(this_q, n = 120)
-  # print("this_m_q")
-  # print(this_m_q, n = 120)
-  
-  
-  m_and_q <- left_join(this_q, this_m_q, by = "date")
-  
-  maq_start <- first(tk_index(m_and_q))
-  m_and_q_ts <- suppressWarnings(
-    tk_ts(m_and_q, frequency = 4, start = c(year(maq_start),
-                                            quarter(maq_start)))
-  )
-  
-  m_and_q_ts[is.nan(m_and_q_ts)] <- NA
-  
-  return(m_and_q_ts)
-}
-get_raw_data_ts_old <- function(country, data_path = "./data/excel/"){
+
+get_raw_data_ts <- function(country, data_path = "./data/excel/"){
   
   this_file_path <- paste0(data_path, country, ".xlsx")
-  
+
   general_variables_to_drop <- list(c("year", "quarter", "hlookup", "rgdp_sa", "trim", 
                                       "month", "conf_emp", "conf_ibre", "ip_ine", 
                                       "vta_auto", "exist"))
@@ -829,49 +675,22 @@ get_raw_data_ts_old <- function(country, data_path = "./data/excel/"){
   # print(this_q, n = 120)
   # print("this_m_q")
   # print(this_m_q, n = 120)
-  
+ 
   m_and_q <- left_join(this_q, this_m_q, by = "date")
-  
+
   maq_start <- first(tk_index(m_and_q))
   m_and_q_ts <- suppressWarnings(
     tk_ts(m_and_q, frequency = 4, start = c(year(maq_start),
                                             quarter(maq_start)))
-  )
+    )
   
   m_and_q_ts[is.nan(m_and_q_ts)] <- NA
   
   return(m_and_q_ts)
 }
 
-get_raw_external_data_ts <- function(data_path, variables_to_drop_external,
-                                     sheet_m_variables,
-                                     column_number_date_m = 1){
-  
-  variables_to_drop <- variables_to_drop_external
-  
-  external_m <- read_excel(data_path, sheet = sheet_m_variables, na = c("", "NaN"))
-  external_m[is.nan(as.matrix(external_m))] <- NA
-  colnames(external_m)[column_number_date_m] <- "date"
-  external_m <- as_tbl_time(external_m, index = date)
-  external_m_q <- external_m  %>%
-    collapse_by(period = "quarterly") %>%
-    group_by(date) %>% transmute_all(mean, na.rm = TRUE) %>%
-    distinct(date, .keep_all = TRUE) %>% 
-    ungroup() 
-  
-  external_m_q <- external_m_q %>% dplyr::select(- variables_to_drop)
-  
-  external_start <- first(tk_index(external_m_q))
-  external_m_q_ts <- suppressWarnings(tk_ts(external_m_q, frequency = 4,
-                                            start = c(year(external_start), 
-                                                      quarter(external_start))))
-  
-  external_m_q_ts[is.nan(external_m_q_ts)] <- NA
-  
-  return(external_m_q_ts)
-}
 
-get_raw_external_data_ts_old <- function(data_path = "./data/excel/"){
+get_raw_external_data_ts <- function(data_path = "./data/excel/"){
   
   external_path <- paste0(data_path,  "external.xlsx")
   
@@ -888,7 +707,7 @@ get_raw_external_data_ts_old <- function(data_path = "./data/excel/"){
     ungroup() 
   
   external_m_q <- external_m_q %>% dplyr::select(- variables_to_drop)
-  
+
   external_start <- first(tk_index(external_m_q))
   external_m_q_ts <- suppressWarnings(tk_ts(external_m_q, frequency = 4,
                                             start = c(year(external_start), 
@@ -914,7 +733,7 @@ get_reco_from_sta <- function(stdata, variable_name, this_alpha = 0.05,
            unanimity = ifelse(unanimity, recommendation, NA)) %>% 
     dplyr::select(id, unanimity) %>% 
     unique()
-  
+ 
   
   unanim_deterministic <- stdata %>%
     filter(deter_part == this_deterministic ) %>% 
@@ -974,54 +793,16 @@ get_reco_from_sta <- function(stdata, variable_name, this_alpha = 0.05,
 }
 
 
-get_variable_diff_stationarity_recom <- function(reco_level, reco_trend){
-  
-  trend_rec <- reco_trend$this_test_alpha_deter
-  level_rec <- reco_level$this_test_alpha_deter
-  level_and_trend_rec <- cbind(trend_rec , level_rec, trend_rec==level_rec)
-  colnames(level_and_trend_rec) <- c("level", "trend", "equal")
-  level_and_trend_rec[, "equal"]
-  as.logical(level_and_trend_rec[, "equal"])
-  level_and_trend_rec_same <- reco_trend$variable[as.logical(level_and_trend_rec[, "equal"])]; 
-  level_and_trend_rec_diff <- reco_trend$variable[!as.logical(level_and_trend_rec[, "equal"])]
-  
-  return(level_and_trend_rec_diff)
-}
-
-make_final_VAR_data_for_estimation <- function(VAR_data_level, VAR_data_trend, variables_with_trend_recom){
-  
-  column_names_level <- colnames(VAR_data_level)
-  column_names_trend <- colnames(VAR_data_trend)
-  
-  common_span_ts <- ts.union(VAR_data_level[,1], VAR_data_trend[,1])
-  # make sure level and trend transformed series have the same length
-  VAR_data_level <- ts.union(common_span_ts, VAR_data_level)
-  VAR_data_trend <- ts.union(common_span_ts, VAR_data_trend)
-  VAR_data_level <- VAR_data_level[, -c(1,2)]
-  VAR_data_trend <- VAR_data_trend[, -c(1,2)]
-  
-  colnames(VAR_data_level) <- column_names_level
-  colnames(VAR_data_trend) <- column_names_trend
-  
-  
-  for (i in 1:length(variables_with_trend_recom)) {
-    
-    VAR_data_level[,variables_with_trend_recom[i]] <- VAR_data_trend[,variables_with_trend_recom[i]]
-    
-  }
-  return(VAR_data_level)
-}
-
 
 make_model_name_old <- function(variables, lags, t_threshold = NULL, model_function = NULL, 
-                                base_variable = "rgdp", remove_base = FALSE) {
+                            base_variable = "rgdp", remove_base = FALSE) {
   
   if(is.null(t_threshold) | t_threshold == 0 | !is.numeric(t_threshold)){
     threshold_string <-  "000"
   } else {
     threshold_string <- as.character(100*t_threshold)
   }
-  
+    
   
   variables <- sort(variables)
   
@@ -1062,8 +843,8 @@ make_model_name_old <- function(variables, lags, t_threshold = NULL, model_funct
 
 
 make_model_name <- function(variables, 
-                            lags, 
-                            t_threshold = NULL) {
+                                lags, 
+                                t_threshold = NULL) {
   
   if(is.null(t_threshold) | t_threshold == 0 | !is.numeric(t_threshold)){
     threshold_string <-  "000"
@@ -1077,7 +858,7 @@ make_model_name <- function(variables,
   # print(colap_variables)
   
   short_name <- paste(colap_variables, lags, threshold_string, 
-                      sep = "__")
+                          sep = "__")
   model_name <- short_name
   
   return(model_name)
@@ -1088,7 +869,7 @@ make_model_name <- function(variables,
 make_models_tbl <- function(arima_res, var_models_and_rmse, VAR_data, h_max, 
                             force.constant, ave_rmse_sel = FALSE, pval_arima = 0.05) {
   
-  
+
   rmse_yoy_sarimax <- arima_res$compare_rmse_yoy %>% mutate(id = 1:n())
   rmse_level_sarimax <- arima_res$compare_rmse %>% mutate(id = 1:n())
   v_lags_order_season <- arima_res$var_lag_order_season 
@@ -1112,7 +893,7 @@ make_models_tbl <- function(arima_res, var_models_and_rmse, VAR_data, h_max,
     rename(variables = variable, lags = lag) %>% 
     rename_at(vars(starts_with("yoy_rmse")), funs(sub("yoy_rmse", "rmse", .)))
   
-  
+ 
   if (ave_rmse_sel) {
     models_rmse_at_each_h_arima  <- as_tibble(
       each_h_just_model_and_ave_rmse_sarimax) %>% 
@@ -1244,34 +1025,6 @@ make_recommendation <- function(seas, sta_after_seas) {
   return(recommendation)
 }
 
-make_stationarity_plots <- function(vector_variables_with_diff_sta_rec, 
-                                    VAR_data_for_estimation_level,
-                                    VAR_data_for_estimation_trend){
-  plot_list <- list()
-  
-  for (i in 1:length(vector_variables_with_diff_sta_rec)) {
-    name_variable <- vector_variables_with_diff_sta_rec[i]
-    variable_level <- na.omit(VAR_data_for_estimation_level[,vector_variables_with_diff_sta_rec[i]])
-    variable_trend <- na.omit(VAR_data_for_estimation_trend[,vector_variables_with_diff_sta_rec[i]])
-    
-    variable_transformed_level <- paste(name_variable, "level", sep = "_")
-    variable_transformed_trend <- paste(name_variable, "trend", sep = "_")
-    y_label_yoy <- name_variable
-    x_label <- ""
-    name_plot <- paste(variable_transformed_level, "vs", variable_transformed_trend, sep = " ")
-    
-    
-    plot <- autoplot(variable_level, series = variable_transformed_level) +
-      autolayer(variable_trend, series=variable_transformed_trend, linetype = 2, size = 1) + 
-      xlab(x_label) + 
-      ylab(y_label_yoy) +
-      ggtitle(name_plot)
-    
-    plot_list[[i]] <- plot
-    
-  }
-  return(plot_list)
-}
 
 make_test_dates_list <- function(ts_data, type = "tscv", n = 8, h_max = 6,
                                  timetk_idx = TRUE, training_length = 25,
@@ -1407,8 +1160,8 @@ single_plot_rmse_all_h <- function(selected_models_tbl, extra_models = NULL,
       ungroup()
   }
   
-  
-  
+
+    
   rmse_table_single_h <- selected_models_tbl %>% 
     dplyr::select(variables, lags, model_function, rmse_h, rmse, horizon) 
   
@@ -1468,7 +1221,7 @@ single_plot_rmse_all_h <- function(selected_models_tbl, extra_models = NULL,
 
 
 transform_cv <- function(list_series, series_name, current_form,
-                         auxiliary_ts, n_cv) {
+                             auxiliary_ts, n_cv) {
   
   # print("list_series")
   # print(list_series)
