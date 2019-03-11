@@ -1123,7 +1123,7 @@ cv_var_from_tbl_by_row <- function(h, n_cv,
   variables <- models_tbl$variables
   lags <- models_tbl$lags
   t_threshold <- models_tbl$t_threshold
-  
+
   model_and_rmse <- mutate(
     models_tbl,
     tests_and_rmses = pmap(list(variables, lags, t_threshold),
@@ -1146,6 +1146,9 @@ cv_var_from_tbl_by_row <- function(h, n_cv,
                                              ~ make_model_name(..1, ..2, ..3)
                            )
   )
+  
+
+  model_and_rmse <- dplyr::select(model_and_rmse, variables, size, lags, t_threshold, everything()) 
   
   names_tried_models <- model_and_rmse$short_name
   
@@ -3469,11 +3472,11 @@ specs_to_rmse <- function(var_data, variables, lags, h, n_cv, training_length,
                           t_thresholds = 0, 
                           do_tests = TRUE, names_exogenous = c("")) {
   pass_tests <- TRUE
-  print(t_thresholds)
-  t_length <- length(t_thresholds)
-  t_0 <- t_thresholds == 0
-  print(t_length)
-  print(t_0)
+  # print(paste0("t_thresholds:", t_thresholds))
+  # t_length <- length(t_thresholds)
+  # t_0 <- t_thresholds == 0
+  # print(paste0("t_length: ", t_length))
+  # print(paste0("is t0: ",t_0))
   
   if (length(t_thresholds) == 1) {
     if (t_thresholds == 0) {
@@ -3485,6 +3488,8 @@ specs_to_rmse <- function(var_data, variables, lags, h, n_cv, training_length,
     is_unrestricted <- FALSE
   }
   
+  # print(paste0("is unrestricted?: ", is_unrestricted))
+  
   # do the unrestricted even if it is restricted
   
   fit <- try(fit_VAR_rest(var_data = var_data, variables = variables,
@@ -3495,6 +3500,9 @@ specs_to_rmse <- function(var_data, variables, lags, h, n_cv, training_length,
   
   if (is_unrestricted) {
     thresh_fit_tbl <- tibble(t_threshold = t_thresholds, fit = list(fit))
+    # print("initial tibble for unrestricted")
+    # print(thresh_fit_tbl)
+    
   } else {
     thresh_fit_tbl <- fit
   }
@@ -3536,7 +3544,7 @@ specs_to_rmse <- function(var_data, variables, lags, h, n_cv, training_length,
       msg <- "unrestr_fail"
     }
     
-    
+    # print(paste0("antes de dotest, es unrestricted?: ", is_unrestricted))
     
     if (do_tests) {
       tested <- TRUE
@@ -3572,6 +3580,10 @@ specs_to_rmse <- function(var_data, variables, lags, h, n_cv, training_length,
     } else {
       do_cv <- pass_tests
     }
+    
+    
+    # print(paste0("antes de do_cv, es unrestricted?: ", is_unrestricted))
+    
     
     if (do_cv) {
       # print("this_fit")
@@ -3622,20 +3634,25 @@ specs_to_rmse <- function(var_data, variables, lags, h, n_cv, training_length,
     }
     
     
+    # print(paste0("despues de do_cv, es unrestricted?: ", is_unrestricted))
+    
     tibble_to_return <- tibble(msg = msg, tested = tested, pass_tests = pass_tests)
     
     
     
     tibble_to_return <- as_tibble(c(tibble_to_return, rmse_yoy_all_h))
     
-    if(! "variables" %in% names(tibble_to_return)) {
-      tibble_to_return <- mutate(tibble_to_return,
-                                 variables = list(variables),
-                                 t_threshold = this_thresh)
-    }
+    # print("tibble_to_return")
+    # print(tibble_to_return)
+    
+    # if(! "variables" %in% names(tibble_to_return)) {
+    #   tibble_to_return <- mutate(tibble_to_return,
+    #                              variables = list(variables),
+    #                              t_threshold = this_thresh)
+    # }
     
     if(! is_unrestricted) {
-      print("is restricted")
+      # print("is restricted")
       tibble_to_return <- mutate(tibble_to_return,
                                  variables = list(variables),
                                  t_threshold = this_thresh)
@@ -3644,15 +3661,23 @@ specs_to_rmse <- function(var_data, variables, lags, h, n_cv, training_length,
     # print("intermediate tibble_to_return")
     # print(tibble_to_return)
     
+    
+    # print("tibble_to_return despues de in")
+    # print(tibble_to_return)
+    
     all_fits_list[[f]] <- tibble_to_return
+    
+    
+    # print(paste0("al final de una vuelta de loop, es unrestricted?: ", is_unrestricted))
+    
     
   }
   
   
-  print("final tibble_to_return")
+  # print("final tibble_to_return")
   tibble_to_return <- reduce(all_fits_list, rbind)
   
-  print(tibble_to_return)
+  # print(tibble_to_return)
   
   return(tibble_to_return)
   

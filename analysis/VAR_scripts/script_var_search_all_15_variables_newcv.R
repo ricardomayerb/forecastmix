@@ -201,8 +201,11 @@ foo_size_2 <- mutate(specs_size_2_u,
 foo_size_2 <- unnest(foo_size_2, this_foo_u) 
 foo_size_2
 
-foo_size_2_r <- unnest(foo_size_2_r, this_foo_r) 
+foo_size_2_r <- unnest(foo_size_2_r, this_foo_r)
+foo_size_2_r <- dplyr::select(foo_size_2_r, variables, size, lags, t_threshold, everything()) 
 foo_size_2_r
+
+
 
 tic()
 cv_size_2_per_row <- cv_var_from_tbl_by_row(h = fc_horizon, n_cv = n_cv, 
@@ -214,6 +217,21 @@ cv_size_2_per_row <- cv_var_from_tbl_by_row(h = fc_horizon, n_cv = n_cv,
                                 names_exogenous = names_exogenous, 
                                 extended_exo_mts = extended_exo_mts)
 toc()
+
+
+tic()
+cv_size_2_per_row_r <- cv_var_from_tbl_by_row(h = fc_horizon, n_cv = n_cv, 
+                                            training_length = training_length, 
+                                            models_tbl = specs_size_2_r, 
+                                            var_data = var_data_15,
+                                            target_transform = target_transform, 
+                                            target_level_ts = target_level_ts, 
+                                            names_exogenous = names_exogenous, 
+                                            extended_exo_mts = extended_exo_mts)
+toc()
+
+
+
 
 tic()
 cv_size_2 <- cv_var_from_model_tbl(h = fc_horizon,
