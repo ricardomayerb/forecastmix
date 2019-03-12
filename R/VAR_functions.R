@@ -4316,7 +4316,8 @@ variable_freq_by_n <- function(tbl_of_models,
     this_rank <- small_effective_rank[[i]]
     print("this_rank")
     print(this_rank)
-    new_lbs[[i]] <- dplyr::filter(this_lbs, rank_h <= this_rank)
+    new_lbs[[i]] <- dplyr::filter(this_lbs, rank_h <= this_rank) %>% 
+      dplyr::select("variables")
     print("new_lbs[[i]]")
     print(new_lbs[[i]])
   }
@@ -4335,7 +4336,10 @@ variable_freq_by_n <- function(tbl_of_models,
   print(3)
   print("nlbs")
   print(new_lbs)
+  
+  list_best_small <- new_lbs
 
+  # return(333)
   
   # print("list_best_small")
   # print(list_best_small)
