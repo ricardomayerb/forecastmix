@@ -1065,10 +1065,24 @@ make_model_name <- function(variables,
                             lags, 
                             t_threshold = NULL) {
   
+  # print("t_threshold")
+  # print(t_threshold)
+  # if (is.na(t_threshold)) {
+  #   
+  # }
+  # 
+  tt <- try(
   if(is.null(t_threshold) | t_threshold == 0 | !is.numeric(t_threshold)){
     threshold_string <-  "000"
   } else {
     threshold_string <- as.character(100*t_threshold)
+  }, silent = TRUE)
+  
+  if (class(tt) == "try-error") {
+    
+    # print("will try to print t_threshold")
+    print(t_threshold)
+    threshold_string <-  "NA"
   }
   
   variables <- sort(variables)

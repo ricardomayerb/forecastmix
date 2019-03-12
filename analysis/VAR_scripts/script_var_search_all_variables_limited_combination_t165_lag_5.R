@@ -160,11 +160,11 @@ cv_size_2 <- cv_var_from_model_tbl(h = fc_horizon,
                                    do_tests = TRUE
 )
 toc()
-tried_models_size_2 <- cv_size_2$tried_models
-passing_models_size_2 <- cv_size_2$passing_models
+tried_models_size_2_by_col <- cv_size_2$tried_models
+passing_models_size_2_by_col <- cv_size_2$passing_models
 
-accumulated_tried_models <- rbind(accumulated_tried_models, tried_models_size_2)
-accumulated_passing_models <- rbind(accumulated_passing_models, passing_models_size_2)
+# accumulated_tried_models <- rbind(accumulated_tried_models, tried_models_size_2)
+# accumulated_passing_models <- rbind(accumulated_passing_models, passing_models_size_2)
 
 tic()
 cv_size_2_per_row <- cv_var_from_tbl_by_row(h = fc_horizon,
@@ -175,11 +175,14 @@ cv_size_2_per_row <- cv_var_from_tbl_by_row(h = fc_horizon,
                                               target_transform = target_transform, 
                                               target_level_ts = target_level_ts, 
                                               names_exogenous = names_exogenous, 
-                                            future_exo_cv = cv_extension_of_exo)
+                                            future_exo_cv = cv_extension_of_exo$future_exo_cv)
 toc()
-tried_models_size_2_per_row <- dplyr::select(cv_size_2_per_row$models_tbl, 
-                                             variables, size, lags, t_threshold)
-passing_models_size_2_per_row <- dplyr::filter(cv_size_2_per_row$models_tbl,msg == "ok")
+
+tried_models_size_2 <- cv_size_2_per_row$tried_models_tbl
+passing_models_size_2 <- cv_size_2_per_row$passing_models_tbl
+accumulated_tried_models <- rbind(accumulated_tried_models, tried_models_size_2)
+accumulated_passing_models <- rbind(accumulated_passing_models, passing_models_size_2)
+
 
 
 # saveRDS(list(cv_size_2 = cv_size_2),
@@ -214,8 +217,9 @@ cv_size_3 <- cv_var_from_model_tbl(h = fc_horizon,
                                    do_tests = TRUE
 )
 toc()
-tried_models_size_3 <- cv_size_3$tried_models
-passing_models_size_3 <- cv_size_3$passing_models
+
+tried_models_size_3_by_col <- cv_size_3$tried_models
+passing_models_size_3_by_col <- cv_size_3$passing_models
 
 tic()
 cv_size_3_per_row <- cv_var_from_tbl_by_row(h = fc_horizon,
@@ -226,27 +230,38 @@ cv_size_3_per_row <- cv_var_from_tbl_by_row(h = fc_horizon,
                                             target_transform = target_transform, 
                                             target_level_ts = target_level_ts, 
                                             names_exogenous = names_exogenous, 
-                                            future_exo_cv = cv_extension_of_exo)
+                                            future_exo_cv = cv_extension_of_exo$future_exo_cv)
 toc()
-tried_models_size_3_per_row <- dplyr::select(cv_size_3_per_row$models_tbl, 
-                                             variables, size, lags, t_threshold)
-passing_models_size_3_per_row <- dplyr::filter(cv_size_3_per_row$models_tbl,msg == "ok")
 
+tried_models_size_3 <- cv_size_3_per_row$tried_models_tbl
+passing_models_size_3 <- cv_size_3_per_row$passing_models_tbl
+
+# roo <- passing_models_size_3 %>% arrange(rmse_1)
+# coo <- passing_models_size_3_by_col %>% arrange(rmse_1)
+# noo <- cbind(roo$short_name, coo$short_name, roo$short_name == coo$short_name)
+# View(noo)
+# 
+# roo_50 <- discard_by_rank(passing_models_size_3, 50) %>% arrange(rmse_1) 
+# coo_50 <- discard_by_rank(passing_models_size_3_by_col, 50) %>% arrange(rmse_1)
+# noo_50 <- cbind(roo_50$short_name[1:50], coo_50$short_name[1:50], roo_50$short_name[1:50] == coo_50$short_name[1:50])
+# View(noo_50)
+# soo_50 <- cbind(sort(roo_50$short_name[1:50]), sort(coo_50$short_name[1:50]), sort(roo_50$short_name[1:50]) == sort(coo_50$short_name[1:50]))
+# View(soo_50)
 
 
 # Add all new passing models to the passing models of size 2
 accumulated_tried_models <- rbind(accumulated_tried_models, tried_models_size_3)
 accumulated_passing_models <- rbind(accumulated_passing_models, passing_models_size_3)
 
-# Make sure that we only retain unique models
-accumulated_tried_models <- mutate(
-  accumulated_tried_models, 
-  short_name = pmap(list(variables, lags, t_threshold),
-                    ~ make_model_name(variables = ..1, 
-                                      lags = ..2,
-                                      t_threshold = ..3)),
-  short_name = unlist(short_name)
-)
+# # Make sure that we only retain unique models
+# accumulated_tried_models <- mutate(
+#   accumulated_tried_models, 
+#   short_name = pmap(list(variables, lags, t_threshold),
+#                     ~ make_model_name(variables = ..1, 
+#                                       lags = ..2,
+#                                       t_threshold = ..3)),
+#   short_name = unlist(short_name)
+# )
 
 # saveRDS(list(cv_size_3 = cv_size_3),
 #              file = "./data/forecast_models/all_ury_models_25_variables_new_data_all_variables_restricted_combos_s3.rds")
@@ -313,39 +328,45 @@ proposed_specs_s4 <- rbind(dplyr::select(in_best_10_augmented_not_tried,
 
 nrow(distinct(proposed_specs_s4, short_name))
 
+# tic()
+# cv_proposed_size_4 <- cv_var_from_model_tbl(
+#   h = fc_horizon,
+#   training_length = training_length, 
+#   n_cv = n_cv,
+#   models_tbl = proposed_specs_s4, 
+#   var_data = var_data, 
+#   fit_column = NULL, 
+#   target_transform = target_transform,
+#   target_level_ts = target_level_ts, 
+#   names_exogenous = exogenous_variables, 
+#   future_exo = extension_of_exo, 
+#   extended_exo_mts = cv_extension_of_exo,
+#   keep_varest_obj = FALSE, 
+#   do_tests = TRUE
+# )
+# toc()
+
 tic()
-cv_proposed_size_4 <- cv_var_from_model_tbl(
-  h = fc_horizon,
-  training_length = training_length, 
-  n_cv = n_cv,
-  models_tbl = proposed_specs_s4, 
-  var_data = var_data, 
-  fit_column = NULL, 
-  target_transform = target_transform,
-  target_level_ts = target_level_ts, 
-  names_exogenous = exogenous_variables, 
-  future_exo = extension_of_exo, 
-  extended_exo_mts = cv_extension_of_exo,
-  keep_varest_obj = FALSE, 
-  do_tests = TRUE
-)
+cv_size_4_per_row <- cv_var_from_tbl_by_row(h = fc_horizon,
+                                            n_cv = n_cv, 
+                                            training_length = training_length, 
+                                            models_tbl = proposed_specs_s4, 
+                                            var_data = var_data,
+                                            target_transform = target_transform, 
+                                            target_level_ts = target_level_ts, 
+                                            names_exogenous = names_exogenous, 
+                                            future_exo_cv = cv_extension_of_exo$future_exo_cv)
 toc()
 
+
 ## update passing and tried models
-tried_models_size_4_pr <- cv_proposed_size_4$tried_models
-passing_models_size_4_pr <- cv_proposed_size_4$passing_models
+tried_models_size_4_pr <- cv_size_4_per_row$tried_models_tbl
+passing_models_size_4_pr <- cv_size_4_per_row$passing_models_tbl
 
 accumulated_tried_models <- rbind(accumulated_tried_models, tried_models_size_4_pr)
 accumulated_passing_models <- rbind(accumulated_passing_models, passing_models_size_4_pr)
 
-accumulated_tried_models <- mutate(
-  accumulated_tried_models, 
-  short_name = pmap(list(variables, lags, t_threshold),
-                    ~ make_model_name(variables = ..1, 
-                                      lags = ..2,
-                                      t_threshold = ..3)),
-  short_name = unlist(short_name)
-)
+
 
 # tried_models_size_4 <- cv_size_4$tried_models
 # passing_models_size_4 <- cv_size_4$passing_models

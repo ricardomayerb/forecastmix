@@ -16,9 +16,24 @@ add_one_variable <- function(current_vbls, extra_vbl) {
 
 augment_with_variable <- function(models_tbl_to_aug, vec_of_extra_variables) {
   
-  models_tbl_to_aug <- models_tbl_to_aug %>% 
-    dplyr::select(variables, lags, t_threshold, is_unrestricted, full_sample_resmat) %>% 
-    rename(previous_variables = variables) 
+  
+  names_of_cols <- names(models_tbl_to_aug)
+  fsr_in_tbl <- "full_sample_resmat" %in% names_of_cols
+  if (!fsr_in_tbl) {
+    print("full sample resmat not found")
+  }
+  
+  if (fsr_in_tbl) {
+    models_tbl_to_aug <- models_tbl_to_aug %>% 
+      dplyr::select(variables, lags, t_threshold, is_unrestricted, full_sample_resmat) %>% 
+      rename(previous_variables = variables) 
+  } else {
+    models_tbl_to_aug <- models_tbl_to_aug %>% 
+      dplyr::select(variables, lags, t_threshold, is_unrestricted) %>% 
+      rename(previous_variables = variables) 
+  }
+  
+  
   
   list_of_tbl <- list_along(vec_of_extra_variables)
   
@@ -30,9 +45,17 @@ augment_with_variable <- function(models_tbl_to_aug, vec_of_extra_variables) {
                                     ~ add_one_variable(.x, this_variable)))
     this_augmented_tbl <-  filter(this_augmented_tbl, 
                                   !variables == "repeated_variables")
-    this_augmented_tbl <-  dplyr::select(this_augmented_tbl, variables, lags,
-                                         t_threshold, is_unrestricted, 
-                                         full_sample_resmat)
+    
+    
+    if (fsr_in_tbl) {
+      this_augmented_tbl <-  dplyr::select(this_augmented_tbl, variables, lags,
+                                           t_threshold, is_unrestricted, 
+                                           full_sample_resmat)
+    } else {
+      this_augmented_tbl <-  dplyr::select(this_augmented_tbl, variables, lags,
+                                           t_threshold, is_unrestricted)
+    }
+    
     list_of_tbl[[i]] <- this_augmented_tbl
   }
   
@@ -48,9 +71,14 @@ augment_with_variable <- function(models_tbl_to_aug, vec_of_extra_variables) {
   
   augmented_tbl <- distinct(augmented_tbl, short_name, .keep_all = TRUE)
   
-  augmented_tbl <-  dplyr::select(augmented_tbl, short_name, variables, 
-                                  size, lags, t_threshold, is_unrestricted,
-                                  full_sample_resmat)
+  if (fsr_in_tbl) {
+    augmented_tbl <-  dplyr::select(augmented_tbl, short_name, variables, 
+                                    size, lags, t_threshold, is_unrestricted,
+                                    full_sample_resmat)
+  } else {
+    augmented_tbl <-  dplyr::select(augmented_tbl, short_name, variables, 
+                                    size, lags, t_threshold, is_unrestricted)
+  }
   
   return(augmented_tbl)
   
@@ -975,11 +1003,11 @@ cv_var_from_one_row <- function(var_data,
 
   sub_data_tk_index <- tk_index(sub_data, timetk_idx = TRUE, silent = TRUE)
   
-  print("in var cv from one row")
-  print("names in subdata")
-  print(colnames(sub_data))
-  print("names_exogenous")
-  print(names_exogenous)
+  # print("in var cv from one row")
+  # print("names in subdata")
+  # print(colnames(sub_data))
+  # print("names_exogenous")
+  # print(names_exogenous)
   
   
 
@@ -1147,24 +1175,32 @@ cv_var_from_tbl_by_row <- function(h, n_cv,
     )
   )
   
+  # print("salimos de specs to rmse")
+  
   model_and_rmse <- unnest(model_and_rmse, tests_and_rmses) 
+  
+  # print(model_and_rmse)
+  
   model_and_rmse <- mutate(model_and_rmse, 
                            short_name = pmap_chr(list(variables, lags, t_threshold),
                                              ~ make_model_name(..1, ..2, ..3)
+                                             ),
+                           is_unrestricted = t_threshold == 0
                            )
-  )
+  
   
 
-  model_and_rmse <- dplyr::select(model_and_rmse, variables, size, lags, t_threshold, everything()) 
+  model_and_rmse <- dplyr::select(model_and_rmse, short_name, variables, size, lags, t_threshold, everything()) 
   
   names_tried_models <- model_and_rmse$short_name
   
-  model_and_rmse <- filter(model_and_rmse, pass_tests)
-  names_passing_models <- model_and_rmse$short_name
+  passing_models <- filter(model_and_rmse, pass_tests)
+  names_passing_models <- passing_models$short_name
+  tried_models <- dplyr::select(model_and_rmse, variables, size, lags, t_threshold, short_name)
   
-  
-  return(list(models_tbl = model_and_rmse, tried = names_tried_models, 
-              passing = names_passing_models))
+  return(list(passing_models_tbl = passing_models,
+              tried_models_tbl = tried_models, 
+              tried_models_names = names_tried_models))
 }
 
 
@@ -3016,9 +3052,9 @@ search_var_one_size <- function(var_data,
   binding_max_p <- 0
   
   
-  if (!restrict_by_signif) {
-    t_tresh <- NA
-  }
+  # if (!restrict_by_signif) {
+  #   t_tresh <- NA
+  # }
   
   ## j, loop through the combination of variables of a fixed size, e.g. all sets of 5 variables
   ### k, loop through values of lags
@@ -3653,7 +3689,7 @@ specs_to_rmse <- function(var_data,
     
     # print(paste0("despues de do_cv, es unrestricted?: ", is_unrestricted))
     
-    tibble_to_return <- tibble(msg = msg, tested = tested, pass_tests = pass_tests)
+    tibble_to_return <- tibble(msg = msg, tested = tested, pass_tests = pass_tests, t_threshold = this_thresh)
     
     
     
@@ -3941,6 +3977,10 @@ var_cv <- function(var_data,
   endodata <- var_data[ , endov]
   exov <- vbls_for_var[vbls_for_var %in% names_exogenous] 
   exodata <- var_data[ , exov]
+  
+  # print("in var_cv, exov is")
+  # print(exov)
+  
 
   cv_restriction_status <- NULL
   
@@ -4043,6 +4083,9 @@ var_cv <- function(var_data,
 
       if (!is.null(future_exo_cv)) {
         this_future_exo_cv <- future_exo_cv[[i]]
+        # print("in varcv and inner loop, this future exo cv is")
+        # print(class(this_future_exo_cv))
+        # print(this_future_exo_cv)
         test_exo <- this_future_exo_cv[, exov]
 
         pretest_exodata <- window(exodata, end = this_tra_e)
@@ -4168,8 +4211,12 @@ variable_freq_by_n <- function(tbl_of_models,
                                n_freq = 10, 
                                is_wide = FALSE, 
                                max_small_rank = 3) {
+  print(1)
+  print(tbl_of_models)
+  # print(tbl_of_models$short_name)
   
   rmse_names <- paste("rmse", seq(h_max), sep = "_")
+  print(rmse_names)
   
   if ("full_sample_varest" %in% names(tbl_of_models)) {
     tbl_of_models <-  tbl_of_models %>% 
@@ -4177,23 +4224,39 @@ variable_freq_by_n <- function(tbl_of_models,
   }
   
   if (is_wide) {
+    print(1.5)
+    print(tbl_of_models)
+    
 
+    tbl_of_models <- tbl_of_models %>%  
+      gather(key = "rmse_h", value = "rmse", rmse_names)
+
+    print(1.6)
+    print(tbl_of_models)
+    
     tbl_of_models <- tbl_of_models %>% 
-      gather(key = "rmse_h", value = "rmse", rmse_names) %>% 
-      dplyr::select(vars_select(names(.), -starts_with("rank"))) %>% 
-      group_by(rmse_h) %>% 
-      arrange(rmse_h, rmse) %>% 
+      group_by(rmse_h)
+    
+    print(1.7)
+    print(tbl_of_models)
+    
+    tbl_of_models <- tbl_of_models %>% 
       mutate(rank_h = rank(rmse)) %>% 
       ungroup()
 
   }
   
+  print(2)
+  print(tbl_of_models)
+  print(tbl_of_models$short_name[1:10])
   
   summary_of_tom <- tbl_of_models %>% 
     group_by(rmse_h) %>% 
     summarize(n_models = n(),
               less_than_max_rank = sum(rank_h < max_rank +1)
     )
+  
+  print(summary_of_tom)
   
   vec_of_rmse_h <- sort(unique(tbl_of_models$rmse_h))
   
@@ -4208,36 +4271,74 @@ variable_freq_by_n <- function(tbl_of_models,
                      rename(., vbl = .)
   ) 
   
+  # print(list_best)
+  
   tbl_best <- reduce(list_best, full_join, by = c("vbl"))
+  
+
   
   names(tbl_best) <- c("vbl", paste("h", seq(h_max), sep = "_"))
   
+  print("tbl_best:")
+  print(tbl_best)
   
   tbl_best <- tbl_best %>% 
     mutate(total_n = rowSums(.[2:(h_max+1)], na.rm = TRUE),
            avg = total_n/length(rmse_names)) %>% 
     arrange(desc(total_n))
+  
+  print("tbl_best 2:")
+  print(tbl_best)
 
   
   list_best_small <- map(vec_of_rmse_h, 
                          ~ tbl_of_models %>% 
-                           filter(rmse_h == .x) %>% arrange(rmse)
+                           dplyr::filter(rmse_h == .x) 
   )
-
+  
+  print("list_best_small")
+  print(list_best_small)
+  
   
   small_effective_rank <- map_dbl(list_best_small,
                                   ~ sort(.x[["rank_h"]])[max_small_rank])
+  
+  print("small_effective_rank")
+  print(small_effective_rank)
+  
+  
+  new_lbs <- list_along(list_best_small)
+  
+  for (i in seq(1, length(new_lbs))) {
+    print(i)
+    this_lbs <- as_tibble(list_best_small[[i]])
+    print(this_lbs)
+    this_rank <- small_effective_rank[[i]]
+    print("this_rank")
+    print(this_rank)
+    new_lbs[[i]] <- dplyr::filter(this_lbs, rank_h <= this_rank)
+    print("new_lbs[[i]]")
+    print(new_lbs[[i]])
+  }
+  
+
 
   
   
-  list_best_small <- map2(list_best_small, small_effective_rank,
-                          ~ filter(.x, rank_h <= .y) %>% 
-                            dplyr::select("variables") %>% 
-                            unlist() %>% 
+  
+  new_lbs <- new_lbs %>%                            unlist() %>% 
                             table() %>% 
                             as_tibble() %>% 
                             arrange(desc(n)) 
-  ) 
+   
+  
+  print(3)
+  print("nlbs")
+  print(new_lbs)
+
+  
+  # print("list_best_small")
+  # print(list_best_small)
 
   for (k in seq_along(list_best_small)) {
     names(list_best_small[[k]]) <- c("vbl", "n")
