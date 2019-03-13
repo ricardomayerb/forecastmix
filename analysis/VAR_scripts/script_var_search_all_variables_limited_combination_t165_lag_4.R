@@ -90,7 +90,7 @@ names_all
 # all_variables <- names_15
 # target_variable <- "rgdp"
 # non_target_fixed <- c("")
-lag_choices <- c(5)
+lag_choices <- c(4)
 # var_data_25 <- var_data[, names_25]
 
 
@@ -108,40 +108,6 @@ specs_size_2_u <- all_specifications(
   names_exogenous = exogenous_variables)
 toc()
 
-# tic()
-# ftmt_size_2 <- fit_tests_models_table(specs_size_2_u, 
-#                                       var_data = var_data_25,
-#                                       names_exogenous = names_exogenous
-# )
-# toc()
-# pm_size_2 <- ftmt_size_2[["passing_models"]]
-# 
-# 
-# tic()
-# ftmt_size_3 <- fit_tests_models_table(specs_size_3_u, 
-#                                          var_data = var_data_25,
-#                                          names_exogenous = names_exogenous
-# )
-# toc()
-# pm_size_3 <- ftmt_size_3[["passing_models"]]
-# 
-# 
-# tic()
-# ftmt_size_4 <- fit_tests_models_table(specs_size_4_u, 
-#                                       var_data = var_data_25,
-#                                       names_exogenous = names_exogenous
-# )
-# toc()
-# pm_size_4 <- ftmt_size_4[["passing_models"]]
-# 
-# 
-# tic()
-# ftmt_size_5 <- fit_tests_models_table(specs_size_5_u, 
-#                                       var_data = var_data_25,
-#                                       names_exogenous = names_exogenous
-# )
-# toc()
-# pm_size_5 <- ftmt_size_5[["passing_models"]]
 
 
 tic()
@@ -392,7 +358,7 @@ f_vbls <- variable_freq_by_n(accumulated_passing_models,
                              max_rank = 10,
                              n_freq = 10, 
                              is_wide = TRUE, 
-                             max_small_rank = 2)
+                             max_small_rank = 3)
 
 f_vbls$vbl_freqs_by_h
 
@@ -472,7 +438,7 @@ accumulated_passing_models <- rbind(accumulated_passing_models, passing_models_s
 accumulated_passing_models <- distinct(accumulated_passing_models, short_name, .keep_all = TRUE)
 accumulated_tried_models <- distinct(accumulated_tried_models, short_name, .keep_all = TRUE)
 
-write.xlsx(accumulated_passing_models, file = "./Excel_Output/Brasil/All_accumulated_passing_models_Brasil_t165_lag_5.xlsx")
+write.xlsx(accumulated_passing_models, file = "./Excel_Output/Brasil/All_accumulated_passing_models_Brasil_t165_lag_4.xlsx")
 
   
 # saveRDS(list(cv_size_5 = cv_proposed_size_5),
@@ -487,10 +453,9 @@ write.xlsx(accumulated_passing_models, file = "./Excel_Output/Brasil/All_accumul
 # n_total_passing <- nrow(all_passing_models_2345)
 # n_total_tried <- nrow(all_tried_models_2345)
 
-
 saveRDS(list(cv_size_2 = cv_size_2, cv_size_3 = cv_size_3_per_row, 
              cv_size_4 = cv_size_4_per_row, cv_size_5 = cv_size_5_per_row, 
              all_tried_models_2345 = accumulated_tried_models,
              all_passing_models_2345 = accumulated_passing_models),
-        file = "./data/forecast_models/all_brasil_models_new_data_all_variables_restricted_combos_t165_lag_5.rds")
+        file = "./data/forecast_models/all_brasil_models_new_data_all_variables_restricted_combos_t165_lag_4.rds")
 
