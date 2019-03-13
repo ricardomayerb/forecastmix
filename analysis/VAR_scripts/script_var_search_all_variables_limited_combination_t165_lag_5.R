@@ -201,25 +201,25 @@ specs_size_3_u <- all_specifications(
 toc()
 
 
-tic()
-cv_size_3 <- cv_var_from_model_tbl(h = fc_horizon,
-                                   training_length = training_length, 
-                                   n_cv = n_cv,
-                                   models_tbl = specs_size_3_u, 
-                                   var_data = var_data, 
-                                   fit_column = NULL, 
-                                   target_transform = target_transform,
-                                   target_level_ts = target_level_ts, 
-                                   names_exogenous = exogenous_variables, 
-                                   future_exo = extended_exo_mts, 
-                                   extended_exo_mts = cv_extended_exo_mts,
-                                   keep_varest_obj = FALSE, 
-                                   do_tests = TRUE
-)
-toc()
-
-tried_models_size_3_by_col <- cv_size_3$tried_models
-passing_models_size_3_by_col <- cv_size_3$passing_models
+# tic()
+# cv_size_3 <- cv_var_from_model_tbl(h = fc_horizon,
+#                                    training_length = training_length, 
+#                                    n_cv = n_cv,
+#                                    models_tbl = specs_size_3_u, 
+#                                    var_data = var_data, 
+#                                    fit_column = NULL, 
+#                                    target_transform = target_transform,
+#                                    target_level_ts = target_level_ts, 
+#                                    names_exogenous = exogenous_variables, 
+#                                    future_exo = extended_exo_mts, 
+#                                    extended_exo_mts = cv_extended_exo_mts,
+#                                    keep_varest_obj = FALSE, 
+#                                    do_tests = TRUE
+# )
+# toc()
+# 
+# tried_models_size_3_by_col <- cv_size_3$tried_models
+# passing_models_size_3_by_col <- cv_size_3$passing_models
 
 tic()
 cv_size_3_per_row <- cv_var_from_tbl_by_row(h = fc_horizon,
@@ -392,7 +392,7 @@ f_vbls <- variable_freq_by_n(accumulated_passing_models,
                              max_rank = 10,
                              n_freq = 10, 
                              is_wide = TRUE, 
-                             max_small_rank = 3)
+                             max_small_rank = 2)
 
 f_vbls$vbl_freqs_by_h
 
@@ -427,39 +427,47 @@ proposed_specs_s5 <- rbind(dplyr::select(in_best_10_augmented_not_tried,
 
 nrow(distinct(proposed_specs_s5, short_name))
 
+# tic()
+# cv_proposed_size_5 <- cv_var_from_model_tbl(
+#   h = fc_horizon,
+#   training_length = training_length, 
+#   n_cv = n_cv,
+#   models_tbl = proposed_specs_s5, 
+#   var_data = var_data, 
+#   fit_column = NULL, 
+#   target_transform = target_transform,
+#   target_level_ts = target_level_ts, 
+#   names_exogenous = exogenous_variables, 
+#   future_exo = extension_of_exo, 
+#   extended_exo_mts = cv_extension_of_exo,
+#   keep_varest_obj = FALSE, 
+#   do_tests = TRUE
+# )
+# toc()
+
 tic()
-cv_proposed_size_5 <- cv_var_from_model_tbl(
-  h = fc_horizon,
-  training_length = training_length, 
-  n_cv = n_cv,
-  models_tbl = proposed_specs_s5, 
-  var_data = var_data, 
-  fit_column = NULL, 
-  target_transform = target_transform,
-  target_level_ts = target_level_ts, 
-  names_exogenous = exogenous_variables, 
-  future_exo = extension_of_exo, 
-  extended_exo_mts = cv_extension_of_exo,
-  keep_varest_obj = FALSE, 
-  do_tests = TRUE
-)
+cv_size_5_per_row <- cv_var_from_tbl_by_row(h = fc_horizon,
+                                            n_cv = n_cv, 
+                                            training_length = training_length, 
+                                            models_tbl = proposed_specs_s5, 
+                                            var_data = var_data,
+                                            target_transform = target_transform, 
+                                            target_level_ts = target_level_ts, 
+                                            names_exogenous = names_exogenous, 
+                                            future_exo_cv = cv_extension_of_exo$future_exo_cv)
 toc()
 
+
+
+
+
 ## update passing and tried models
-tried_models_size_5_pr <- cv_proposed_size_5$tried_models
-passing_models_size_5_pr <- cv_proposed_size_5$passing_models
+tried_models_size_5_pr <- cv_size_5_per_row$tried_models_tbl
+passing_models_size_5_pr <- cv_size_5_per_row$passing_models_tbl
 
 accumulated_tried_models <- rbind(accumulated_tried_models, tried_models_size_5_pr)
 accumulated_passing_models <- rbind(accumulated_passing_models, passing_models_size_5_pr)
 
-accumulated_tried_models <- mutate(
-  accumulated_tried_models, 
-  short_name = pmap(list(variables, lags, t_threshold),
-                    ~ make_model_name(variables = ..1, 
-                                      lags = ..2,
-                                      t_threshold = ..3)),
-  short_name = unlist(short_name)
-)
 
 accumulated_passing_models <- distinct(accumulated_passing_models, short_name, .keep_all = TRUE)
 accumulated_tried_models <- distinct(accumulated_tried_models, short_name, .keep_all = TRUE)

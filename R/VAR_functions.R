@@ -4211,12 +4211,8 @@ variable_freq_by_n <- function(tbl_of_models,
                                n_freq = 10, 
                                is_wide = FALSE, 
                                max_small_rank = 3) {
-  print(1)
-  print(tbl_of_models)
-  # print(tbl_of_models$short_name)
-  
+
   rmse_names <- paste("rmse", seq(h_max), sep = "_")
-  print(rmse_names)
   
   if ("full_sample_varest" %in% names(tbl_of_models)) {
     tbl_of_models <-  tbl_of_models %>% 
@@ -4224,21 +4220,14 @@ variable_freq_by_n <- function(tbl_of_models,
   }
   
   if (is_wide) {
-    print(1.5)
-    print(tbl_of_models)
-    
 
     tbl_of_models <- tbl_of_models %>%  
       gather(key = "rmse_h", value = "rmse", rmse_names)
 
-    print(1.6)
-    print(tbl_of_models)
-    
+
     tbl_of_models <- tbl_of_models %>% 
       group_by(rmse_h)
-    
-    print(1.7)
-    print(tbl_of_models)
+
     
     tbl_of_models <- tbl_of_models %>% 
       mutate(rank_h = rank(rmse)) %>% 
@@ -4246,17 +4235,12 @@ variable_freq_by_n <- function(tbl_of_models,
 
   }
   
-  print(2)
-  print(tbl_of_models)
-  print(tbl_of_models$short_name[1:10])
-  
   summary_of_tom <- tbl_of_models %>% 
     group_by(rmse_h) %>% 
     summarize(n_models = n(),
               less_than_max_rank = sum(rank_h < max_rank +1)
     )
   
-  print(summary_of_tom)
   
   vec_of_rmse_h <- sort(unique(tbl_of_models$rmse_h))
   
@@ -4271,82 +4255,47 @@ variable_freq_by_n <- function(tbl_of_models,
                      rename(., vbl = .)
   ) 
   
-  # print(list_best)
-  
+
   tbl_best <- reduce(list_best, full_join, by = c("vbl"))
   
 
   
   names(tbl_best) <- c("vbl", paste("h", seq(h_max), sep = "_"))
-  
-  print("tbl_best:")
-  print(tbl_best)
-  
+
   tbl_best <- tbl_best %>% 
     mutate(total_n = rowSums(.[2:(h_max+1)], na.rm = TRUE),
            avg = total_n/length(rmse_names)) %>% 
     arrange(desc(total_n))
-  
-  print("tbl_best 2:")
-  print(tbl_best)
 
-  
   list_best_small <- map(vec_of_rmse_h, 
                          ~ tbl_of_models %>% 
                            dplyr::filter(rmse_h == .x) 
   )
-  
-  print("list_best_small")
-  print(list_best_small)
-  
+
   
   small_effective_rank <- map_dbl(list_best_small,
                                   ~ sort(.x[["rank_h"]])[max_small_rank])
   
-  print("small_effective_rank")
-  print(small_effective_rank)
-  
-  
+
   new_lbs <- list_along(list_best_small)
+  list_tables_best_vbl <- list_along(list_best_small)
   
   for (i in seq(1, length(new_lbs))) {
-    print(i)
     this_lbs <- as_tibble(list_best_small[[i]])
-    print(this_lbs)
     this_rank <- small_effective_rank[[i]]
-    print("this_rank")
-    print(this_rank)
-    new_lbs[[i]] <- dplyr::filter(this_lbs, rank_h <= this_rank) %>% 
+    this_vbl <- dplyr::filter(this_lbs, rank_h <= this_rank) %>% 
       dplyr::select("variables")
-    print("new_lbs[[i]]")
-    print(new_lbs[[i]])
+    new_lbs[[i]] <- this_vbl
+    this_table <- this_vbl %>%  unlist() %>%  table() %>%  as_tibble() %>%
+      arrange(desc(n)) 
+    names(this_table) <- c("vbl", "n")
+    list_tables_best_vbl[[i]] <- this_table
   }
   
+  new_lbs <- new_lbs 
 
+  list_best_small <- list_tables_best_vbl
 
-  
-  
-  
-  new_lbs <- new_lbs %>%                            unlist() %>% 
-                            table() %>% 
-                            as_tibble() %>% 
-                            arrange(desc(n)) 
-   
-  
-  print(3)
-  print("nlbs")
-  print(new_lbs)
-  
-  list_best_small <- new_lbs
-
-  # return(333)
-  
-  # print("list_best_small")
-  # print(list_best_small)
-
-  for (k in seq_along(list_best_small)) {
-    names(list_best_small[[k]]) <- c("vbl", "n")
-  }
 
   tbl_best_small <- reduce(list_best_small, full_join, by = c("vbl"))
 
@@ -4356,7 +4305,7 @@ variable_freq_by_n <- function(tbl_of_models,
     mutate(total_n = rowSums(.[2:(h_max + 1)], na.rm = TRUE),
            avg = total_n / length(rmse_names)) %>% 
     arrange(desc(total_n))
-
+  
   variables_in_top_small <- unique(unlist(tbl_best_small[, "vbl"]))
 
   tbl_best_not_in_small <- tbl_best %>% 
