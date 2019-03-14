@@ -794,6 +794,15 @@ cv_var_from_model_tbl <- function(h, n_cv,
                                   do_tests = FALSE,
                                   silent = TRUE) { 
   
+  print("in cv_var_from_model_tbl names_exogenous is")
+  print(names_exogenous)
+  # print("and future_exo_cv is")
+  # print(future_exo_cv)
+  # print("while extended_exo_mts is")
+  # print(extended_exo_mts)
+  # print("and extended_exo_mts$future_exo_cv is")
+  # print(extended_exo_mts$future_exo_cv)
+  
   
   if ("fit" %in% names(models_tbl)) {
     table_of_tried_specifications <- models_tbl %>% dplyr::select(-fit) 
@@ -834,6 +843,11 @@ cv_var_from_model_tbl <- function(h, n_cv,
     #   models_tbl = models_tbl, var_data = var_data, new_t_threshold = new_t_threshold, 
     #   names_exogenous = names_exogenous)
     
+    # print("still in cvvarfrommodeltbl, before fit_tests_models_table, models_tbl:")
+    # print("models_tbl")
+    # print(models_tbl)
+    # print("models_tbl$t_threshold")
+    # print(models_tbl$t_threshold)
     
     ftmt <- fit_tests_models_table(models_tbl = models_tbl,
                                    do_tests = do_tests, 
@@ -874,7 +888,9 @@ cv_var_from_model_tbl <- function(h, n_cv,
 
   
   print("Starting cv")
-  print(paste0("Number of specifications to cv: ", nrow(models_tbl)))
+  # print("but before, print future exo cv")
+  # print(future_exo_cv)
+  # print(paste0("Number of specifications to cv: ", nrow(models_tbl)))
   
   # tic()
   models_tbl <-  models_tbl %>%
@@ -1008,6 +1024,10 @@ cv_var_from_one_row <- function(var_data,
   # print(colnames(sub_data))
   # print("names_exogenous")
   # print(names_exogenous)
+  # print("this_thresh")
+  # print(this_thresh)
+  # print("future_exo_cv")
+  # print(future_exo_cv)
   
   
 
@@ -1155,6 +1175,12 @@ cv_var_from_tbl_by_row <- function(h, n_cv,
                                    do_tests = TRUE,
                                    silent = TRUE) {
   
+  # print("in cv_var_from_model_tbl_by_row, names_exogenous is")
+  # print(names_exogenous)
+  # print("and future_exo_cv is")
+  # print(future_exo_cv)
+ 
+  
   variables <- models_tbl$variables
   lags <- models_tbl$lags
   t_threshold <- models_tbl$t_threshold
@@ -1292,7 +1318,14 @@ fit_tests_models_table <- function(models_tbl,
                                    silent = TRUE,
                                    remove_aux_unrest = FALSE,
                                    use_resmat = FALSE) {
-
+  
+  # print("in fit_tests_models_table:")
+  # print("names_exogenous")
+  # print(names_exogenous)
+  # 
+  # print("use_resmat")
+  # print(use_resmat)
+  
   models_tbl <- models_tbl %>% 
     mutate(is_unrestricted = map_lgl(t_threshold, 
                                      ~ length(.) == 1 & (all(. == 0) )
@@ -1547,6 +1580,18 @@ fit_VAR_rest <- function(var_data,
   
   
   # print("in fit VAR rest")
+  # print("variables")
+  # print(variables)
+  # print("p")
+  # print(p)
+  # print("t_thresh")
+  # print(t_thresh)
+  # print("names_exogenous")
+  # print(names_exogenous)
+  # print("resmat")
+  # print(resmat)
+  
+  
   
   if (length(t_thresh) == 1) {
     if (t_thresh == 0 | is.null(t_thresh)) {
@@ -1609,8 +1654,8 @@ fit_VAR_rest <- function(var_data,
     # print(unrestricted_fit)
     
   }
-  
-  
+
+  # print("unrestricted_fit")
   # print(unrestricted_fit)
   
   if (is.numeric(t_thresh)) {
@@ -1618,8 +1663,11 @@ fit_VAR_rest <- function(var_data,
     list_of_varests <- list_along(seq(1, nrest+1)) 
     list_of_varests[[1]] <- unrestricted_fit
     
+    # print("inside IF is.numeric(t_thresh) ")
     # print("t_thresh")
     # print(t_thresh)
+    # print("nrest")
+    # print(nrest)
     
     for (i in seq(1, nrest)) {
       this_thresh <- t_thresh[i]
@@ -1635,6 +1683,9 @@ fit_VAR_rest <- function(var_data,
                                        resmat = resmat), silent = TRUE)
       }
       
+      # print("with resmat:")
+      # print(resmat)
+      # 
       # print("this_fit")
       # print(this_fit)
       
