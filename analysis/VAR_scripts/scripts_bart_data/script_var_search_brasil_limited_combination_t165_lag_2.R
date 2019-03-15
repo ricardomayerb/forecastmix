@@ -291,7 +291,7 @@ accumulated_tried_models <- distinct(accumulated_tried_models, short_name, .keep
 
 write.xlsx(accumulated_passing_models, file = "./Excel_Output/Brasil/All_accumulated_passing_models_Brasil_t165_lag_2.xlsx")
 
-saveRDS(list(cv_size_2 = cv_size_2, cv_size_3 = cv_size_3_per_row, 
+saveRDS(list(cv_size_2 = cv_size_2_per_row, cv_size_3 = cv_size_3_per_row, 
              cv_size_4 = cv_size_4_per_row, cv_size_5 = cv_size_5_per_row, 
              all_tried_models_2345 = accumulated_tried_models,
              all_passing_models_2345 = accumulated_passing_models),
