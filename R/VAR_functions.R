@@ -1202,6 +1202,7 @@ cv_var_from_tbl_by_row <- function(h, n_cv,
   )
   
   # print("salimos de specs to rmse")
+  nested_rmse <- model_and_rmse
   
   model_and_rmse <- unnest(model_and_rmse, tests_and_rmses) 
   
@@ -1226,7 +1227,8 @@ cv_var_from_tbl_by_row <- function(h, n_cv,
   
   return(list(passing_models_tbl = passing_models,
               tried_models_tbl = tried_models, 
-              tried_models_names = names_tried_models))
+              tried_models_names = names_tried_models, 
+              nested_rmse = nested_rmse))
 }
 
 
@@ -3625,6 +3627,7 @@ specs_to_rmse <- function(var_data,
     # print("this_thresh")
     
     this_thresh <- this_row[["t_threshold"]]
+    
     # print(this_thresh)
     # print("this_fit")
     # print(this_fit)
@@ -3739,8 +3742,12 @@ specs_to_rmse <- function(var_data,
     
     
     # print(paste0("despues de do_cv, es unrestricted?: ", is_unrestricted))
+    # print("voy a poner en ttr estas variables y este threshold")
+    # print(variables)
+    # print(this_thresh)
     
-    tibble_to_return <- tibble(msg = msg, tested = tested, pass_tests = pass_tests, t_threshold = this_thresh)
+    tibble_to_return <- tibble(msg = msg, tested = tested, pass_tests = pass_tests,
+                               t_threshold = this_thresh, variables = list(variables))
     
     
     
@@ -3755,12 +3762,12 @@ specs_to_rmse <- function(var_data,
     #                              t_threshold = this_thresh)
     # }
     
-    if(! is_unrestricted) {
-      # print("is restricted")
-      tibble_to_return <- mutate(tibble_to_return,
-                                 variables = list(variables),
-                                 t_threshold = this_thresh)
-    }
+    # if(! is_unrestricted) {
+    #   # print("is restricted")
+    #   tibble_to_return <- mutate(tibble_to_return,
+    #                              variables = list(variables),
+    #                              t_threshold = this_thresh)
+    # }
     
     # print("intermediate tibble_to_return")
     # print(tibble_to_return)
