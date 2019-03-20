@@ -3655,7 +3655,12 @@ specs_to_rmse <- function(var_data,
     
     if (do_tests) {
       tested <- TRUE
-      is_stable <-  all(vars::roots(this_fit) < 1)
+      is_stable <-  try(all(vars::roots(this_fit) < 1))
+      if(class(is_stable) == "try-error") {
+        print("problem with var roots. Current variables are")
+        print(variables)
+        is_stable <- FALSE 
+      }
       is_white_noise <-  check_resid_VAR(this_fit)
       pass_tests <- is_stable & is_white_noise
       # print("doing tests")
