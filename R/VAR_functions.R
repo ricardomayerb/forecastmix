@@ -3564,12 +3564,17 @@ search_var_one_size <- function(var_data,
 
 
 specs_to_rmse <- function(var_data, 
-                          variables, lags,
-                          h, n_cv, training_length, 
+                          variables, 
+                          lags,
+                          h, 
+                          n_cv, 
+                          training_length, 
                           future_exo_cv,
-                          target_transform, target_level_ts,
+                          target_transform, 
+                          target_level_ts,
                           t_thresholds = 0, 
-                          do_tests = TRUE, names_exogenous = c("")) {
+                          do_tests = TRUE,
+                          names_exogenous = c("")) {
   pass_tests <- TRUE
   # print(paste0("t_thresholds:", t_thresholds))
   # t_length <- length(t_thresholds)
@@ -3700,9 +3705,13 @@ specs_to_rmse <- function(var_data,
     if (do_cv) {
       # print("this_fit")
       # print(this_fit)
-      cv_obj <- cv_var_from_one_row(fit = this_fit, var_data = var_data, 
-                                    variables = variables, lags = lags, h = h, 
-                                    n_cv = n_cv, training_length = training_length, 
+      cv_obj <- cv_var_from_one_row(fit = this_fit, 
+                                    var_data = var_data, 
+                                    variables = variables, 
+                                    lags = lags, 
+                                    h = h, 
+                                    n_cv = n_cv, 
+                                    training_length = training_length, 
                                     names_exogenous = names_exogenous, 
                                     this_type = "const",
                                     this_thresh = t_thresholds, 
@@ -3724,15 +3733,12 @@ specs_to_rmse <- function(var_data,
         if (target_transform == "diff") {
           auxiliary_ts <-  target_level_ts
           
-          models_tbl <- models_tbl %>%
-            rename(cv_obj_diff = cv_obj)
+          cv_obj_diff = cv_obj
           
-          results_all_models <- results_all_models %>%
-            mutate(cv_obj_yoy = map(cv_obj_diff,
-                                    ~ transform_all_cv(cv_object  = .,
-                                                       current_form = target_transformation,
-                                                       auxiliary_ts = target_level_ts,
-                                                       n_cv = n_cv)))
+          cv_obj_yoy = transform_all_cv(cv_object  = cv_obj_diff,
+                                        current_form = target_transformation,
+                                        target_level_ts = target_level_ts,
+                                        n_cv = n_cv)
         }
         
       }

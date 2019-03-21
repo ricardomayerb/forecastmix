@@ -77,6 +77,54 @@ working_models <- discard_by_rank(models_tbl = models_from_search, max_rank_h = 
 # to free some memory
 rm(models_from_search, models_from_search_1, models_from_search_2, models_from_search_3, models_from_search_4, models_from_search_5, models_from_search_6)
 
+
+new_ensemble_fc <- function(models_tbl_with_rmse, 
+                            var_data,
+                            n_cv, 
+                            training_length,
+                            max_rank_h,
+                            fc_horizon,
+                            names_exogenous,
+                            target_transform, 
+                            target_level_ts, 
+                            extension_of_exo, 
+                            cv_extension_of_exo, 
+                            fit_column = NULL,
+                            keep_wide_tbl = TRUE, 
+                            full_cv_output = FALSE){
+  
+  fcs_list <- forecast_var_from_model_tbl(
+    models_tbl = models_tbl_with_rmse,
+    fit_column = fit_column,
+    var_data = var_data, 
+    fc_horizon = fc_horizon, 
+    target_transform = target_transform,
+    target_level_ts = target_level_ts,
+    names_exogenous = names_exogenous, 
+    extended_exo_mts = extension_of_exo, 
+    keep_wide_tbl = keep_wide_tbl, 
+    max_rank_h = max_rank_h
+  )
+  
+}
+
+
+
+final_tbl_10 <- new_ensemble_fc(
+  models_tbl_with_rmse = working_models,
+  var_data = var_data, 
+  n_cv = n_cv, 
+  training_length = training_length, 
+  max_rank_h = 10, 
+  fc_horizon = fc_horizon,
+  names_exogenous = names_exogenous, 
+  target_transform = target_transform,
+  target_level_ts = target_level_ts,
+  extension_of_exo = extension_of_exo, 
+  cv_extension_of_exo = cv_extension_of_exo, 
+  fit_column = NULL)
+
+
 final_tbl_10 <- ensemble_fc_from_models_rmse(
   models_tbl_with_rmse = working_models,
   var_data = var_data, 
@@ -90,4 +138,67 @@ final_tbl_10 <- ensemble_fc_from_models_rmse(
   extension_of_exo = extension_of_exo, 
   cv_extension_of_exo = cv_extension_of_exo, 
   fit_column = NULL)
+
+
+
+ensemble_fc_from_models_rmse <- function(models_tbl_with_rmse, 
+                                         var_data,
+                                         n_cv, 
+                                         training_length,
+                                         max_rank_h,
+                                         fc_horizon,
+                                         names_exogenous,
+                                         target_transform, 
+                                         target_level_ts, 
+                                         extension_of_exo, 
+                                         cv_extension_of_exo, 
+                                         fit_column = NULL,
+                                         keep_wide_tbl = TRUE, 
+                                         full_cv_output = FALSE) {
+  
+  fcs_list <- forecast_var_from_model_tbl(
+    models_tbl = models_tbl_with_rmse,
+    fit_column = fit_column,
+    var_data = var_data, 
+    fc_horizon = fc_horizon, 
+    target_transform = target_transform,
+    target_level_ts = target_level_ts,
+    names_exogenous = names_exogenous, 
+    extended_exo_mts = extension_of_exo, 
+    keep_wide_tbl = keep_wide_tbl, 
+    max_rank_h = max_rank_h
+  )
+  
+  ensemble_fc_list <- fc_mean_of_VAR_ensemble(models_tbl = fcs_list$models_tbl,
+                                              max_rank_h = max_rank_h)
+  
+  ensemble_cv <- cv_of_VAR_ensemble(var_data = var_data,
+                                    used_cv_models = fcs_list$models_tbl_wide,
+                                    fc_horizon = fc_horizon,
+                                    n_cv = n_cv,
+                                    training_length = training_length,
+                                    cv_extension_of_exo = cv_extension_of_exo,
+                                    names_exogenous = names_exogenous,
+                                    max_rank_h = max_rank_h,
+                                    full_cv_output =  full_cv_output,
+                                    target_transform = target_transform,
+                                    target_level_ts = target_level_ts)
+  
+  ensemble_fc_and_rmse <- ensemble_fc_list$ensemble_tbl %>% 
+    mutate(rmse_h = paste0("rmse_", 1:n()),
+           rmse = ensemble_cv$ensemble_rmse,
+           rank = -1)
+  
+  fcs_models_to_bind <- fcs_list$models_tbl %>% 
+    mutate(lags = list(lags)) %>% 
+    dplyr::select(names(ensemble_fc_and_rmse))
+  
+  
+  models_and_ensemble_fcs <- rbind(ensemble_fc_and_rmse, 
+                                   fcs_models_to_bind)
+  
+  return(models_and_ensemble_fcs)
+  
+}
+
 
