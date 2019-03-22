@@ -1385,8 +1385,11 @@ fit_tests_models_table <- function(models_tbl,
   } 
 
   models_tbl <- models_tbl %>% filter(!is_unrestricted)
+  
+
 
   if (n_pure_restricted > 0) {
+   
     if (use_resmat) {
       models_tbl <- models_tbl %>% 
         mutate(fit = pmap(list(variables, lags, t_threshold, full_sample_resmat),
@@ -1396,6 +1399,7 @@ fit_tests_models_table <- function(models_tbl,
                                          names_exogenous = names_exogenous))
         )
     } else {
+      
       models_tbl <- models_tbl %>% 
         mutate(fit = pmap(list(variables, lags, t_threshold),
                           ~ fit_VAR_rest(var_data, variables = ..1, 
@@ -1452,7 +1456,7 @@ fit_tests_models_table <- function(models_tbl,
     auxiliary_but_not_original <- models_tbl
     auxiliary_also_original <- models_tbl
   }
-  
+
   if (n_pure_unrestricted > 0) {
     # elimate repeated unrestricted
     # but only if there are auxiliary models
@@ -1592,7 +1596,8 @@ fit_VAR_rest <- function(var_data,
   # print(names_exogenous)
   # print("resmat")
   # print(resmat)
-  
+  # print("colnames(var_data)")
+  # print(colnames(var_data))
   
   
   if (length(t_thresh) == 1) {
@@ -1600,13 +1605,16 @@ fit_VAR_rest <- function(var_data,
       t_thresh <- FALSE
     }
   }
-  
+  # print(11)
   this_var_data <- var_data[, variables]
+  # print(12)
   this_var_data <- na.omit(this_var_data)
   
   vbls_for_var <- colnames(this_var_data)
   endov <- vbls_for_var[!vbls_for_var %in% names_exogenous] 
   exov <- vbls_for_var[vbls_for_var %in% names_exogenous] 
+  
+
   
   if (length(endov) == 1) {
     this_fit <- NA
