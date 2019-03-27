@@ -18,6 +18,7 @@ specs_to_fc <- function(var_data,
   # print("in specs to fc, names exogenous is")
   # print(names_exogenous)
   
+  # print("In specs to fc")
   
   
   if (length(t_thresholds) == 1) {
@@ -143,48 +144,75 @@ ensemble_fc_by_row <- function(var_data,
                                target_level_ts, 
                                target_transform, 
                                names_exogenous,
-                               max_rank_h = NULL){
+                               max_rank_h = NULL,
+                               superset_fcs = NULL,
+                               training_length = NULL,
+                               n_cv = NULL,
+                               cv_extension_of_exo = NULL){
+  
+  if (!is.null(max_rank_h)) {
+    models_tbl <- discard_by_rank(models_tbl, max_rank_h)
+  }
   
   variables <- models_tbl$variables
   lags <- models_tbl$lags
   t_threshold <- models_tbl$t_threshold
   
-  model_and_fcs <- mutate(
-    models_tbl,
-    fc_tbl = pmap(list(variables, lags, t_threshold),
-                  ~ specs_to_fc(var_data = var_data,
-                                variables = ..1,
-                                lags = ..2, 
-                                t_thresholds = ..3,
-                                h = fc_horizon,
-                                extended_exo_mts = extended_exo_mts,
-                                target_transform = target_transform, 
-                                target_level_ts = target_level_ts, 
-                                do_tests = FALSE,
-                                names_exogenous = names_exogenous)
+  if (recompute_rmse) {
+    this_cv_tbl <- cv_var_from_tbl_by_row(h = fc_horizon,
+                                                n_cv = n_cv, 
+                                                training_length = training_length, 
+                                                models_tbl = models_tbl, 
+                                                var_data = var_data,
+                                                target_transform = target_transform, 
+                                                target_level_ts = target_level_ts, 
+                                                names_exogenous = names_exogenous, 
+                                                future_exo_cv = cv_extension_of_exo$future_exo_cv)
+  }
+  
+  if (is.null(superset_fcs)) {
+    model_and_fcs <- mutate(
+      models_tbl,
+      fc_tbl = pmap(list(variables, lags, t_threshold),
+                    ~ specs_to_fc(var_data = var_data,
+                                  variables = ..1,
+                                  lags = ..2, 
+                                  t_thresholds = ..3,
+                                  h = fc_horizon,
+                                  extended_exo_mts = extended_exo_mts,
+                                  target_transform = target_transform, 
+                                  target_level_ts = target_level_ts, 
+                                  do_tests = FALSE,
+                                  names_exogenous = names_exogenous)
+      )
     )
-  )
+    
+    rmse_names <- paste0("rmse_", seq(1, fc_horizon))
+    
+    model_and_fcs <- dplyr::select(model_and_fcs, c(rmse_names, lags, fc_tbl))
+    
+    model_and_fcs <- unnest(model_and_fcs, fc_tbl)
+    
+    model_and_fcs <- dplyr::select(model_and_fcs, -fc_obj)
+    
+    model_and_fcs <- mutate(
+      model_and_fcs, 
+      short_name = pmap(list(variables, lags, t_threshold),
+                        ~ make_model_name(variables = ..1,
+                                          lags = ..2,
+                                          t_threshold = ..3)),
+      short_name = unlist(short_name))
+    model_and_fcs <- dplyr::select(model_and_fcs, short_name, everything())
+    
+    model_and_fcs_long <- gather(model_and_fcs, key = "rmse_h", value = "rmse", 
+                                 rmse_names) 
+  }
   
-  rmse_names <- paste0("rmse_", seq(1, fc_horizon))
+  if (!is.null(superset_fcs)){
+    model_and_fcs_long <- filter(superset_fcs,
+                                 rank_h <= max_rank_h)
+  }
   
-  model_and_fcs <- dplyr::select(model_and_fcs, c(rmse_names, lags, fc_tbl))
-  
-  model_and_fcs <- unnest(model_and_fcs, fc_tbl)
-  
-  model_and_fcs <- dplyr::select(model_and_fcs, -fc_obj)
-
-  model_and_fcs <- mutate(
-    model_and_fcs, 
-    short_name = pmap(list(variables, lags, t_threshold),
-                      ~ make_model_name(variables = ..1,
-                                        lags = ..2,
-                                        t_threshold = ..3)),
-    short_name = unlist(short_name))
-  model_and_fcs <- dplyr::select(model_and_fcs, short_name, everything())
-  
-  model_and_fcs_long <- gather(model_and_fcs, key = "rmse_h", value = "rmse", 
-                               rmse_names) 
-
   model_and_fcs_long <-  group_by(model_and_fcs_long, rmse_h) %>%
     mutate(rank_h = rank(rmse)) 
   
@@ -255,7 +283,15 @@ cv_of_VAR_ensemble_by_row <- function(var_data,
                                       target_transform, 
                                       target_level_ts, 
                                       max_rank_h = NULL, 
-                                      full_cv_output = FALSE) {
+                                      full_cv_output = FALSE,
+                                      return_models_rmse = FALSE,
+                                      superset_cv_fcs = NULL) {
+  
+  if (!is.null(max_rank_h)) {
+    print(paste0("N initial models:", nrow(used_cv_models)))
+    used_cv_models <- discard_by_rank(used_cv_models, max_rank_h)
+    print(paste0("N models after max_rank_h:", nrow(used_cv_models)))
+  }
   
   
   variables_used <- used_cv_models %>% 
@@ -277,6 +313,7 @@ cv_of_VAR_ensemble_by_row <- function(var_data,
   cv_ensemble_fcs <- list_along(seq(1, n_cv))
   cv_ensemble_test_data <- list_along(seq(1, n_cv))
   cv_ensemble_errors <- list_along(seq(1, n_cv))
+  cv_indiv_models_rmse <- list_along(seq(1, n_cv))
   
   
   for (i in seq(1, n_cv)) {
@@ -307,15 +344,32 @@ cv_of_VAR_ensemble_by_row <- function(var_data,
       rbind(sample_exo_in_cv, future_exo_in_cv),
       start = start(sample_exo_in_cv), frequency = frequency(sample_exo_in_cv))
     
+    if (is.null(superset_cv_fcs)) {
+      ensemble_fc_list <- ensemble_fc_by_row(var_data = var_data_train,
+                                             models_tbl = used_cv_models, 
+                                             extended_exo_mts =  this_extened_exo_mts,
+                                             fc_horizon = fc_horizon,
+                                             target_level_ts = target_level_ts,
+                                             target_transform = target_transform,
+                                             names_exogenous = names_exogenous, 
+                                             max_rank_h = max_rank_h)
+    }
     
-    ensemble_fc_list <- ensemble_fc_by_row(var_data = var_data_train,
-                                           models_tbl = used_cv_models, 
-                                           extended_exo_mts =  this_extened_exo_mts,
-                                           fc_horizon = fc_horizon,
-                                           target_level_ts = target_level_ts,
-                                           target_transform = target_transform,
-                                           names_exogenous = names_exogenous, 
-                                           max_rank_h = max_rank_h)
+    if (!is.null(superset_cv_fcs)) {
+      ensemble_fc_list <- ensemble_fc_by_row(var_data = var_data_train,
+                                             models_tbl = used_cv_models, 
+                                             extended_exo_mts =  this_extened_exo_mts,
+                                             fc_horizon = fc_horizon,
+                                             target_level_ts = target_level_ts,
+                                             target_transform = target_transform,
+                                             names_exogenous = names_exogenous, 
+                                             max_rank_h = max_rank_h, 
+                                             superset_fcs = superset_cv_fcs[[i]])
+    }
+    
+    if (return_models_rmse) {
+      cv_indiv_models_rmse[[i]] <- ensemble_fc_list$model_and_fcs
+    }
     
     ensemble_fc_ts <- ensemble_fc_list$weighted_avg_fc_yoy
     
@@ -324,7 +378,6 @@ cv_of_VAR_ensemble_by_row <- function(var_data,
                               end = this_tes_e)
     
     ensemble_cv_error_yoy <- test_target_yoy - ensemble_fc_ts 
-    
     
     cv_ensemble_fcs[[i]] <- ensemble_fc_ts
     cv_ensemble_test_data[[i]] <- test_target_yoy
@@ -345,12 +398,19 @@ cv_of_VAR_ensemble_by_row <- function(var_data,
     cv_ensemble_errors <- NULL
   }
   
+  if (!return_models_rmse) {
+    cv_indiv_models_rmse <- NULL
+  }
+  
   return(list(ensemble_rmse = ensemble_rmse, 
               cv_ensemble_fcs = cv_ensemble_fcs, 
               cv_ensemble_test_data = cv_ensemble_test_data,
-              cv_ensemble_errors = cv_ensemble_errors))
-  
+              cv_ensemble_errors = cv_ensemble_errors,
+              cv_indiv_models_rmse = cv_indiv_models_rmse)
+         )
 }
+
+
 
 fc_models_and_ensemble_by_row <- function(var_data, working_models,
                                           extension_of_exo, 
@@ -361,7 +421,6 @@ fc_models_and_ensemble_by_row <- function(var_data, working_models,
                                           n_cv, training_length, 
                                           names_exogenous = c(""), 
                                           max_rank_h = NULL){
-  
   
   print("Forecasts of individual models and ensemble model")
   
@@ -413,6 +472,376 @@ fc_models_and_ensemble_by_row <- function(var_data, working_models,
 }
 
 
+
+
+add_one_variable <- function(current_vbls, extra_vbl) {
+  
+  if (extra_vbl %in% current_vbls) {
+    next_vbls <- "repeated_variables" 
+    return(next_vbls)
+  }
+  
+  next_vbls <- c(current_vbls, extra_vbl)
+  return(next_vbls)
+}
+
+
+augment_with_variable <- function(models_tbl_to_aug, vec_of_extra_variables) {
+  
+  
+  names_of_cols <- names(models_tbl_to_aug)
+  fsr_in_tbl <- "full_sample_resmat" %in% names_of_cols
+  if (!fsr_in_tbl) {
+    print("full sample resmat not found")
+  }
+  
+  if (fsr_in_tbl) {
+    models_tbl_to_aug <- models_tbl_to_aug %>% 
+      dplyr::select(variables, lags, t_threshold, is_unrestricted, full_sample_resmat) %>% 
+      rename(previous_variables = variables) 
+  } else {
+    models_tbl_to_aug <- models_tbl_to_aug %>% 
+      dplyr::select(variables, lags, t_threshold, is_unrestricted) %>% 
+      rename(previous_variables = variables) 
+  }
+  
+  
+  
+  list_of_tbl <- list_along(vec_of_extra_variables)
+  
+  for (i in seq(1, length(vec_of_extra_variables))) {
+    this_variable <- vec_of_extra_variables[i]
+    this_augmented_tbl <-  mutate(models_tbl_to_aug, 
+                                  variables = map(
+                                    previous_variables,
+                                    ~ add_one_variable(.x, this_variable)))
+    this_augmented_tbl <-  filter(this_augmented_tbl, 
+                                  !variables == "repeated_variables")
+    
+    
+    if (fsr_in_tbl) {
+      this_augmented_tbl <-  dplyr::select(this_augmented_tbl, variables, lags,
+                                           t_threshold, is_unrestricted, 
+                                           full_sample_resmat)
+    } else {
+      this_augmented_tbl <-  dplyr::select(this_augmented_tbl, variables, lags,
+                                           t_threshold, is_unrestricted)
+    }
+    
+    list_of_tbl[[i]] <- this_augmented_tbl
+  }
+  
+  augmented_tbl <- reduce(list_of_tbl, rbind)
+  augmented_tbl <- mutate(augmented_tbl,
+                          short_name = pmap(list(variables, lags, t_threshold),
+                                            ~ make_model_name(variables = ..1, 
+                                                              lags = ..2,
+                                                              t_threshold = ..3)),
+                          short_name = unlist(short_name),
+                          size = map_dbl(variables, length)
+  )
+  
+  augmented_tbl <- distinct(augmented_tbl, short_name, .keep_all = TRUE)
+  
+  if (fsr_in_tbl) {
+    augmented_tbl <-  dplyr::select(augmented_tbl, short_name, variables, 
+                                    size, lags, t_threshold, is_unrestricted,
+                                    full_sample_resmat)
+  } else {
+    augmented_tbl <-  dplyr::select(augmented_tbl, short_name, variables, 
+                                    size, lags, t_threshold, is_unrestricted)
+  }
+  
+  return(augmented_tbl)
+  
+}
+
+
+discard_by_rank <- function(models_tbl, max_rank_h, is_wide = TRUE) {
+  
+  if (is_wide) {
+    surviving_names <- models_tbl %>%
+      gather(key = "rmse_h", value = "rmse",
+             vars_select(names(.), starts_with("rmse"))) %>%
+      group_by(rmse_h) %>%
+      mutate(rank_h = rank(rmse)) %>%
+      filter(rank_h <= max_rank_h) %>%
+      ungroup() %>%
+      dplyr::select(short_name) %>%
+      distinct()
+    
+    models_tbl <- semi_join(models_tbl, surviving_names, by = "short_name")
+  }
+  
+  if (!is_wide) {
+    models_tbl <- models_tbl %>% 
+      group_by(rmse_h) %>%
+      mutate(rank = rank(rmse)) %>%
+      filter(rank <= max_rank_h) %>%
+      ungroup()
+  }
+  
+  return(models_tbl)
+}
+
+fc_mean_of_VAR_ensemble <- function(models_tbl, max_rank_h = NULL) {
+  # print(5)
+  
+  if(!any(c("rmse", "rmse_h", "rmse_1") %in% names(models_tbl))){
+    print("models_tbl does not have rmse information, please provide an appropriate tibble")
+  }
+  
+  if (! "rmse_h" %in% names(models_tbl)) {
+    # i.e. is still in wide form with rmse_1, rmse_2 etc
+    
+    # if (!is.null(max_rank_h)) {
+    #   models_tbl <- discard_by_rank(models_tbl, max_rank_h = max_rank_h, is_wide = TRUE)
+    # }
+    
+    models_tbl <- models_tbl %>% 
+      gather(key = "rmse_h", value = "rmse", rmse_names) 
+  }
+  
+  models_tbl <- models_tbl %>% 
+    group_by(rmse_h) %>% 
+    mutate(rank_h = rank(rmse)) 
+  
+  
+  if (!is.null(max_rank_h)) {
+    models_tbl <- models_tbl %>% 
+      filter(rank_h <= max_rank_h)
+  }
+  
+  models_tbl <- models_tbl %>% 
+    mutate(inv_mse = 1/(rmse*rmse),
+           model_weight = inv_mse/sum(inv_mse)
+    )
+  
+  models_tbl <- models_tbl %>% 
+    mutate(horizon = as.numeric(substr(rmse_h, 6, 6))
+    ) 
+  
+  models_tbl <- models_tbl %>% 
+    mutate(this_h_fc_yoy = map2_dbl(target_mean_fc_yoy, horizon, ~ .x[.y])
+    ) 
+  
+  models_tbl <- models_tbl %>% 
+    mutate(weighted_this_h_fc_yoy = map2_dbl(this_h_fc_yoy, model_weight, ~ .x*.y)
+    ) 
+  
+  models_tbl <- models_tbl %>% 
+    mutate(waverage_fc_yoy_h = sum(weighted_this_h_fc_yoy)
+    ) 
+  
+  waverage_tbl <- models_tbl %>% 
+    dplyr::select(rmse_h, waverage_fc_yoy_h) %>% 
+    summarise(waverage_fc_yoy_h = unique(waverage_fc_yoy_h))
+  
+  fc_start <- start(models_tbl$target_mean_fc_yoy[[1]])
+  
+  fc_freq <- frequency(models_tbl$target_mean_fc_yoy[[1]])
+  
+  weighted_avg_fc_yoy <- ts(waverage_tbl$waverage_fc_yoy_h, start = fc_start, frequency = fc_freq)
+  
+  models_tbl <- ungroup(models_tbl)
+  
+  ensemble_tbl <- tibble(variables = list(table(unlist(models_tbl$variables))),
+                         lags = list(table(unlist(models_tbl$lags))),
+                         short_name = "ensemble",
+                         horizon = sort(unique(models_tbl$horizon)),
+                         this_h_fc_yoy = as.numeric(weighted_avg_fc_yoy)
+  )
+  
+  return(list(ensemble_tbl = ensemble_tbl, 
+              weighted_avg_fc_yoy = weighted_avg_fc_yoy)
+  )
+  
+}
+
+
+cv_of_VAR_ensemble <- function(var_data,
+                               used_cv_models,
+                               fc_horizon,
+                               n_cv,
+                               training_length,
+                               cv_extension_of_exo,
+                               names_exogenous, 
+                               target_transform, 
+                               target_level_ts, 
+                               max_rank_h = NULL, 
+                               full_cv_output = FALSE) {
+
+  # print("inside cv of VAR ensemble")
+  # 
+  # print("used_cv_models")
+  # print(used_cv_models)
+  
+  if (! "rmse_h" %in% names(used_cv_models)) {
+    # i.e. is still in wide form with rmse_1, rmse_2 etc
+    
+    if (!is.null(max_rank_h)) {
+      used_cv_models <- discard_by_rank(used_cv_models, max_rank_h = max_rank_h,
+                                        is_wide = TRUE)
+    }
+    
+  }
+  
+  variables_used <- used_cv_models %>% 
+    dplyr::select(variables) %>% unlist() %>% unique()
+  
+  if (training_length == "common_max") {
+    total_obs <- nrow( na.omit(var_data[, variables_used]))
+    training_length <- total_obs - h_max - (n_cv - 1)
+    print(paste0("common_max = ", training_length))
+  }
+  
+  train_test_dates <- make_test_dates_list(
+    ts_data = na.omit(var_data[, variables_used]), 
+    type = "tscv",
+    n = n_cv, 
+    h_max = fc_horizon, 
+    training_length = training_length)
+  
+  cv_ensemble_fcs <- list_along(seq(1, n_cv))
+  cv_ensemble_test_data <- list_along(seq(1, n_cv))
+  cv_ensemble_errors <- list_along(seq(1, n_cv))
+  
+  
+  for (i in seq(1, n_cv)) {
+    
+    print(paste0("This is cv round ", i))
+    
+    train_test_yq <- train_test_dates[["list_of_year_quarter"]]
+    
+    this_tra_s <- train_test_yq[[i]]$tra_s
+    this_tra_e <- train_test_yq[[i]]$tra_e
+    
+    this_tes_s <- train_test_yq[[i]]$tes_s
+    this_tes_e <- train_test_yq[[i]]$tes_e
+    
+    var_data_train <- window(var_data, start = this_tra_s, end = this_tra_e)
+
+        future_exo_in_cv <- cv_extension_of_exo[[i]]
+    sample_exo_in_cv <- window(extension_of_exo, end = start(future_exo_in_cv))
+    sample_exo_in_cv <- subset(sample_exo_in_cv, end = nrow(sample_exo_in_cv)-1)
+    this_extened_exo_mts <- ts(
+      rbind(sample_exo_in_cv, future_exo_in_cv),
+      start = start(sample_exo_in_cv), frequency = frequency(sample_exo_in_cv))
+    
+    # print()
+    
+    this_fc_list <- forecast_var_from_model_tbl(
+      models_tbl = used_cv_models, 
+      fc_horizon = fc_horizon, 
+      var_data = var_data_train,
+      target_transform = target_transform,
+      target_level_ts = target_level_ts,
+      names_exogenous = names_exogenous, 
+      extended_exo_mts = this_extened_exo_mts,
+      use_resmat = TRUE,
+      keep_wide_tbl = FALSE,
+      max_rank_h = max_rank_h) 
+    
+    this_fc_tbl <- this_fc_list$models_tbl
+    
+    ensemble_fc_list <- fc_mean_of_VAR_ensemble(models_tbl = this_fc_tbl, 
+                                                max_rank_h = max_rank_h)
+    
+    ensemble_fc_ts <- ensemble_fc_list$weighted_avg_fc_yoy
+    
+    test_target_yoy <- window(make_yoy_ts(target_level_ts), 
+                              start = this_tes_s,
+                              end = this_tes_e)
+    
+    ensemble_cv_error_yoy <- test_target_yoy - ensemble_fc_ts 
+    
+    
+    cv_ensemble_fcs[[i]] <- ensemble_fc_ts
+    cv_ensemble_test_data[[i]] <- test_target_yoy
+    cv_ensemble_errors[[i]] <- ensemble_cv_error_yoy
+  }
+  
+  mat_cv_errors_ensemble <- matrix(
+    reduce(cv_ensemble_errors, rbind), 
+    nrow = n_cv)
+  
+  rownames(mat_cv_errors_ensemble) <- NULL
+  
+  ensemble_rmse <- sqrt(colMeans(mat_cv_errors_ensemble^2, na.rm = TRUE))
+  
+  if (!full_cv_output){
+    cv_ensemble_fcs <- NULL 
+    cv_ensemble_test_data <- NULL
+    cv_ensemble_errors <- NULL
+  }
+  
+  return(list(ensemble_rmse = ensemble_rmse, 
+              cv_ensemble_fcs = cv_ensemble_fcs, 
+              cv_ensemble_test_data = cv_ensemble_test_data,
+              cv_ensemble_errors = cv_ensemble_errors))
+  
+}
+
+
+ensemble_fc_from_models_rmse <- function(models_tbl_with_rmse, 
+                                         var_data,
+                                         n_cv, 
+                                         training_length,
+                                         max_rank_h,
+                                         fc_horizon,
+                                         names_exogenous,
+                                         target_transform, 
+                                         target_level_ts, 
+                                         extension_of_exo, 
+                                         cv_extension_of_exo, 
+                                         fit_column = NULL,
+                                         keep_wide_tbl = TRUE, 
+                                         full_cv_output = FALSE) {
+  
+  fcs_list <- forecast_var_from_model_tbl(
+    models_tbl = models_tbl_with_rmse,
+    fit_column = fit_column,
+    var_data = var_data, 
+    fc_horizon = fc_horizon, 
+    target_transform = target_transform,
+    target_level_ts = target_level_ts,
+    names_exogenous = names_exogenous, 
+    extended_exo_mts = extension_of_exo, 
+    keep_wide_tbl = keep_wide_tbl, 
+    max_rank_h = max_rank_h
+  )
+  
+  ensemble_fc_list <- fc_mean_of_VAR_ensemble(models_tbl = fcs_list$models_tbl,
+                                              max_rank_h = max_rank_h)
+  
+  ensemble_cv <- cv_of_VAR_ensemble(var_data = var_data,
+                                    used_cv_models = fcs_list$models_tbl_wide,
+                                    fc_horizon = fc_horizon,
+                                    n_cv = n_cv,
+                                    training_length = training_length,
+                                    cv_extension_of_exo = cv_extension_of_exo,
+                                    names_exogenous = names_exogenous,
+                                    max_rank_h = max_rank_h,
+                                    full_cv_output =  full_cv_output,
+                                    target_transform = target_transform,
+                                    target_level_ts = target_level_ts)
+  
+  ensemble_fc_and_rmse <- ensemble_fc_list$ensemble_tbl %>% 
+    mutate(rmse_h = paste0("rmse_", 1:n()),
+           rmse = ensemble_cv$ensemble_rmse,
+           rank = -1)
+  
+  fcs_models_to_bind <- fcs_list$models_tbl %>% 
+    mutate(lags = list(lags)) %>% 
+    dplyr::select(names(ensemble_fc_and_rmse))
+  
+  
+  models_and_ensemble_fcs <- rbind(ensemble_fc_and_rmse, 
+                                   fcs_models_to_bind)
+  
+  return(models_and_ensemble_fcs)
+  
+}
 
 
 add_one_variable <- function(current_vbls, extra_vbl) {

@@ -1,0 +1,38 @@
+Argentina:
+> c(mean(ensemble_fc_list_50$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_50$weighted_avg_fc_yoy[5:8]))
+[1] -0.06114501 -0.05151733
+> c(mean(ensemble_fc_list_40_ss$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_40_ss$weighted_avg_fc_yoy[5:8]))
+[1] -0.06084810 -0.04970409
+> c(mean(ensemble_fc_list_30_ss$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_30_ss$weighted_avg_fc_yoy[5:8]))
+[1] -0.06132397 -0.04790396
+> c(mean(ensemble_fc_list_20_ss$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_20_ss$weighted_avg_fc_yoy[5:8]))
+[1] -0.06143066 -0.05198870
+> c(mean(ensemble_fc_list_10$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_10$weighted_avg_fc_yoy[5:8]))
+[1] -0.05948632 -0.05435755
+
+
+Chile:
+> c(mean(ensemble_fc_list_50$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_50$weighted_avg_fc_yoy[5:8]))
+[1] 0.03493957 0.03505249
+> c(mean(ensemble_fc_list_40_ss$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_40_ss$weighted_avg_fc_yoy[5:8]))
+[1] 0.03576253 0.03500299
+> c(mean(ensemble_fc_list_30_ss$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_30_ss$weighted_avg_fc_yoy[5:8]))
+[1] 0.03548284 0.03480309
+> c(mean(ensemble_fc_list_20_ss$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_20_ss$weighted_avg_fc_yoy[5:8]))
+[1] 0.03563941 0.03485602
+> c(mean(ensemble_fc_list_10$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_10$weighted_avg_fc_yoy[5:8]))
+[1] 0.03579100 0.03427569
+
+
+
+Brasil:
+> c(mean(ensemble_fc_list_50$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_50$weighted_avg_fc_yoy[5:8]))
+[1] 0.0050102168 0.0006302672
+> c(mean(ensemble_fc_list_40_ss$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_40_ss$weighted_avg_fc_yoy[5:8]))
+[1] 0.0050601344 0.0005661396
+> c(mean(ensemble_fc_list_30_ss$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_30_ss$weighted_avg_fc_yoy[5:8]))
+[1] 0.0047023113 0.0007352797
+> c(mean(ensemble_fc_list_20_ss$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_20_ss$weighted_avg_fc_yoy[5:8]))
+[1] 0.0062794731 0.0003974923
+> c(mean(ensemble_fc_list_10$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_10$weighted_avg_fc_yoy[5:8]))
+[1]  0.0048623432 -0.0001368053
