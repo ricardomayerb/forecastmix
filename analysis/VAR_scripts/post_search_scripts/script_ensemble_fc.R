@@ -70,7 +70,7 @@ models_from_search <- rbind(models_from_search_1$all_passing_models_2345,
 
 nt <- nrow(models_from_search)
 nt
-models_per_h_to_work <- 5
+models_per_h_to_work <- 50
 working_models <- discard_by_rank(models_tbl = models_from_search, max_rank_h = models_per_h_to_work, is_wide = TRUE)
 
 # to free some memory
@@ -79,30 +79,188 @@ rm(models_from_search, models_from_search_1, models_from_search_2, models_from_s
 
 ####
 
-
+tic()
 fc_individual_and_ensemble <- fc_models_and_ensemble_by_row(
-  var_data = var_data, 
+  var_data = var_data,
   working_models = working_models,
-  extension_of_exo = extension_of_exo, 
+  extension_of_exo = extension_of_exo,
   cv_extension_of_exo = cv_extension_of_exo,
   fc_horizon = fc_horizon,
-  target_level_ts = target_level_ts, 
+  target_level_ts = target_level_ts,
   target_transform = target_transform,
-  n_cv = n_cv, 
+  n_cv = n_cv,
   training_length = training_length,
-  names_exogenous = names_exogenous)
+  names_exogenous = names_exogenous,
+  max_rank_h = models_per_h_to_work)
+toc()
 
-foo <- fc_individual_and_ensemble %>%  arrange(rmse_h, rmse)
+fc_individual_and_ensemble %>%
+  filter(short_name == "ensemble") %>%
+  dplyr::select(short_name, ranking) %>% print()
+
+
+tic()
+fc_individual_and_ensemble_40 <- fc_models_and_ensemble_by_row(
+  var_data = var_data,
+  working_models = working_models,
+  extension_of_exo = extension_of_exo,
+  cv_extension_of_exo = cv_extension_of_exo,
+  fc_horizon = fc_horizon,
+  target_level_ts = target_level_ts,
+  target_transform = target_transform,
+  n_cv = n_cv,
+  training_length = training_length,
+  names_exogenous = names_exogenous,
+  max_rank_h = 40)
+toc()
+
+fc_individual_and_ensemble_40 %>%
+  filter(short_name == "ensemble") %>%
+  dplyr::select(short_name, ranking) %>% print()
 
 
 
-# ensemble_fc_list <- ensemble_fc_by_row(var_data = var_data,
-#                                        models_tbl = working_models, 
-#                                        extended_exo_mts =  extension_of_exo$extended_exo,
-#                                        fc_horizon = fc_horizon,
-#                                        target_level_ts = target_level_ts,
-#                                        target_transform = target_transform,
-#                                        names_exogenous = names_exogenous)
+tic()
+fc_individual_and_ensemble_30 <- fc_models_and_ensemble_by_row(
+  var_data = var_data,
+  working_models = working_models,
+  extension_of_exo = extension_of_exo,
+  cv_extension_of_exo = cv_extension_of_exo,
+  fc_horizon = fc_horizon,
+  target_level_ts = target_level_ts,
+  target_transform = target_transform,
+  n_cv = n_cv,
+  training_length = training_length,
+  names_exogenous = names_exogenous,
+  max_rank_h = 30)
+toc()
+
+fc_individual_and_ensemble_30 %>%
+  filter(short_name == "ensemble") %>%
+  dplyr::select(short_name, ranking) %>% print()
+
+
+
+tic()
+fc_individual_and_ensemble_20 <- fc_models_and_ensemble_by_row(
+  var_data = var_data,
+  working_models = working_models,
+  extension_of_exo = extension_of_exo,
+  cv_extension_of_exo = cv_extension_of_exo,
+  fc_horizon = fc_horizon,
+  target_level_ts = target_level_ts,
+  target_transform = target_transform,
+  n_cv = n_cv,
+  training_length = training_length,
+  names_exogenous = names_exogenous,
+  max_rank_h = 20)
+toc()
+
+fc_individual_and_ensemble_20 %>%
+  filter(short_name == "ensemble") %>%
+  dplyr::select(short_name, ranking) %>% print()
+
+
+
+tic()
+fc_individual_and_ensemble_10 <- fc_models_and_ensemble_by_row(
+  var_data = var_data,
+  working_models = working_models,
+  extension_of_exo = extension_of_exo,
+  cv_extension_of_exo = cv_extension_of_exo,
+  fc_horizon = fc_horizon,
+  target_level_ts = target_level_ts,
+  target_transform = target_transform,
+  n_cv = n_cv,
+  training_length = training_length,
+  names_exogenous = names_exogenous,
+  max_rank_h = 10)
+toc()
+
+fc_individual_and_ensemble_10 %>%
+  filter(short_name == "ensemble") %>%
+  dplyr::select(short_name, ranking) %>% print()
+
+
+
+
+
+
+tic()
+ensemble_fc_list_10 <- ensemble_fc_by_row(var_data = var_data,
+                                         models_tbl = working_models,
+                                         extended_exo_mts =  extension_of_exo$extended_exo,
+                                         fc_horizon = fc_horizon,
+                                         target_level_ts = target_level_ts,
+                                         target_transform = target_transform,
+                                         names_exogenous = names_exogenous,
+                                         max_rank_h = 10)
+toc()
+
+tic()
+ensemble_fc_list_5 <- ensemble_fc_by_row(var_data = var_data,
+                                         models_tbl = working_models,
+                                         extended_exo_mts =  extension_of_exo$extended_exo,
+                                         fc_horizon = fc_horizon,
+                                         target_level_ts = target_level_ts,
+                                         target_transform = target_transform,
+                                         names_exogenous = names_exogenous,
+                                         max_rank_h = 5)
+toc()
+
+
+tic()
+ensemble_fc_list_5_ss <- ensemble_fc_by_row(var_data = var_data,
+                                         models_tbl = working_models,
+                                         extended_exo_mts =  extension_of_exo$extended_exo,
+                                         fc_horizon = fc_horizon,
+                                         target_level_ts = target_level_ts,
+                                         target_transform = target_transform,
+                                         names_exogenous = names_exogenous,
+                                         max_rank_h = 5, superset_fcs = )
+toc()
+
+moo5 <- filter(ensemble_fc_list_10$model_and_fcs, rank_h <= 5) %>% 
+  arrange(short_name)
+
+eoo5 <- ensemble_fc_list_5$model_and_fcs %>% 
+  arrange(short_name)
+
+moo5
+eoo5
+identical(moo5$short_name, eoo5$short_name)
+identical(moo5$rmse, eoo5$rmse)
+
+
+
+cv_of_ensamble_list_10 <- cv_of_VAR_ensemble_by_row(var_data = var_data,
+                                                 used_cv_models = working_models,
+                                                 fc_horizon = fc_horizon,
+                                                 n_cv = n_cv,
+                                                 training_length = training_length,
+                                                 cv_extension_of_exo = cv_extension_of_exo$future_exo_cv,
+                                                 extension_of_exo = extension_of_exo$extended_exo,
+                                                 names_exogenous = names_exogenous,
+                                                 target_transform = target_transform,
+                                                 target_level_ts = target_level_ts,
+                                                 max_rank_h = 10,
+                                                 full_cv_output = TRUE)
+
+
+
+
+
+# foo <- ensemble_fc_list$model_and_fcs %>%  arrange(rmse_h, rmse)
+# 
+# foo_1_5 <- foo[1:5,]
+# r_1_5 <- foo_1_5$rmse
+# i_1_5 <- 1/(r_1_5*r_1_5)
+# s_1_5 <- sum(i_1_5)
+# w_1_5 <- i_1_5/s_1_5
+# w_1_5
+# foo_1_5$model_weight
+# 
+# 
 # 
 # 
 # cv_of_ensamble_list <- cv_of_VAR_ensemble_by_row(var_data = var_data,
@@ -112,24 +270,24 @@ foo <- fc_individual_and_ensemble %>%  arrange(rmse_h, rmse)
 #                                                  training_length = training_length,
 #                                                  cv_extension_of_exo = cv_extension_of_exo$future_exo_cv,
 #                                                  extension_of_exo = extension_of_exo$extended_exo,
-#                                                  names_exogenous = names_exogenous, 
-#                                                  target_transform = target_transform, 
-#                                                  target_level_ts = target_level_ts, 
-#                                                  max_rank_h = NULL, 
+#                                                  names_exogenous = names_exogenous,
+#                                                  target_transform = target_transform,
+#                                                  target_level_ts = target_level_ts,
+#                                                  max_rank_h = models_per_h_to_work,
 #                                                  full_cv_output = FALSE)
 # 
 # 
 # 
 # 
-# ensemble_fc_and_rmse <- ensemble_fc_list$ensemble_tbl %>% 
+# ensemble_fc_and_rmse <- ensemble_fc_list$ensemble_tbl %>%
 #   mutate(rmse_h = paste0("rmse_", 1:n()),
 #          rmse = cv_of_ensamble_list$ensemble_rmse)
 # 
-# fcs_models_to_bind <- models_fc_list$model_and_fcs %>% 
-#   mutate(lags = list(lags)) %>% 
+# fcs_models_to_bind <- models_fc_list$model_and_fcs %>%
+#   mutate(lags = list(lags)) %>%
 #   dplyr::select(names(ensemble_fc_and_rmse))
 # 
-# models_and_ensemble_fcs <- rbind(ensemble_fc_and_rmse, 
+# models_and_ensemble_fcs <- rbind(ensemble_fc_and_rmse,
 #                                  fcs_models_to_bind)
 
   
