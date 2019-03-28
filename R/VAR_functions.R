@@ -44,6 +44,14 @@ specs_to_fc <- function(var_data,
   }
   
   nfits <- nrow(thresh_fit_tbl)
+  # print(nfits)
+  if (is.null(nfits)) {
+    print("fit:")
+    print(fit)
+    print(variables)
+    print(lags)
+    print(t_thresholds)
+  }
   all_fits_list <- list_along(seq(1, nfits))
   
   for (f in seq(1, nfits)) {
@@ -148,7 +156,8 @@ ensemble_fc_by_row <- function(var_data,
                                superset_fcs = NULL,
                                training_length = NULL,
                                n_cv = NULL,
-                               cv_extension_of_exo = NULL){
+                               cv_extension_of_exo = NULL,
+                               recompute_rmse = FALSE){
   
   if (!is.null(max_rank_h)) {
     models_tbl <- discard_by_rank(models_tbl, max_rank_h)
@@ -158,17 +167,17 @@ ensemble_fc_by_row <- function(var_data,
   lags <- models_tbl$lags
   t_threshold <- models_tbl$t_threshold
   
-  if (recompute_rmse) {
-    this_cv_tbl <- cv_var_from_tbl_by_row(h = fc_horizon,
-                                                n_cv = n_cv, 
-                                                training_length = training_length, 
-                                                models_tbl = models_tbl, 
-                                                var_data = var_data,
-                                                target_transform = target_transform, 
-                                                target_level_ts = target_level_ts, 
-                                                names_exogenous = names_exogenous, 
-                                                future_exo_cv = cv_extension_of_exo$future_exo_cv)
-  }
+  # if (recompute_rmse) {
+  #   this_cv_tbl <- cv_var_from_tbl_by_row(h = fc_horizon,
+  #                                               n_cv = n_cv, 
+  #                                               training_length = training_length, 
+  #                                               models_tbl = models_tbl, 
+  #                                               var_data = var_data,
+  #                                               target_transform = target_transform, 
+  #                                               target_level_ts = target_level_ts, 
+  #                                               names_exogenous = names_exogenous, 
+  #                                               future_exo_cv = cv_extension_of_exo$future_exo_cv)
+  # }
   
   if (is.null(superset_fcs)) {
     model_and_fcs <- mutate(

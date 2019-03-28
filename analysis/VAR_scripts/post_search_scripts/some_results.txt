@@ -1,31 +1,31 @@
-Argentina:
+Argentina (p: 2,3,4):
 > c(mean(ensemble_fc_list_50$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_50$weighted_avg_fc_yoy[5:8]))
-[1] -0.06114501 -0.05151733
+[1] -0.06315671 -0.04286083
 > c(mean(ensemble_fc_list_40_ss$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_40_ss$weighted_avg_fc_yoy[5:8]))
-[1] -0.06084810 -0.04970409
+[1] -0.06305711 -0.04372822
 > c(mean(ensemble_fc_list_30_ss$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_30_ss$weighted_avg_fc_yoy[5:8]))
-[1] -0.06132397 -0.04790396
+[1] -0.06106776 -0.04300335
 > c(mean(ensemble_fc_list_20_ss$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_20_ss$weighted_avg_fc_yoy[5:8]))
-[1] -0.06143066 -0.05198870
-> c(mean(ensemble_fc_list_10$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_10$weighted_avg_fc_yoy[5:8]))
-[1] -0.05948632 -0.05435755
+[1] -0.05924820 -0.04783664
+> c(mean(ensemble_fc_list_10_ss$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_10_ss$weighted_avg_fc_yoy[5:8]))
+[1] -0.06040536 -0.05188244
 
 
-Chile:
+Chile (p: 2, 3, 4)
 > c(mean(ensemble_fc_list_50$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_50$weighted_avg_fc_yoy[5:8]))
-[1] 0.03493957 0.03505249
+[1] 0.03464844 0.03087532
 > c(mean(ensemble_fc_list_40_ss$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_40_ss$weighted_avg_fc_yoy[5:8]))
-[1] 0.03576253 0.03500299
+[1] 0.03456669 0.03108288
 > c(mean(ensemble_fc_list_30_ss$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_30_ss$weighted_avg_fc_yoy[5:8]))
-[1] 0.03548284 0.03480309
+[1] 0.03454753 0.03084342
 > c(mean(ensemble_fc_list_20_ss$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_20_ss$weighted_avg_fc_yoy[5:8]))
-[1] 0.03563941 0.03485602
-> c(mean(ensemble_fc_list_10$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_10$weighted_avg_fc_yoy[5:8]))
-[1] 0.03579100 0.03427569
+[1] 0.03459843 0.02967781
+> c(mean(ensemble_fc_list_10_ss$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_10_ss$weighted_avg_fc_yoy[5:8]))
+[1] 0.03483559 0.03023745
 
 
 
-Brasil:
+Brasil (p: 3,4,5)
 > c(mean(ensemble_fc_list_50$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_50$weighted_avg_fc_yoy[5:8]))
 [1] 0.0050102168 0.0006302672
 > c(mean(ensemble_fc_list_40_ss$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_40_ss$weighted_avg_fc_yoy[5:8]))
@@ -36,3 +36,19 @@ Brasil:
 [1] 0.0062794731 0.0003974923
 > c(mean(ensemble_fc_list_10$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_10$weighted_avg_fc_yoy[5:8]))
 [1]  0.0048623432 -0.0001368053
+
+
+Colombia (p: 2,3,4)
+> c(mean(ensemble_fc_list_50$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_50$weighted_avg_fc_yoy[5:8]))
+[1] 0.03162571 0.02507090
+> c(mean(ensemble_fc_list_40_ss$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_40_ss$weighted_avg_fc_yoy[5:8]))
+[1] 0.03120215 0.02518958
+> c(mean(ensemble_fc_list_30_ss$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_30_ss$weighted_avg_fc_yoy[5:8]))
+[1] 0.03109813 0.02504450
+> c(mean(ensemble_fc_list_20_ss$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_20_ss$weighted_avg_fc_yoy[5:8]))
+[1] 0.03060327 0.02514590
+> c(mean(ensemble_fc_list_10_ss$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_10_ss$weighted_avg_fc_yoy[5:8]))
+[1] 0.03072761 0.02556832
+
+
+

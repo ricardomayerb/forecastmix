@@ -1,19 +1,19 @@
 source('./R/combinations_functions.R')
 
 # data_object_ury <- readRDS("./data/examples/example_data_ury.rds")
-data_object_per_new <- readRDS("./data/VAR_data_Argentina.rds")
+data_object_per_new <- readRDS("./data/VAR_data_Colombia.rds")
 print(colnames(data_object_per_new))
-target_transformation <- readRDS("./data/target_transformation/target_transformation_Argentina.rds")
+target_transformation <- readRDS("./data/target_transformation/target_transformation_Colombia.rds")
 target_transformation <- target_transformation$target_transformation
 # country <- data_object_ury$country_name
 # target_transformation <- data_object_ury$target_transformation
 # raw_data <- data_object_ury$raw_data
 # var_data <- data_object_ury$transformed_data
-raw_data <- readRDS("./data/raw_VAR_data/raw_VAR_data_Argentina.rds")
+raw_data <- readRDS("./data/raw_VAR_data/raw_VAR_data_Colombia.rds")
 var_data <- data_object_per_new
 
 # exclude "exp_tradicional" and keep "exp" and "exp_notradicional" 
-var_data <- var_data[, ! colnames(var_data) == "exp_tradicional"]
+# var_data <- var_data[, ! colnames(var_data) == "exp_tradicional"]
 
 target_variable <- "rgdp"
 print(target_transformation)
@@ -36,30 +36,30 @@ start_target_in_VAR <- start(na.omit(target_used_in_VAR))
 end_target_in_VAR <- end(na.omit(target_used_in_VAR))
 
 
-tic()
-extension_of_exo <- extending_exogenous(exodata = exodata_fullsample, h = 8,
-                                        endo_end = end_target_in_VAR)
-toc()
-tic()
-cv_extension_of_exo <- extending_exogenous_for_cv(
-  exodata = exodata_fullsample, h = fc_horizon, endo_end = end_target_in_VAR,
-  n_cv = n_cv, same_model_across_cv = FALSE)
-toc()
-saveRDS(extension_of_exo, file = "./data/extension_of_exo_us_ue_asia.rds")
-saveRDS(cv_extension_of_exo, file = "./data/cv_extension_of_exo_us_ue_asia.rds")
+# tic()
+# extension_of_exo <- extending_exogenous(exodata = exodata_fullsample, h = 8,
+#                                         endo_end = end_target_in_VAR)
+# toc()
+# tic()
+# cv_extension_of_exo <- extending_exogenous_for_cv(
+#   exodata = exodata_fullsample, h = fc_horizon, endo_end = end_target_in_VAR,
+#   n_cv = n_cv, same_model_across_cv = FALSE)
+# toc()
+# saveRDS(extension_of_exo, file = "./data/extension_of_exo_us_ue_asia.rds")
+# saveRDS(cv_extension_of_exo, file = "./data/cv_extension_of_exo_us_ue_asia.rds")
 
-# extension_of_exo <- readRDS(file = "./data/extension_of_exo_us_ue_asia.rds")
-# cv_extension_of_exo <- readRDS(file = "./data/cv_extension_of_exo_us_ue_asia.rds")
+extension_of_exo <- readRDS(file = "./data/extension_of_exo_us_ue_asia.rds")
+cv_extension_of_exo <- readRDS(file = "./data/cv_extension_of_exo_us_ue_asia.rds")
 
 names_all <- colnames(var_data)
 names_all
 
-# models_from_search_1 <- readRDS("./data/forecast_models/all_argentina_models_new_data_all_variables_restricted_combos_t165_lag_1.rds")
-models_from_search_2 <- readRDS("./data/forecast_models/all_argentina_models_new_data_all_variables_restricted_combos_t165_lag_2.rds")
-models_from_search_3 <- readRDS("./data/forecast_models/all_argentina_models_new_data_all_variables_restricted_combos_t165_lag_3.rds")
-models_from_search_4 <- readRDS("./data/forecast_models/all_argentina_models_new_data_all_variables_restricted_combos_t165_lag_4.rds")
-# models_from_search_5 <- readRDS("./data/forecast_models/all_argentina_models_new_data_all_variables_restricted_combos_t165_lag_5.rds")
-# models_from_search_6 <- readRDS("./data/forecast_models/all_argentina_models_new_data_all_variables_restricted_combos_t165_lag_6.rds")
+# models_from_search_1 <- readRDS("./data/forecast_models/all_colombia_models_new_data_all_variables_restricted_combos_t165_lag_1.rds")
+models_from_search_2 <- readRDS("./data/forecast_models/all_colombia_models_new_data_all_variables_restricted_combos_t165_lag_2.rds")
+models_from_search_3 <- readRDS("./data/forecast_models/all_colombia_models_new_data_all_variables_restricted_combos_t165_lag_3.rds")
+models_from_search_4 <- readRDS("./data/forecast_models/all_colombia_models_new_data_all_variables_restricted_combos_t165_lag_4.rds")
+# models_from_search_5 <- readRDS("./data/forecast_models/all_colombia_models_new_data_all_variables_restricted_combos_t165_lag_5.rds")
+# models_from_search_6 <- readRDS("./data/forecast_models/all_colombia_models_new_data_all_variables_restricted_combos_t165_lag_6.rds")
 
 # models_from_search <- rbind(models_from_search_1$all_passing_models_2345,
 #                             models_from_search_2$all_passing_models_2345,
@@ -99,6 +99,18 @@ ensemble_fc_list_50 <- ensemble_fc_by_row(var_data = var_data,
 toc()
 
 
+tic()
+ensemble_fc_list_40_ss <- ensemble_fc_by_row(var_data = var_data,
+                                             models_tbl = working_models,
+                                             extended_exo_mts =  extension_of_exo$extended_exo,
+                                             fc_horizon = fc_horizon,
+                                             target_level_ts = target_level_ts,
+                                             target_transform = target_transform,
+                                             names_exogenous = names_exogenous,
+                                             max_rank_h = 40, 
+                                             superset_fcs = ensemble_fc_list_50$model_and_fcs)
+toc()
+
 
 tic()
 ensemble_fc_list_30_ss <- ensemble_fc_by_row(var_data = var_data,
@@ -110,19 +122,6 @@ ensemble_fc_list_30_ss <- ensemble_fc_by_row(var_data = var_data,
                                           names_exogenous = names_exogenous,
                                           max_rank_h = 30, 
                                           superset_fcs = ensemble_fc_list_50$model_and_fcs)
-toc()
-
-
-tic()
-ensemble_fc_list_40_ss <- ensemble_fc_by_row(var_data = var_data,
-                                             models_tbl = working_models,
-                                             extended_exo_mts =  extension_of_exo$extended_exo,
-                                             fc_horizon = fc_horizon,
-                                             target_level_ts = target_level_ts,
-                                             target_transform = target_transform,
-                                             names_exogenous = names_exogenous,
-                                             max_rank_h = 40, 
-                                             superset_fcs = ensemble_fc_list_50$model_and_fcs)
 toc()
 
 
@@ -185,13 +184,16 @@ ensemble_fc_list_50$weighted_avg_fc_yoy
 ensemble_fc_list_40_ss$weighted_avg_fc_yoy
 ensemble_fc_list_30_ss$weighted_avg_fc_yoy
 ensemble_fc_list_20_ss$weighted_avg_fc_yoy
-ensemble_fc_list_10$weighted_avg_fc_yoy
+ensemble_fc_list_10_ss$weighted_avg_fc_yoy
 
 c(mean(ensemble_fc_list_50$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_50$weighted_avg_fc_yoy[5:8]))
 c(mean(ensemble_fc_list_40_ss$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_40_ss$weighted_avg_fc_yoy[5:8]))
 c(mean(ensemble_fc_list_30_ss$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_30_ss$weighted_avg_fc_yoy[5:8]))
 c(mean(ensemble_fc_list_20_ss$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_20_ss$weighted_avg_fc_yoy[5:8]))
 c(mean(ensemble_fc_list_10_ss$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_10_ss$weighted_avg_fc_yoy[5:8]))
+
+
+
 
 
 tic()
