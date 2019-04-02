@@ -2586,13 +2586,12 @@ forecast_VAR_one_row <- function(fit, h, variables, extended_exo_mts,
   
   are_there_exo <- any(names_exogenous %in% variables)
   
-  # print("are_there_exo")
-  # print(are_there_exo)
-  # print("variables")
-  # print("variables")
-  # print(variables)
-  # print("names_exo")
-  # print(names_exogenous)
+  print("are_there_exo")
+  print(are_there_exo)
+  print("variables")
+  print(variables)
+  print("names_exo")
+  print(names_exogenous)
   # print("fit")
   # print(fit)
   
@@ -2607,15 +2606,27 @@ forecast_VAR_one_row <- function(fit, h, variables, extended_exo_mts,
     this_var_data <- fit$y
     endov <- variables[!variables %in% names_exogenous] 
     exov <- variables[variables %in% names_exogenous] 
-
-     
+    
+    print("endov")
+    print(endov)
+    
+    print("exov")
+    print(exov)
+    # print( "extended_exo_mts")
+    # print(extended_exo_mts)
+    
     if (!are_there_exo) {
-      # print("terrible de null")
+      
+      
+      print("there is no exo variables used")
       exo_and_lags <- NULL
       exo_and_lags_extended <- NULL
     } else {
-
+      
+      print("there is at least one exo variables used")
       exodata <- extended_exo_mts[, exov]
+      print("in particular: ")
+      print(exodata)
 
       if (is.null(exo_lag)) {
         exo_lag <- fit$p
@@ -2630,10 +2641,10 @@ forecast_VAR_one_row <- function(fit, h, variables, extended_exo_mts,
       # print(this_var_data)
       # print("exodata")
       # print(exodata)
-      # print("exo_and_lags_extended")
-      # print(exo_and_lags_extended)
-      # print("exov")
-      # print(exov)
+      print("exo_and_lags_extended")
+      print(exo_and_lags_extended)
+      print("exov")
+      print(exov)
       # 
       # print(1)
       
@@ -2656,9 +2667,10 @@ forecast_VAR_one_row <- function(fit, h, variables, extended_exo_mts,
     
   
     if (is.null(exo_and_lags_extended)) {
+      print("forecasting without exovars")
       this_fc <- forecast(fit, h = h)
     } else {
-      
+      print("forecasting with exogenous variables")
       this_fc <- forecast(fit, h = h, dumvar = exo_and_lags_for_fc,
                           exogen = exo_and_lags)
     }

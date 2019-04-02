@@ -1,14 +1,14 @@
-Argentina (p: 2,3,4):
+Argentina (p: 2,3,4,5):
 > c(mean(ensemble_fc_list_50$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_50$weighted_avg_fc_yoy[5:8]))
-[1] -0.06315671 -0.04286083
+[1] -0.06233325 -0.04177726
 > c(mean(ensemble_fc_list_40_ss$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_40_ss$weighted_avg_fc_yoy[5:8]))
-[1] -0.06305711 -0.04372822
+[1] -0.06137931 -0.04110767
 > c(mean(ensemble_fc_list_30_ss$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_30_ss$weighted_avg_fc_yoy[5:8]))
-[1] -0.06106776 -0.04300335
+[1] -0.06006878 -0.04100349
 > c(mean(ensemble_fc_list_20_ss$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_20_ss$weighted_avg_fc_yoy[5:8]))
-[1] -0.05924820 -0.04783664
+[1] -0.0585901 -0.0420373
 > c(mean(ensemble_fc_list_10_ss$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_10_ss$weighted_avg_fc_yoy[5:8]))
-[1] -0.06040536 -0.05188244
+[1] -0.05917835 -0.04268203
 
 
 Chile (p: 2, 3, 4)
@@ -49,6 +49,60 @@ Colombia (p: 2,3,4)
 [1] 0.03060327 0.02514590
 > c(mean(ensemble_fc_list_10_ss$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_10_ss$weighted_avg_fc_yoy[5:8]))
 [1] 0.03072761 0.02556832
+
+
+Peru: (p: 1,2,3,4,5)
+> c(mean(ensemble_fc_list_50$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_50$weighted_avg_fc_yoy[5:8]))
+[1] 0.03902639 0.04240221
+> c(mean(ensemble_fc_list_40_ss$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_40_ss$weighted_avg_fc_yoy[5:8]))
+[1] 0.03890260 0.04189708
+> c(mean(ensemble_fc_list_30_ss$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_30_ss$weighted_avg_fc_yoy[5:8]))
+[1] 0.03857737 0.04100320
+> c(mean(ensemble_fc_list_20_ss$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_20_ss$weighted_avg_fc_yoy[5:8]))
+[1] 0.03780655 0.04105366
+> c(mean(ensemble_fc_list_10_ss$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_10_ss$weighted_avg_fc_yoy[5:8]))
+[1] 0.03919227 0.04081967
+
+
+
+Uruguay: (p: 3, 4)
+> c(mean(ensemble_fc_list_50$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_50$weighted_avg_fc_yoy[5:8]))
+[1] 0.003196054 0.005902100
+> c(mean(ensemble_fc_list_40_ss$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_40_ss$weighted_avg_fc_yoy[5:8]))
+[1] 0.003340465 0.006015299
+> c(mean(ensemble_fc_list_30_ss$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_30_ss$weighted_avg_fc_yoy[5:8]))
+[1] 0.003027951 0.005500339
+> c(mean(ensemble_fc_list_20_ss$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_20_ss$weighted_avg_fc_yoy[5:8]))
+[1] 0.003665237 0.005852847
+> c(mean(ensemble_fc_list_10_ss$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_10_ss$weighted_avg_fc_yoy[5:8]))
+[1] 0.003349479 0.005689982
+
+
+
+Ecuador: (p: 1, 2, 3, 4,5,6)
+> c(mean(ensemble_fc_list_50$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_50$weighted_avg_fc_yoy[5:8]))
+[1] 0.02649337 0.02238393
+> c(mean(ensemble_fc_list_40_ss$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_40_ss$weighted_avg_fc_yoy[5:8]))
+[1] 0.02648623 0.02274639
+> c(mean(ensemble_fc_list_30_ss$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_30_ss$weighted_avg_fc_yoy[5:8]))
+[1] 0.02673968 0.02338782
+> c(mean(ensemble_fc_list_20_ss$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_20_ss$weighted_avg_fc_yoy[5:8]))
+[1] 0.02799667 0.02395020
+> c(mean(ensemble_fc_list_10_ss$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_10_ss$weighted_avg_fc_yoy[5:8]))
+[1] 0.02887818 0.02385158
+
+
+Paraguay: (p: 2, 3, 4, 5, 6)
+[1] 0.03403455 0.02629136
+> c(mean(ensemble_fc_list_40_ss$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_40_ss$weighted_avg_fc_yoy[5:8]))
+[1] 0.03420570 0.02675125
+> c(mean(ensemble_fc_list_30_ss$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_30_ss$weighted_avg_fc_yoy[5:8]))
+[1] 0.03368260 0.02643408
+> c(mean(ensemble_fc_list_20_ss$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_20_ss$weighted_avg_fc_yoy[5:8]))
+[1] 0.03308159 0.02497512
+> c(mean(ensemble_fc_list_10_ss$weighted_avg_fc_yoy[1:4]), mean(ensemble_fc_list_10_ss$weighted_avg_fc_yoy[5:8]))
+[1] 0.03282597 0.02672624
+
 
 
 
