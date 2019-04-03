@@ -57,7 +57,9 @@ cv_extension_of_exo <- readRDS(file = "./data/cv_extension_of_exo_us_ue_asia.rds
 names_all <- colnames(var_data)
 names_all
 
-models_from_search <- readRDS("./data/forecast_models/all_ecuador_models_new_data_all_variables_restricted_combos_t165_lag_4.rds")
+models_from_search_list <- readRDS("./data/forecast_models/all_ecuador_models_new_data_all_variables_restricted_combos_t165_lag_4.rds")
+models_from_search <- models_from_search_list$all_passing_models_2345
+
 
 must_rgc <- models_from_search %>% 
   mutate(has_rgc = map_lgl(variables, ~ "rgc" %in% .x)) %>% 
@@ -77,7 +79,9 @@ rgc_raw_extended <- ts(data=c(rgc_raw, future_rgc_raw_no_growth ),
                        start = start(rgc_raw), frequency = frequency(rgc_raw))
 
 rgc_data_extended <- diff(rgc_raw_extended, lag = 1, differences = 2)
-
+rgc_data_extended_and_lags <- make_exomat(exodata = rgc_data_extended, exov="rgc", exo_lag=4)
+rowsext <- nrow(rgc_data_extended_and_lags)
+future_rgc_data_extended_and_lags <- subset(rgc_data_extended_and_lags, start = rowsext-8+1, end = rowsext)
 
 
 length(var_data[, "rgc"] )
@@ -94,21 +98,34 @@ fit_1 <- fit_VAR_rest(var_data = var_data, variables = model_one$variables[[1]],
              p = model_one$lags, t_thresh = model_one$t_threshold, 
              names_exogenous = names_exogenous)
 
+# irf_1 <- irf(fit_1)
+# 
+# 
+# irf_1_rgdp_only <- irf(fit_1, response = "rgdp")
+# # irf_1_rgdp_only_1000 <- irf(fit_1, response = "rgdp", runs = 1000)
+# cirf_1_rgdp_only <- irf(fit_1, response = "rgdp", cumulative = TRUE)
+
+
+coeff_vec <- fit_1[["varresult"]][["rgdp"]][["coefficients"]]
+is_rgc_coeff <- str_detect(names(coeff_vec), "rgc.")
+rgc_coeff <- coeff_vec[is_rgc_coeff]
+rgc_coeff_index <- which(is_rgc_coeff)
+rgc_coeff_index
+model_one$variables[[1]]
+which(model_one$variables[[1]] == "rgc")
 
 new_extension_of_exo <- ts.union(extension_of_exo$extended_exo, replacement_rgc_data)
 colnames(new_extension_of_exo) <- names_exogenous_with_rgc
 
 old_fc <- forecast_VAR_one_row(fit = fit_1, variables = model_one$variables[[1]], 
                      names_exogenous = names_exogenous,
-                     extended_exo_mts = extension_of_exo$extended_exo, h = fc_horizon)
+                     extended_exo_mts = extension_of_exo$extended_exo, 
+                     h = fc_horizon, use_vars_predict = TRUE)
 
-exo_rgc_fc <- forecast_VAR_one_row(fit = fit_1, variables = model_one$variables[[1]], 
-                                   names_exogenous = names_exogenous_with_rgc,
-                                   extended_exo_mts = new_extension_of_exo, h = fc_horizon)
 
 
 predict_conditional <-
-  function(object, ..., n.ahead = 10, ci = 0.95, dumvar = NULL){
+  function(object, Z_cond_future, ..., n.ahead = 10, ci = 0.95, dumvar = NULL){
     K <- object$K
     p <- object$p
     obs <- object$obs
@@ -118,6 +135,34 @@ predict_conditional <-
     n.ahead <- as.integer(n.ahead)
     Z <- object$datamat[, -c(1 : K)]
     B <- Bcoef(object)
+    
+    print("ynames")
+    print(ynames)
+    
+    print("head(Z, n = 8)")
+    print(head(Z, n = 8))
+    
+    print("B")
+    print(B)
+    
+    cond_endov_name <- "rgc"
+    
+    cond_name_number <-  which(ynames == cond_endov_name)
+    print("cond_name_number")
+    print(cond_name_number)
+    cond_colindices <- seq(cond_name_number, ncol(Z), by=K) 
+    print("cond_colindices")
+    print(cond_colindices)
+    
+    Z_endov_cond <- Z[,cond_colindices]  
+    print("head(Z_endov_cond , n = 8)")
+    print(head(Z_endov_cond , n = 8))
+    
+    
+    Z_no_cond <- Z[, -cond_colindices]  
+    print("head(Z_no_cond, n = 8)")
+    print(head(Z_no_cond , n = 8))
+    
     ##
     ## Deterministic and lagged y's
     ## Retrieval of A in matrix (whole)
@@ -177,8 +222,23 @@ predict_conditional <-
     }
     ## Retrieving predetermined y variables
     Zy <- as.matrix(object$datamat[, 1:(K * (p + 1))])
+    
+    print("head(Zy, n=8)")
+    print(head(Zy, n=8))
+    
+    print("colnames(Zy)")
+    print(colnames(Zy))
+    
+    cond_indices_in_Zy <- seq(cond_name_number, ncol(Zy), by=K) 
+    print("cond_indices_in_Zy")
+    print(cond_indices_in_Zy)
+    
+    print("names of cond_indices_in_Zy")
+    print(colnames(Zy)[cond_indices_in_Zy])
+    
     yse <- matrix(NA, nrow = n.ahead, ncol = K)
-    sig.y <- .fecov(x = object, n.ahead = n.ahead)
+    # sig.y <- .fecov(x = object, n.ahead = n.ahead)
+    sig.y <- vars:::.fecov(x = object, n.ahead = n.ahead)
     for(i in 1 : n.ahead){
       yse[i, ] <- sqrt(diag(sig.y[, , i]))
     }
@@ -187,9 +247,30 @@ predict_conditional <-
     ## forecast recursion
     forecast <- matrix(NA, ncol = K, nrow = n.ahead)
     lasty <- c(Zy[nrow(Zy), ])
+    print("before forecast recursion")
+    print("lasty")
+    print(lasty)
+    print("inside the recursion:")
     for(i in 1 : n.ahead){
+      print("i")
+      print(i)
+      
       lasty <- lasty[1 : (K * p)]
+      print("lasty[1 : (K * p)]")
+      print(lasty[1 : (K * p)])
+      
+      # print("columns to be replaced")
+      # print(colnames(lasty)[cond_indices_in_Zy])
+      
+      print("values to be replaced")
+      print(lasty[cond_colindices])
+      
+      lasty[cond_colindices] <- Z_cond_future[i, 1:p]
+
       Z <- c(lasty, Zdet[i, ])
+      print("c(lasty, Zdet[i, ])")
+      print(c(lasty, Zdet[i, ]))
+      
       forecast[i, ] <- B %*% Z
       temp <- forecast[i, ]
       lasty <- c(temp, lasty)
@@ -209,3 +290,14 @@ predict_conditional <-
     class(result) <- "varprd"
     return(result)
   }
+
+
+exo_rgc_fc <- forecast_VAR_one_row(fit = fit_1, 
+                                   variables = model_one$variables[[1]], 
+                                   names_exogenous = names_exogenous_with_rgc,
+                                   extended_exo_mts = new_extension_of_exo, 
+                                   h = 8,
+                                   use_vars_predict = TRUE,
+                                   future_cond_endo = future_rgc_data_extended_and_lags)
+
+

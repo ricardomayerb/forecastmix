@@ -50,8 +50,7 @@ reco_all_variables_trend <- find_statio_diffs(data_ts = data_ts,
 
 # inform which variables get different recomendations   
 level_and_trend_rec_diff <- get_variable_diff_stationarity_recom(reco_level = reco_all_variables, 
-                                                                 reco_trend = reco_all_variables_trend);
-level_and_trend_rec_diff
+                                                                 reco_trend = reco_all_variables_trend);level_and_trend_rec_diff
 
 # rgdp recommendation: save it somewhere
 
@@ -78,12 +77,36 @@ stationarity_plots <- make_stationarity_plots(vector_variables_with_diff_sta_rec
 walk(stationarity_plots, print)
 
 # Examine the graphs, and decide which transformation leads to the most stationary series and choose that transformation
-trend_recom <- c("rgc", "serv", "ideac", "salary", "gto_gob", "ing_gob")
-# previously trend_recom <- c("rgc", "manuf", "serv", "ideac", "salary", "gto_gob", "ing_gob", "gto_gob_k")
+trend_recom <- c("rgc", "manuf", "serv", "ideac", "salary", "gto_gob", "ing_gob", "gto_gob_k")
 
+create_recommendation_df <- function(variables, 
+                     recom_level, 
+                     recom_trend, 
+                     vector_trend_recom, 
+                     default_followed_recom){
+  
+  for (i in length(variables)){
+    
+    if (variables[i] %in% vector_trend_recom){
+      default_followed_recom[i] <- recom_trend[i]  
+    }
+    else(default_followed_recom[i] <- recom_level[i])
+  }
+  df_recom <- data.frame(variables = variables,
+                         level_recom = recom_level,
+                         trend_recom = recom_trend,
+                         followed_recom = default_followed_recom)
+  
+  return(df_recom)
+  
+}
 
+recommendation_df <- create_recommendation_df(variables = reco_all_variables$variable,
+                recom_level = reco_all_variables$this_test_alpha_deter, 
+                recom_trend = reco_all_variables_trend$this_test_alpha_deter, 
+                vector_trend_recom = trend_recom,
+                default_followed_recom = reco_all_variables$this_test_alpha_deter)
 
-# print(paste0("Stationary transformation trend for rgdp: ", rgdp_rec_trend))
 
 # make sure level and trend transformed series have the same length
 final_VAR_data_for_estimation <- make_final_VAR_data_for_estimation(VAR_data_level = VAR_data_for_estimation_level, 
@@ -97,5 +120,6 @@ target_transformation  <- rgdp_rec_level
 country <- id
 
 saveRDS(object = list(country_name = country, 
-                      target_transformation = target_transformation), 
+                      target_transformation = target_transformation,
+                      all_transformations = recommendation_df), 
         file = "./data/target_transformation/target_transformation_Ecuador.rds")
