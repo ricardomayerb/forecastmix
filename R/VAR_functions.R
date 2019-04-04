@@ -2581,8 +2581,14 @@ fit_VAR_rest <- function(var_data,
 
 
 
-forecast_VAR_one_row <- function(fit, h, variables, extended_exo_mts, 
-                                 names_exogenous = c(""), exo_lag = NULL)  {
+forecast_VAR_one_row <- function(fit,
+                                 h, 
+                                 variables,
+                                 extended_exo_mts, 
+                                 names_exogenous = c(""), 
+                                 exo_lag = NULL,
+                                 use_vars_predict = FALSE,
+                                 future_cond_endo = NULL)  {
   
   are_there_exo <- any(names_exogenous %in% variables)
   
@@ -2625,8 +2631,8 @@ forecast_VAR_one_row <- function(fit, h, variables, extended_exo_mts,
       
       print("there is at least one exo variables used")
       exodata <- extended_exo_mts[, exov]
-      print("in particular: ")
-      print(exodata)
+      # print("in particular: ")
+      # print(exodata)
 
       if (is.null(exo_lag)) {
         exo_lag <- fit$p
@@ -2641,10 +2647,10 @@ forecast_VAR_one_row <- function(fit, h, variables, extended_exo_mts,
       # print(this_var_data)
       # print("exodata")
       # print(exodata)
-      print("exo_and_lags_extended")
-      print(exo_and_lags_extended)
-      print("exov")
-      print(exov)
+      # print("exo_and_lags_extended")
+      # print(exo_and_lags_extended)
+      # print("exov")
+      # print(exov)
       # 
       # print(1)
       
@@ -2671,8 +2677,19 @@ forecast_VAR_one_row <- function(fit, h, variables, extended_exo_mts,
       this_fc <- forecast(fit, h = h)
     } else {
       print("forecasting with exogenous variables")
-      this_fc <- forecast(fit, h = h, dumvar = exo_and_lags_for_fc,
-                          exogen = exo_and_lags)
+      
+      if (use_vars_predict) {
+        this_fc <- predict_conditional(object = fit, 
+                                n.ahead = h, 
+                                dumvar = exo_and_lags_for_fc, 
+                                Z_cond_future = future_cond_endo)
+      }
+      
+      if (!use_vars_predict) {
+        this_fc <- forecast(fit, h = h, dumvar = exo_and_lags_for_fc,
+                            exogen = exo_and_lags)
+      }
+      
     }
     
   }
@@ -2681,7 +2698,11 @@ forecast_VAR_one_row <- function(fit, h, variables, extended_exo_mts,
     this_fc <- list(forecast = list(rgdp = list(mean = NA)))
     
   }
-  return(this_fc)
+  
+  print("class(this_fc)")
+  print(class(this_fc))
+
+    return(this_fc)
 }
 
 
@@ -3118,10 +3139,12 @@ make_exomat <- function(exodata, exov, exo_lag) {
       }
       one_exo_with_lags <- reduce(one_exo_with_lags_list, ts.union)
       if (!is.null(dim(one_exo_with_lags))) {
-        this_exolags_names <- paste(this_exoname, seq(0, exo_lag), sep = "_")
+        this_exolags_names <- paste(this_exoname, seq(0, exo_lag), sep = ".l")
+        this_exolags_names[1] <- this_exoname
         colnames(one_exo_with_lags) <- this_exolags_names
       } else {
-        this_exolags_names <- paste(this_exoname, seq(0, exo_lag), sep = "_")
+        this_exolags_names <- paste(this_exoname, seq(0, exo_lag), sep = ".l")
+        this_exolags_names[1] <- this_exoname
         names(one_exo_with_lags) <- this_exolags_names
       }
       exo_and_lags_list[[ex]] <- one_exo_with_lags
@@ -3135,6 +3158,8 @@ make_exomat <- function(exodata, exov, exo_lag) {
       colnames(exo_and_lags) <- names_exo_and_lags
     }
   }
+  
+  
   
   return(exo_and_lags)
   
